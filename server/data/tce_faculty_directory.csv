@@ -1,0 +1,336 @@
+S.No,Staff ID,Faculty Name,Designation,Department Code,Department Name,Personal / Faculty Email,Department HoD Email,Active Role,Profile URL
+1,SPMCSE,Dr. S. Padmavathi,"HOD I/c, Professor",AI,Artificial Intelligence and Data Science,hodai@tce.edu,hodai@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECSE/spmcse.html
+2,NSSCSE,Dr. N. Sheerin Sitara,Assistant Professor,AI,Artificial Intelligence and Data Science,nsscse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/nsscse.html
+3,PSKCSEAI,Mrs. P. Senthil Kumari,Assistant Professor,AI,Artificial Intelligence and Data Science,pskcseai@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSEAIML/pskcseai.html
+4,SJACSE,Mrs. S. Jeniba,Assistant Professor,AI,Artificial Intelligence and Data Science,sjacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/sjacse.html
+5,GDPCSEAI,Ms. G. Deepa Priya,Assistant Professor,AI,Artificial Intelligence and Data Science,gdpcseai@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSEAIML/gdpcseai.html
+6,SNACSE,Ms. S. Naveena,Assistant Professor,AI,Artificial Intelligence and Data Science,snacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/snacse.html
+7,SPCSE,Dr. S. Parthasarathy,"Professor, Dean (Centres of Excellence and Continuing Education) and Head",AMCS,Applied Mathematics and Computational Science,hodamcs@tce.edu,hodamcs@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/MCACSE/spcse.html
+8,BSDCA,Dr. B. Surya Devi,Assistant Professor,AMCS,Applied Mathematics and Computational Science,bsdca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/bsdca.html
+9,ANITHAD,Dr. D. Anitha,Associate Professor,AMCS,Applied Mathematics and Computational Science,anithad@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/daca.html
+10,DSPDS,Dr. D. Sakthipriya,Assistant Professor,AMCS,Applied Mathematics and Computational Science,dspds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/dspds.html
+11,GNADS,Dr. G. Nithyakala,Assistant Professor,AMCS,Applied Mathematics and Computational Science,gnads@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/gnads.html
+12,RSNDS,Dr. R. Sivanesan,Assistant Professor,AMCS,Applied Mathematics and Computational Science,rsnds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/rsnds.html
+13,STPCA,Dr. S.T. Padmapriya,Assistant Professor,AMCS,Applied Mathematics and Computational Science,stpca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/stpca.html
+14,TCKCSE,Dr. T. Chandrakumar,Professor,AMCS,Applied Mathematics and Computational Science,tckcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/tckcse.html
+15,VPDS,Dr. V. Punitha,Assistant Professor,AMCS,Applied Mathematics and Computational Science,vpds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/vpds.html
+16,KGBDS,Mr. K. Ganeshbabu,Assistant Professor,AMCS,Applied Mathematics and Computational Science,kgbds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/kgbds.html
+17,SVNDS,Mr. S. Viswanathan,Assistant Professor,AMCS,Applied Mathematics and Computational Science,svnds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/svnds.html
+18,BJNDS,Mr.B.Johnson,Assistant Professor,AMCS,Applied Mathematics and Computational Science,bjnds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/bjnds.html
+19,SMDS,Mrs.S.Meenakshi,Assistant Professor,AMCS,Applied Mathematics and Computational Science,smds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/smds.html
+20,PCNDS,Ms. P. Charu Nethra,Assistant Professor,AMCS,Applied Mathematics and Computational Science,pcnds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/pcnds.html
+21,SSIDS,Ms. S. Srimathi,Assistant Professor,AMCS,Applied Mathematics and Computational Science,ssids@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/ssids.html
+22,KJDDS,Ms.K.Jeeva Dharshini,Assistant Professor,AMCS,Applied Mathematics and Computational Science,kjdds@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/kjdds.html
+23,GSJARCH,Dr. G. Sooraj,"HOD I/c, Associate Professor",ARCH,Architecture (T'SEDA),gsjarch@tce.edu,hodarch@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BARCH/gsjarch.html
+24,JINUJOSHUA,Dr.J.Jinu Louishidha Kitchley,Professor and Head,ARCH,Architecture (T'SEDA),hodarch@tce.edu,hodarch@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BARCH/jjlkarch.html
+25,AAKARCH,Ar. A. Akeel Alawdeen Kamal,Assistant Professor,ARCH,Architecture (T'SEDA),aakarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/aakarch.html
+26,AAARCH,Ar. A. Ayswarya,Assistant Professor,ARCH,Architecture (T'SEDA),aaarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/aaarch.html
+27,AGARCH,Ar. A. Geo,Assistant Professor,ARCH,Architecture (T'SEDA),agarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/agarch.html
+28,CPARCH,Ar. C. Piraiarasi,Associate Professor,ARCH,Architecture (T'SEDA),cparch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/cparch.html
+29,DGLARCH,Ar. D. Gokul,Assistant Professor,ARCH,Architecture (T'SEDA),dglarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/dglarch.html
+30,DRNARCH,Ar. Divya Raveendrakumar,Assistant Professor,ARCH,Architecture (T'SEDA),drnarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/drnarch.html
+31,MLSARCH,Ar. M. Lekshmi Shunnma,Assistant Professor,ARCH,Architecture (T'SEDA),mlsarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/mlsarch.html
+32,CRISSINDHU,Ar. M. Sindhuja,Assistant Professor,ARCH,Architecture (T'SEDA),crissindhu@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/msarch.html
+33,MVLARCH,Ar. M. Vishal,Assistant Professor,ARCH,Architecture (T'SEDA),mvlarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/mvlarch.html
+34,PPHARCH,Ar. P. Pavalavelsh,Senior Assistant Professor,ARCH,Architecture (T'SEDA),ppharch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/ppharch.html
+35,PVKARCH,Ar. P. Vivek,Associate Professor,ARCH,Architecture (T'SEDA),pvkarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/pvkarch.html
+36,AJARCH,Ar. R. Jeyabalaji,Assistant Professor,ARCH,Architecture (T'SEDA),ajarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/ajarch.html
+37,RRARCH,Ar. R. Roshma,Assistant Professor,ARCH,Architecture (T'SEDA),rrarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/rraarch.html
+38,RSRARCH,Ar. R. Saravana Raja,Professor,ARCH,Architecture (T'SEDA),rsrarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/rsrarch.html
+39,SARARCH,Ar. S. Aravind Roshan,Assistant Professor,ARCH,Architecture (T'SEDA),sararch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/sararch.html
+40,SENARCH,Ar. S. Elangovan,Assistant Professor,ARCH,Architecture (T'SEDA),senarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/senarch.html
+41,SKRARCH,Ar. S. Karthikeya Raja,Associate Professor,ARCH,Architecture (T'SEDA),skrarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/skrarch.html
+42,SMVSARCH,Ar. S. M. Vidhya Sankari,Senior Assistant Professor,ARCH,Architecture (T'SEDA),smvsarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/smvsarch.html
+43,SSUARCH,Ar. S. Sindhu,Assistant Professor,ARCH,Architecture (T'SEDA),ssuarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/ssuarch.html
+44,LAVANYA_ARCH,Ar. S. Thangalavanya,Associate Professor,ARCH,Architecture (T'SEDA),lavanya_arch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/stlarch.html
+45,SVLARCH,Ar. SV. Lakshmipriya,Senior Assistant Professor,ARCH,Architecture (T'SEDA),svlarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/svlarch.html
+46,UVAARCH,Ar. U. Vijay Anand,Professor,ARCH,Architecture (T'SEDA),uvaarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/uvaarch.html
+47,GVIARCH,Ar.G.Vaishali,Assistant Professor,ARCH,Architecture (T'SEDA),gviarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/gviarch.html
+48,GBARCH,Dr. G. Balaji,Professor and Dean (Students),ARCH,Architecture (T'SEDA),gbarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/gbarch.html
+49,CMARCH,Dr. I. Chandramathy,Professor,ARCH,Architecture (T'SEDA),cmarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/icarch.html
+50,RMIARCH,Dr. R. Meena Kumari,Associate Professor,ARCH,Architecture (T'SEDA),rmiarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/rmiarch.html
+51,RVKARCH,Mr. R. Vinoth Kumar,Assistant Professor(Fine Arts),ARCH,Architecture (T'SEDA),rvkarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/rvkarch.html
+52,PSAARCH,Ms. P. Sujitha,Assistant Professor,ARCH,Architecture (T'SEDA),psaarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/psaarch.html
+53,PRIARCH,Ms. Rashmi Prabhakaran,Assistant Professor,ARCH,Architecture (T'SEDA),priarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/priarch.html
+54,AMDARCH,Ms. S. Aarthy Maila Devi,Assistant Professor,ARCH,Architecture (T'SEDA),amdarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/amdarch.html
+55,SAARCH,Ms. S. Anu,Assistant Professor,ARCH,Architecture (T'SEDA),saarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/saarch.html
+56,SVAARCH,Ms. S. Vidhushyaa,Assistant Professor,ARCH,Architecture (T'SEDA),svaarch@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BARCH/svaarch.html
+57,VELKANNAN,Dr. V. Velkannan,"HOD I/c, Assistant Professor",CHEM,Chemistry,hodchem@tce.edu,hodchem@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/MSCAC/vvchem.html
+58,ARCCHEM,Dr. A. Ramalinga Chandra Sekar,Assistant Professor,CHEM,Chemistry,arcchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/arcschem.html
+59,AJSCHEM,Dr. A.J. Sunija,Assistant Professor,CHEM,Chemistry,ajschem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/ajschem.html
+60,BSRCHEM,Dr. B. Shankar,Assistant Professor,CHEM,Chemistry,bsrchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/bsrchem.html
+61,BSNKCHEM,Dr. B. Sundarakannan,Assistant Professor,CHEM,Chemistry,bsnkchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/bsnkchem.html
+62,GGVCHEM,Dr. G. G. Vinoth Kumar,Assistant Professor -Research Faculty,CHEM,Chemistry,ggvchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/ggvchem.html
+63,KKRCHEM,Dr. K. Kohila Rani,Assistant Professor,CHEM,Chemistry,kkrchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/kkrchem.html
+64,MVCHEM,Dr. M. Velayudham,Assistant Professor,CHEM,Chemistry,mvchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/mvmchem.html
+65,PRRCHEM,Dr. P. Ram Kumar,Assistant Professor,CHEM,Chemistry,prrchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/prrchem.html
+66,RKRCHEM,Dr. R. Raj Kumar,Assistant Professor,CHEM,Chemistry,rkrchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/rkrchem.html
+67,RSRCHEM,Dr. R. Sivakumar,Assistant Professor,CHEM,Chemistry,rsrchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/rsrchem.html
+68,DEANECA,Dr. R. Vasudevan,Emeritus Professor,CHEM,Chemistry,deaneca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/rvchem.html
+69,DRSSILANGO,Dr. S. Sivailango,Assistant Professor,CHEM,Chemistry,drssilango@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/sschem.html
+70,CSACHEM,Ms. C. Sharmila,Assistant Professor,CHEM,Chemistry,csachem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/csachem.html
+71,NDDCHEM,Ms. N. Durgadevi,Assistant Professor,CHEM,Chemistry,nddchem@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAC/nddchem.html
+72,SAMCIV,Dr. S. Arul Mary,Professor (CAS) and Head,CIVIL,Civil Engineering,hodciv@tce.edu,hodcivil@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECIVIL/samciv.html
+73,DBCIV,Dr. D. Brindha,Professor (CAS),CIVIL,Civil Engineering,dbciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/dbciv.html
+74,RAJKUMARCIVIL,Dr. D. Rajkumar,Assistant Professor,CIVIL,Civil Engineering,rajkumarcivil@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/drciv.html
+75,GALCIV,Dr. G. Angelin Lincy,Assistant Professor,CIVIL,Civil Engineering,galciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/galciv.html
+76,GCCIV,Dr. G. Chitra,Professor (CAS),CIVIL,Civil Engineering,gcciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/gcciv.html
+77,MCSCIV,Dr. M. C. Sundarraja,Professor (CAS),CIVIL,Civil Engineering,mcsciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/mcsciv.html
+78,MMNCIV,Dr. M. Manoharan,Assistant Professor,CIVIL,Civil Engineering,mmnciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/mmnciv.html
+79,MRCIV,Dr. M. Ramasamy,Assistant Professor,CIVIL,Civil Engineering,mrciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/mrciv.html
+80,PMNCIV,Dr. P. Manikandan,Assistant Professor -Research Faculty,CIVIL,Civil Engineering,pmnciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/pmnciv.html
+81,JITH,Dr. R. Indrajith Krishnan,Assistant Professor,CIVIL,Civil Engineering,jith@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/rikciv.html
+82,RKCJEY,Dr. R. K. C. Jeykumar,Assistant Professor (Selection Grade),CIVIL,Civil Engineering,rkcjey@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/rkcjciv.html
+83,RPDCIV,Dr. R. Ponnudurai,Associate Professor (CAS),CIVIL,Civil Engineering,rpdciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/rpciv.html
+84,SANJAYKUMAR,Dr. R. Sanjay Kumar,Associate Professor,CIVIL,Civil Engineering,sanjaykumar@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/rskciv.html
+85,RSCIV,Dr. R. Sankaranarayanan,Assistant Professor,CIVIL,Civil Engineering,rsciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/rsciv.html
+86,SCHANDRAN,Dr. S. Chandran,Professor (CAS),CIVIL,Civil Engineering,schandran@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/scciv.html
+87,NAGAN_CIVIL,Dr. S. Nagan,Professor (CAS),CIVIL,Civil Engineering,nagan_civil@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/snciv.html
+88,TBCIV,Dr. T. Baskaran,Professor (CAS),CIVIL,Civil Engineering,tbciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/tbciv.html
+89,VGACIV,Dr. V. Ganga,Assistant Professor,CIVIL,Civil Engineering,vgaciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/vgaciv.html
+90,ENVIRONMENTENGR,Dr. V. Ravi Sankar,Associate Professor,CIVIL,Civil Engineering,environmentengr@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/vrsciv.html
+91,KMNCIV,Dr.K.Malavan,Assistant Professor,CIVIL,Civil Engineering,kmnciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/kmnciv.html
+92,BDKCIV,Mr. B. Dinesh Kumar,Assistant Professor,CIVIL,Civil Engineering,bdkciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/bdkciv.html
+93,IANCIV,Mr. I. Athithyan,Assistant Professor,CIVIL,Civil Engineering,ianciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/ianciv.html
+94,ERKANNAN,Mr. S. Kannan,Assistant Professor,CIVIL,Civil Engineering,erkannan@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/skciv.html
+95,JMSCIV,Mrs. J.M. Sivapriya,Assistant Professor,CIVIL,Civil Engineering,jmsciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/jmsciv.html
+96,JEECIV,Ms. J. Eunice,Assistant Professor,CIVIL,Civil Engineering,jeeciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/jeeciv.html
+97,MACIV,Ms. M. Aruna,Assistant Professor,CIVIL,Civil Engineering,maciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/maciv.html
+98,RARCIV,Ms. R. Abinaya Rajakumari,Assistant Professor,CIVIL,Civil Engineering,rarciv@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/rarciv.html
+99,tce-cs201,kabilesh,Visiting Faculty,CIVIL,Civil Engineering,kabilesh@gmail.com,hodcivil@tce.edu,Faculty,
+100,MKKDIT,Dr. M. K. Kavitha Devi,Professor and Head,CSBS,Computer Science and Business Systems,hodcsbs@tce.edu,hodcsbs@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BTECHIT/mkkdit.html
+101,EMIL,Dr. G. S. R. Emil Selvan,Associate Professor,CSBS,Computer Science and Business Systems,emil@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/gsreit.html
+102,JFLCSE,Dr. J. Felicia Lilian,Assistant Professor,CSBS,Computer Science and Business Systems,jflcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/jflcse.html
+103,PSICA,Dr. P. Suganthi,Associate Professor,CSBS,Computer Science and Business Systems,psica@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/psica.html
+104,SKAIT,Dr. S. Karthiga,Associate Professor,CSBS,Computer Science and Business Systems,skait@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/skit.html
+105,TSCA,Dr. T. Siva,Assistant Professor,CSBS,Computer Science and Business Systems,tsca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/tsca.html
+106,MGSCA,Mr. M. Gowtham Sethupathi,Assistant Professor,CSBS,Computer Science and Business Systems,mgsca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/mgsca.html
+107,MVHCA,Mr. M. Venkatesh,Assistant Professor,CSBS,Computer Science and Business Systems,mvhca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/mvhca.html
+108,VJNCSE,Mr. V. Janakiraman,Assistant Professor,CSBS,Computer Science and Business Systems,vjncse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/vjncse.html
+109,DYICA,Mrs. D. Yuvasini,Assistant Professor,CSBS,Computer Science and Business Systems,dyica@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/dyica.html
+110,SSACA,Mrs. S. Sugantha,Assistant Professor,CSBS,Computer Science and Business Systems,ssaca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/ssaca.html
+111,MAACSBS,Ms. M. Anitha,Assistant Professor,CSBS,Computer Science and Business Systems,maacsbs@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHCSBS/maacsbs.html
+112,PTCA,Ms. Priya Thiagarajan,Assistant Professor,CSBS,Computer Science and Business Systems,ptca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/ptca.html
+113,RSICA,Ms. R. Subhashni,Assistant Professor,CSBS,Computer Science and Business Systems,rsica@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/rsica.html
+114,SMICSBS,Ms. S. Mahalakshmi,Assistant Professor,CSBS,Computer Science and Business Systems,smicsbs@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHCSBS/smicsbs.html
+115,SHALINIE,Dr. S. Mercy Shalinie,"Professor, Head and Dean (MIS)",CSE,Computer Science and Engineering,hodcse@tce.edu,hodcse@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECSE/smscse.html
+116,SHALINIE,Dr. S. Mercy Shalinie,Professorand Dean (MIS) & Head,CSE,Computer Science and Engineering,shalinie@tce.edu,hodcse@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECSE/smscse.html
+117,BSCSE,Dr. B. Subbulakshmi,Assistant Professor,CSE,Computer Science and Engineering,bscse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/bscse.html
+118,CSIT,Dr. C. Santhiya,Assistant Professor,CSE,Computer Science and Engineering,csit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/csit.html
+119,CSKCSE,Dr. C. Senthilkumar,Associate Professor,CSE,Computer Science and Engineering,cskcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/cskcse.html
+120,GBICSE,Dr. G. Bhavani,Assistant Professor,CSE,Computer Science and Engineering,gbicse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/gbicse.html
+121,GMADHUPRIYA,Dr. G. Madhupriya,Associate Professor,CSE,Computer Science and Engineering,gmadhupriya@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/gmpcse.html
+122,JDICSE,Dr. J. Dharani,Assistant Professor,CSE,Computer Science and Engineering,jdicse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/jdicse.html
+123,KIIT,Dr. K. Indira,Assistant Professor,CSE,Computer Science and Engineering,kiit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/kiit.html
+124,ARJUNKAMBARAJ,Dr. K. Narasima Mallikarjunan,Associate Professor,CSE,Computer Science and Engineering,arjunkambaraj@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/knmcse.html
+125,KSKCSE,Dr. K. Sundarakantham,Professor,CSE,Computer Science and Engineering,kskcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/kskcse.html
+126,MNIT,Dr. M. Nirmala Devi,Assistant Professor (Selection Grade),CSE,Computer Science and Engineering,mnit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/mnit.html
+127,RAMKUMAR,Dr. M. P. Ramkumar,Associate Professor,CSE,Computer Science and Engineering,ramkumar@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/mprcse.html
+128,MSKCSE,Dr. M. Sivakumar,Associate Professor,CSE,Computer Science and Engineering,mskcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/mskcse.html
+129,MVIJI,Dr. M. Vijayalakshmi,Professor,CSE,Computer Science and Engineering,mviji@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/mvcse.html
+130,NAACSE,Dr. N. Anita,Assistant Professor,CSE,Computer Science and Engineering,naacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/naacse.html
+131,SHIVA,Dr. N. Shivakumar,Associate Professor,CSE,Computer Science and Engineering,shiva@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/nscse.html
+132,RHRCSE,Dr. R. Harine Rajashree,Assistant Professor,CSE,Computer Science and Engineering,rhrcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/rhrcse.html
+133,RLSIT,Dr. R. Leena Sri,Associate Professor,CSE,Computer Science and Engineering,rlsit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/rlsit.html
+134,RLIT,Dr. Raja Lavanya,Assistant Professor,CSE,Computer Science and Engineering,rlit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/rlit.html
+135,SPRCSE,Dr. S. Prasanna,Associate Professor,CSE,Computer Science and Engineering,sprcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/sprcse.html
+136,TCE-9383,Dr. Test Professor,Assistant Professor,CSE,Computer Science and Engineering,testprof@tce.edu,hodcse@tce.edu,Faculty,
+137,DNKCSE,Mr. D. Nagendrakumar,Assistant Professor,CSE,Computer Science and Engineering,dnkcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/dnkcse.html
+138,KRRCSE,Mr. K. Rajkumar,Assistant Professor,CSE,Computer Science and Engineering,krrcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/krrcse.html
+139,SSHCSE,Mr. S.Santhana Hari,Assistant Professor,CSE,Computer Science and Engineering,sshcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/sshcse.html
+140,CKRCSE,Mrs. C. Karthika,Assistant Professor,CSE,Computer Science and Engineering,ckrcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/ckrcse.html
+141,DPICSE,Mrs. D. Priyadharshini,Assistant Professor,CSE,Computer Science and Engineering,dpicse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/dpicse.html
+142,PSACSE,Mrs. P. Swetha,Assistant Professor,CSE,Computer Science and Engineering,psacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/psacse.html
+143,SSACSE,Mrs. S. Saradha,Assistant Professor,CSE,Computer Science and Engineering,ssacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/ssacse.html
+144,ASHCSE,Ms. A.S. Harsika,Assistant Professor,CSE,Computer Science and Engineering,ashcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/ashcse.html
+145,JVACSE,Ms. J. Valunteena,Assistant Professor,CSE,Computer Science and Engineering,jvacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/jvacse.html
+146,JVICSE,Ms. J. Vijayalakshmi,Assistant Professor,CSE,Computer Science and Engineering,jvicse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/jvicse.html
+147,VGICSE,Ms. V. Gayathri,Assistant Professor,CSE,Computer Science and Engineering,vgicse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/vgicse.html
+148,NAVEENMEGAA,Dr. B. Manimegalai,Professor (CAS) and Head,ECE,Electronics and Communication Engineering,hodece@tce.edu,hodece@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BEECE/bmece.html
+149,SBECE,Dr. B. Sathyabama,Professor,ECE,Electronics and Communication Engineering,sbece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/sbece.html
+150,GRACIA,Dr. D. Gracia Nirmala Rani,Professor,ECE,Electronics and Communication Engineering,gracia@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/dgnrece.html
+151,MURUGAVALLI,Dr. E. Murugavalli,Assistant Professor,ECE,Electronics and Communication Engineering,murugavalli@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/emece.html
+152,ERIECE,Dr. E. Rajalakshmi,Assistant Professor,ECE,Electronics and Communication Engineering,eriece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/eriece.html
+153,GANANTHI,Dr. G. Ananthi,Associate Professor,ECE,Electronics and Communication Engineering,gananthi@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/gaece.html
+154,GPECE,Dr. G. Prabhakar,Assistant Professor,ECE,Electronics and Communication Engineering,gpece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/gpece.html
+155,KHH,Dr. K. Hariharan,Professor and Dean (Industry Institute Interaction),ECE,Electronics and Communication Engineering,khh@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/khhece.html
+156,KIRECE,Dr. K. Iyshwarya Ratthi,Assistant Professor,ECE,Electronics and Communication Engineering,kirece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/kirece.html
+157,KPAECE,Dr. K. Priya,Assistant Professor,ECE,Electronics and Communication Engineering,kpaece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/kpaece.html
+158,RAJESWARI,Dr. K. Rajeswari,Associate Professor,ECE,Electronics and Communication Engineering,rajeswari@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/krece.html
+159,KVASUDEVAN,Dr. K. Vasudevan,Associate Professor,ECE,Electronics and Communication Engineering,kvasudevan@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/kvece.html
+160,MNSECE,Dr. M. N. Suresh,Associate Professor,ECE,Electronics and Communication Engineering,mnsece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/mnsece.html
+161,MANIMSK,Dr. M. S. K. Manikandan,Professor,ECE,Electronics and Communication Engineering,manimsk@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/mskmece.html
+162,MSIECE,Dr. M. Senthilarasi,Assistant Professor,ECE,Electronics and Communication Engineering,msiece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/msiece.html
+163,NAECE,Dr. N. Ayyanar,Assistant Professor,ECE,Electronics and Communication Engineering,naece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/naece.html
+164,NBBALAMURUGAN,Dr. N. B. Balamurugan,Professor,ECE,Electronics and Communication Engineering,nbbalamurugan@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/nbbece.html
+165,PGSVELS,Dr. P. G. S. Velmurugan,Associate Professor,ECE,Electronics and Communication Engineering,pgsvels@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/pgsvece.html
+166,PSLECE,Dr. P. Sathees Lingam,Assistant Professor,ECE,Electronics and Communication Engineering,pslece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/pslece.html
+167,ALAGURAJA,Dr. R. A. Alaguraja,Professor (CAS),ECE,Electronics and Communication Engineering,alaguraja@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/raaece.html
+168,SKMECE,Dr. S. Kanthamani,Professor,ECE,Electronics and Communication Engineering,skmece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/skmece.html
+169,SLVECE,Dr. S. Ledbin Vini,Assistant Professor,ECE,Electronics and Communication Engineering,slvece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/slvece.html
+170,SMNECE,Dr. S. Manikandan,Assistant Professor,ECE,Electronics and Communication Engineering,smnece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/smnece.html
+171,SMMROOMI,Dr. S. Md. Mansoor Roomi,Professor (CAS) and Dean (Infrastructure),ECE,Electronics and Communication Engineering,smmroomi@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/smmrece.html
+172,SPAECE,Dr. S. Punitha,Assistant Professor,ECE,Electronics and Communication Engineering,spaece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/spaece.html
+173,RAJARAM_SIVA,Dr. S. Rajaram,Professor (CAS) and Registrar,ECE,Electronics and Communication Engineering,rajaram_siva@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/srrece.html
+174,VCIECE,Dr. V. Charumathi,Assistant Professor,ECE,Electronics and Communication Engineering,vciece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/vciece.html
+175,VENTHIRU,Dr. V. R. Venkata Subramani,Associate Professor,ECE,Electronics and Communication Engineering,venthiru@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/vrvece.html
+176,VVKECE,Dr. V. Vinoth Thyagarajan,Associate Professor,ECE,Electronics and Communication Engineering,vvkece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/vvkece.html
+177,SPPHTCE,Dr.S.P.Premnath,Associate Professor ( Dy COE),ECE,Electronics and Communication Engineering,spphtce@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/spphtce.html
+178,MSNECE,Mr. M. Senthilnathan,Assistant Professor,ECE,Electronics and Communication Engineering,msnece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/msnece.html
+179,KKAECE,Mrs. M. Kokila,Assistant Professor,ECE,Electronics and Communication Engineering,kkaece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/kkaece.html
+180,BMLECE,Ms. B. Meenambal,Assistant Professor,ECE,Electronics and Communication Engineering,bmlece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/bmlece.html
+181,JAVECE,Ms. J. Adline Vidhya,Assistant Professor,ECE,Electronics and Communication Engineering,javece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/javece.html
+182,JDAECE,Ms. J. Divya,Assistant Professor,ECE,Electronics and Communication Engineering,jdaece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/jdaece.html
+183,RTAECE,Ms. R. Tharaniya,Assistant Professor,ECE,Electronics and Communication Engineering,rtaece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/rtaece.html
+184,SMJDECE,Ms. S. Manjula Devi,Assistant Professor,ECE,Electronics and Communication Engineering,smjdece@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/smjdece.html
+185,MSEEE,Dr. M. Saravanan,Professor (RD) and Head,EEE,Electrical and Electronics Engineering,hodeee@tce.edu,hodeee@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BEEEE/mseee.html
+186,ASHOKUDT,Dr. B. Ashok Kumar,Associate Professor,EEE,Electrical and Electronics Engineering,ashokudt@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/baeee.html
+187,CKBEEE,Dr. C. K. Babulal,Professor (CAS),EEE,Electrical and Electronics Engineering,ckbeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/ckbeee.html
+188,DKAVITHA,Dr. D. Kavitha,Associate Professor,EEE,Electrical and Electronics Engineering,dkavitha@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/dkeee.html
+189,DNJEYAKUMAR,Dr. D. Nelson Jayakumar,Assistant Professor,EEE,Electrical and Electronics Engineering,dnjeyakumar@gmail.com,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/dnjeee.html
+190,GSIVASANKAR,Dr. G. Sivasankar,Associate Professor,EEE,Electrical and Electronics Engineering,gsivasankar@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/gsseee.html
+191,IJNEEE,Dr. J. J. Nandhini,Assistant Professor,EEE,Electrical and Electronics Engineering,ijneee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/ijneee.html
+192,KSEEE,Dr. K. Selvi,Professor (CAS),EEE,Electrical and Electronics Engineering,kseee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/kseee.html
+193,PRINCIPAL,Dr. L. Ashok Kumar,Principal,EEE,Electrical and Electronics Engineering,principal@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/laktce.html
+194,LJSEEE,Dr. L. Jessi Sahaya Shanthi,Associate Professor (CAS),EEE,Electrical and Electronics Engineering,ljseee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/ljseee.html
+195,MGEEE,Dr. M. Geethanjali,Professor (CAS),EEE,Electrical and Electronics Engineering,mgeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/mgeee.html
+196,MMDEEE,Dr. M. Meenakshi Devi,Assistant Professor,EEE,Electrical and Electronics Engineering,mmdeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/mmdeee.html
+197,NSVEEE,Dr. N. Shanmugavadivoo,Professor (CAS),EEE,Electrical and Electronics Engineering,nsveee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/nsveee.html
+198,PSMEEE,Dr. P. S. Manoharan,Professor,EEE,Electrical and Electronics Engineering,psmeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/psmeee.html
+199,PVEEE,Dr. P. Venkatesh,Professor (CAS),EEE,Electrical and Electronics Engineering,pveee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/pveee.html
+200,PMDEEE,Dr. P.M. Devie,Assistant Professor,EEE,Electrical and Electronics Engineering,pmdeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/pmdeee.html
+201,R[UNDERSCORE]RAJANPRAKASH,Dr. R. Rajanprakash,Associate Professor (CAS),EEE,Electrical and Electronics Engineering,r[underscore]rajanprakash@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/rrpeee.html
+202,SAEXEEE,Dr. S. Arockia Edwin Xavier,Professor,EEE,Electrical and Electronics Engineering,saexeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/saexeee.html
+203,SBEEE,Dr. S. Baskar,Professor and Dean (Academics and Accreditation),EEE,Electrical and Electronics Engineering,sbeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/sbeee.html
+204,CHARLESRAJAS,Dr. S. Charles Raja,Professor,EEE,Electrical and Electronics Engineering,charlesrajas@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/screee.html
+205,SSRIEEE,Dr. S. Senthilrani,Assistant Professor,EEE,Electrical and Electronics Engineering,ssrieee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/ssrieee.html
+206,VSEEE,Dr. V. Saravanan,Professor (CAS),EEE,Electrical and Electronics Engineering,vseee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/vseee.html
+207,VSKEEE,Dr. V. Suresh Kumar,Professor (CAS),EEE,Electrical and Electronics Engineering,vskeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/vskeee.html
+208,SDSEEE,Dr.S.Daison Stallon,Assistant Professor -Research Faculty,EEE,Electrical and Electronics Engineering,sdseee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/sdseee.html
+209,VCAEEE,Mrs. V. Chandra,Assistant Professor,EEE,Electrical and Electronics Engineering,vcaeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/vcaeee.html
+210,AMCMEEE,Ms. A. Mariya Chithra Mary,Assistant Professor,EEE,Electrical and Electronics Engineering,amcmeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/amcmeee.html
+211,KSAEEE,Ms. K. S. Anuja,Assistant Professor,EEE,Electrical and Electronics Engineering,ksaeee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/ksaeee.html
+212,PPIEEE,Ms. P. Parkavi,Assistant Professor,EEE,Electrical and Electronics Engineering,ppieee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/ppieee.html
+213,VPIEEE,Ms. V. Petchithai,Assistant Professor,EEE,Electrical and Electronics Engineering,vpieee@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEEEE/vpieee.html
+214,GJJENG,Dr. G. Jeya Jeevakani,"HOD I/c,  Assistant Professor",ENG,English,hodeng@tce.edu,hodeng@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/COM/gjjeng.html
+215,MAENG,Dr. M. Arjunan,Assistant Professor,ENG,English,maeng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/maeng.html
+216,MSEENG,Dr. M. Sarpparaje,Assistant Professor,ENG,English,mseeng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/mseeng.html
+217,NBAENG,Dr. N. Bavithra,Assistant Professor,ENG,English,nbaeng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/ENG/nbaeng.html
+218,PPIENG,Dr. P. Priyadharshini,Assistant Professor,ENG,English,ppieng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/ENG/ppieng.html
+219,RSSLENG,Dr. RS. Swarnalakshmi,Assistant Professor,ENG,English,rssleng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/rssleng.html
+220,SSHENG,Dr. S. Subash,Assistant Professor,ENG,English,ssheng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/ssheng.html
+221,TAPENG,Dr. T. Arul Prakash,Assistant Professor,ENG,English,tapeng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/tapeng.html
+222,VAENG,Dr. V. Anushya Devi,Assistant Professor,ENG,English,vaeng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/vaeng.html
+223,MBUTCE,Mr. M. Babu,Assistant Professor,ENG,English,mbutce@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/mbutce.html
+224,SKMMENG,Mr. S. K. Muthumani,Assistant Professor,ENG,English,skmmeng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/ENG/skmmeng.html
+225,BBIENG,Ms. B. Bharathi Bhuvaneswari,Assistant Professor,ENG,English,bbieng@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/ENG/bbieng.html
+226,CDCSE,Dr. C. Deisy,Professor & Head,IT,Information Technology,hodit@tce.edu,hodit@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECSE/cdcse.html
+227,ABIRAMIAM,Dr. A. M. Abirami,Professor,IT,Information Technology,abiramiam@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/amait.html
+228,JEYAMALA,Dr. C. Jeyamala,Associate Professor,IT,Information Technology,jeyamala@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/cjit.html
+229,DTAMILSELVI,Dr. D. Tamilselvi,Professor,IT,Information Technology,dtamilselvi@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/dtscse.html
+230,GVAIT,Dr. G. Vennila,Assistant Professor,IT,Information Technology,gvait@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/gvait.html
+231,KRPLIT,Dr. K. R. Premlatha,Assistant Professor,IT,Information Technology,krplit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/krplit.html
+232,KVUIT,Dr. K. V. Uma,Associate Professor,IT,Information Technology,kvuit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/kvuit.html
+233,MSCSE,Dr. M. Suguna,Associate Professor,IT,Information Technology,mscse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/mscse.html
+234,KARTHIKIT,Dr. P. Karthikeyan,Professor,IT,Information Technology,karthikit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/pkit.html
+235,PSACA,Dr. P. Sharmila,Assistant Professor,IT,Information Technology,psaca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/pslaca.html
+236,RPIT,Dr. R. Parkavi,Assistant Professor,IT,Information Technology,rpit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/rpit.html
+237,SIIT,Dr. S. Ilankumaran,Assistant Professor,IT,Information Technology,siit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/siit.html
+238,SMRIT,Dr. S. Muthuramalingam,Professor,IT,Information Technology,smrit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/smrit.html
+239,SPMIT,Dr. S. Pudumalar,Assistant Professor,IT,Information Technology,spmit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/spmit.html
+240,SRIDEVI,Dr. S. Sridevi,Professor,IT,Information Technology,sridevi@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/sscse.html
+241,SSMIT,Dr. S. Sumathi,Assistant Professor,IT,Information Technology,ssmit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/ssmit.html
+242,MARIT,Dr.M.Akila Rani,Assistant Professor,IT,Information Technology,marit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/marit.html
+243,RJACSE,Dr.R.Jenice Aroma,Assistant Professor -Research Faculty,IT,Information Technology,rjacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/rjacse.html
+244,RKIIT,Dr.R.Kirubahari,Assistant Professor,IT,Information Technology,rkiit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/rkiit.html
+245,ARNIT,Mr. A. Roshan,Assistant Professor,IT,Information Technology,arnit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/arnit.html
+246,AIICA,Mrs. A. Indirani,Assistant Professor,IT,Information Technology,aiica@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCDS/aiica.html
+247,TTMIT,Mrs. T. T. Mathangi,Assistant Professor,IT,Information Technology,ttmit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/ttmit.html
+248,RVIIT,Mrs.R.Vaishnavi,Assistant Professor,IT,Information Technology,rviit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/rviit.html
+249,ASMIT,Ms. A. Sangamithirai,Assistant Professor,IT,Information Technology,asmit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/asmit.html
+250,CVNAIT,Ms. C. V. Nisha Angeline,Assistant Professor,IT,Information Technology,cvnait@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/cvnait.html
+251,DSNIT,Ms. D. Shivanandini,Assistant Professor,IT,Information Technology,dsnit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/dsnit.html
+252,JJSRIT,Ms. J. Jeyasoundari,Assistant Professor,IT,Information Technology,jjsrit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/jjsrit.html
+253,MKIIT,Ms. M. Karthiyayini,Assistant Professor,IT,Information Technology,mkiit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/mkiit.html
+254,NNAIT,Ms. N. Nirmala,Assistant Professor,IT,Information Technology,nnait@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/nnait.html
+255,RSMCA,Ms. R. Saraswathi Meena,Assistant Professor,IT,Information Technology,rsmca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/rsmca.html
+256,SJPAIT,Ms. S. Jaipreetha,Assistant Professor,IT,Information Technology,sjpait@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/sjpait.html
+257,SSIIT,Ms. S. Sujitha,Assistant Professor,IT,Information Technology,ssiit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/ssiit.html
+258,ESHWARIMSP,Ms. S. Thiruchadai Pandeeswari,Assistant Professor,IT,Information Technology,eshwarimsp@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/stpit.html
+259,TSNCA,Ms. T. Suba Nachiar,Assistant Professor,IT,Information Technology,tsnca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/tsnca.html
+260,TSNIT,Ms. T.S. Nandhini,Assistant Professor,IT,Information Technology,tsnit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/tsnit.html
+261,PVPIT,Ms.P.Vijaya Praba,Assistant Professor,IT,Information Technology,pvpit@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BTECHIT/pvpit.html
+262,ANITHAVALLI,Dr. A. Anitha,"HOD I/c, Assistant Professor",MATH,Mathematics,hodmat@tce.edu,hodmath@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/MSCAM/aaamat.html
+263,BVKMAT,Dr. B. Vellaikannan,Professor (CAS),MATH,Mathematics,bvkmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/bvkmat.html
+264,KUMARSTAYS,Dr. C. S. Senthilkumar,Assistant Professor,MATH,Mathematics,kumarstays@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/cssmat.html
+265,IPAMAT,Dr. I. Pradeepa,Assistant Professor,MATH,Mathematics,ipamat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECIVIL/ipamat.html
+266,KSKMAT,Dr. K. Saravanakumar,Assistant Professor,MATH,Mathematics,kskmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/kskmat.html
+267,LMSMAT,Dr. L. Muthusubramanian,Assistant Professor,MATH,Mathematics,lmsmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/lmsmat.html
+268,MRIMAT,Dr. M. Rajeswari,Assistant Professor,MATH,Mathematics,mrimat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/mrimat.html
+269,MSRMAT,Dr. M. Sundar,Assistant Professor,MATH,Mathematics,msrmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/msrmat.html
+270,PBMMAT,Dr. P. Balamanikandan,Assistant Professor,MATH,Mathematics,pbmmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/pbmmat.html
+271,PJDMAT,Dr. P. Jeyadurga,Assistant Professor,MATH,Mathematics,pjdmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/pjdmat.html
+272,PKAMAT,Dr. P. Krishnapriya,Assistant Professor,MATH,Mathematics,pkamat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/pkamat.html
+273,PVMAT,Dr. P. Victor,Assistant Professor,MATH,Mathematics,pvmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/pvmat.html
+274,SURIYAPRABHA,Dr. S. P. Suriya Prabha,Assistant Professor,MATH,Mathematics,suriyaprabha@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/spmat.html
+275,SSKMAT,Dr. S. Saravanakumar,Assistant Professor,MATH,Mathematics,sskmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/sskmat.html
+276,SSAMAT,Dr. S. Suriyakala,Assistant Professor,MATH,Mathematics,ssamat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/ssamat.html
+277,SVMAT,Dr. S. Vinoth,Assistant Professor,MATH,Mathematics,svmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/svmat.html
+278,AMKMAT,Dr.A.Muneesh Kumar,Assistant Professor,MATH,Mathematics,amkmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/amkmat.html
+279,RSKMAT,Mr. R. Suresh Kannan,Assistant Professor,MATH,Mathematics,rskmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/rskmat.html
+280,SRIVINODHINI,Ms. H. Srivinodhini,Assistant Professor,MATH,Mathematics,srivinodhini@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/hsvmat.html
+281,KABMAT,Ms. K. Ashma Banu,Assistant Professor,MATH,Mathematics,kabmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/kabmat.html
+282,MKVMAT,Ms. M. Kalaivani,Assistant Professor,MATH,Mathematics,mkvmat@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCAM/mkvmat.html
+283,PCCSE,Dr. P. Chitra,"Professor, Head IQAC and Head",MCA,Computer Applications,hodca@tce.edu,hodmca@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECSE/pccse.html
+284,CMIDS,Dr. C. Mahadevi,Assistant Professor,MCA,Computer Applications,cmids@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/cmids.html
+285,SRMCA,Dr. S. R. Mathu Sudhanan,Assistant Professor,MCA,Computer Applications,srmca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/srmca.html
+286,SVLCSE,Dr. S. Vijayalakshmi,Professor (CAS),MCA,Computer Applications,svlcse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/svlcse.html
+287,PMMECH,Dr. P. Maran,"HOD I/c, Professor (CAS)",MECH,Mechanical Engineering,hodmech@tce.edu,hodmech@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BEMECH/pmmech.html
+288,RHMECH,Dr. Ray Hari Manalan Rethinam,Professor Practice (BEST - Center Head),MECH,Mechanical Engineering,rhmech@tce.edu,hodmech@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BEMECH/rhmech.html
+289,AVAMECH,Dr. A. Valan Arasu,Professor (CAS),MECH,Mechanical Engineering,avamech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/avamech.html
+290,BKMECH,Dr. B. Karthikeyan,Assistant Professor,MECH,Mechanical Engineering,bkmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/bkmech.html
+291,CPMECH,Dr. C. Paramasivam,Professor (CAS),MECH,Mechanical Engineering,cpmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/cpmech.html
+292,CSKMECH,Dr. C. Selva Kumar,Assistant Professor,MECH,Mechanical Engineering,cskmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/cskmech.html
+293,CVMECH,Dr. C. Vignesh,Assistant Professor,MECH,Mechanical Engineering,cvmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/cvmech.html
+294,GVHMECH,Dr. G. Vignesh,Assistant Professor,MECH,Mechanical Engineering,gvhmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/gvhmech.html
+295,BALACIM82,Dr. M. Balamurali,Associate Professor,MECH,Mechanical Engineering,balacim82@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/mbmech.html
+296,MKMECT,Dr. M. Karthic,Assistant Professor,MECH,Mechanical Engineering,mkmect@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECHAT/mkmect.html
+297,GOVARDHANANS07,Dr. M. S. Govardhanan,Assistant Professor,MECH,Mechanical Engineering,govardhanans07@gmail.com,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/msgmech.html
+298,MSJMECH,Dr. M. Sermaraj,Assistant Professor,MECH,Mechanical Engineering,msjmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/msjmech.html
+299,MLMMECH,Dr. ML. Mahadevan,Associate Professor (CAS),MECH,Mechanical Engineering,mlmmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/mlmmech.html
+300,KPAL,Dr. PL. K. Palaniappan,Professor (CAS),MECH,Mechanical Engineering,kpal@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/plkpmech.html
+301,RKKMECH,Dr. R. Kamalakannan,Assistant Professor,MECH,Mechanical Engineering,rkkmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/rkkmech.html
+302,RMUMECH,Dr. R. Maniarasu,Assistant Professor,MECH,Mechanical Engineering,rmumech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/rmumech.html
+303,RSSMECH,Dr. R. Sivasankaran,Assistant Professor,MECH,Mechanical Engineering,rssmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/rssmech.html
+304,SAKMECH,Dr. S. Arunkumar,Assistant Professor,MECH,Mechanical Engineering,sakmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/sakmech.html
+305,SKARTHIKEYANLME,Dr. S. Karthikeyan,Professor (CAS),MECH,Mechanical Engineering,skarthikeyanlme@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/skrmech.html
+306,SUSMECH,Dr. S. Umar Sherif,Assistant Professor,MECH,Mechanical Engineering,susmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/susmech.html
+307,VBMECH,Dr. V. Balasubramani,Associate Professor,MECH,Mechanical Engineering,vbmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/vbmech.html
+308,BVKMECH,Dr.B.Varun Kumar,Associate Professor -Research Faculty,MECH,Mechanical Engineering,bvkmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/bvkmech.html
+309,MSAMECH,Mr. M. Siva,Assistant Professor,MECH,Mechanical Engineering,msamech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/msamech.html
+310,TPMECH,Mr. T. Prakash,Assistant Professor,MECH,Mechanical Engineering,tpmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/tpmech.html
+311,GKGMECH,Dr. G. Kumaraguruparan,Professor and Head,MECT,Mechatronics,hodmect@tce.edu,hodmect@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BEMECH/gkgmech.html
+312,GKMECH,Dr. G. Kanagaraj,Professor,MECT,Mechatronics,gkmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/gkmech.html
+313,MMDMECH,Dr. M. M. Devarajan,Assistant Professor,MECT,Mechatronics,mmdmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/mmdmech.html
+314,MRIMECT,Dr. M. Rajalakshmi,Assistant Professor,MECT,Mechatronics,mrimect@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECHAT/mrimect.html
+315,RMMMECT,Dr. RM. Meenakshi,Assistant Professor,MECT,Mechatronics,rmmmect@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECHAT/rmmmect.html
+316,GANESHMA2015,Mr. M. A. Ganesh,Assistant Professor,MECT,Mechatronics,ganeshma2015@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/magmech.html
+317,MKRMECT,Mr. M. Karuppaiah Rajkumar,Assistant Professor,MECT,Mechatronics,mkrmect@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECHAT/mkrmect.html
+318,SARSMECH,Mr. S. A. R. Sheik Masthan,Assistant Professor,MECT,Mechatronics,sarsmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/sarsmech.html
+319,PARTHASARATHI_S,Mr. S. Parthasarathi,Assistant Professor,MECT,Mechatronics,parthasarathi_s@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEECE/spsece.html
+320,SRMECH,Mr. S. Rajkumar,Assistant Professor,MECT,Mechatronics,srmech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECH/srmech.html
+321,DSKMECT,Ms. D. Suriya Kumari,Assistant Professor,MECT,Mechatronics,dskmect@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECHAT/dskmect.html
+322,SMIMECH,Ms. S. Meenakshi,Assistant Professor,MECT,Mechatronics,smimech@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BEMECHAT/smimech.html
+323,MANICKAM-MAHENDRAN,Dr. M. Mahendran,Professor (CAS) and Head,PHY,Physics,hodphy@tce.edu,hodphy@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/MSCMS/mmphy.html
+324,AKPHY,Dr. A. Karuppasamy,Assistant Professor,PHY,Physics,akphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/akphy.html
+325,ASNPHY,Dr. Ashwin Sudhakaran,Assistant Professor,PHY,Physics,asnphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/asnphy.html
+326,BKSYPHY,Dr. B. Karuppasamy,Assistant Professor,PHY,Physics,bksyphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/bkyphy.html
+327,MTPHY,Dr. M. Tamil Elakkiya,Assistant Professor,PHY,Physics,mtphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/mtphy.html
+328,NBMPHY,Dr. N. Balagowtham,Assistant Professor,PHY,Physics,nbmphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/nbmphy.html
+329,PSKPHY,Dr. P. Sivakumar,Assistant Professor,PHY,Physics,pskphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/pskphy.html
+330,PVPHY,Dr. P. Velusamy,Assistant Professor,PHY,Physics,pvphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/pvphy.html
+331,SKPHY,Dr. S. Karthickprabhu,Assistant Professor,PHY,Physics,skphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/skphy.html
+332,VAPHY,Dr. V. Aravindan,Assistant Professor,PHY,Physics,vaphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/vaphy.html
+333,VKAPHY,Dr. V. Kavitha,Assistant Professor,PHY,Physics,vkaphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/vkaphy.html
+334,VVNPHY,Dr. V. Vijayanarayanan,Assistant Professor,PHY,Physics,vvnphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/vvnphy.html
+335,KRAPHY,Ms. K. Ramya,Assistant Professor,PHY,Physics,kraphy@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MSCMS/kraphy.html
