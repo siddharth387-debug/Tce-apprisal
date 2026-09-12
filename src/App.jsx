@@ -9,6 +9,7 @@ import { exportAppraisalToPDF } from './pdfExporter.js';
 import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SECTION_MAX_MARKS } from './scoringEngine.js';
 import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
+import AnalyticsDashboard from './AnalyticsDashboard.jsx';
 
 // ── Module-level constants ────────────────────────────────────────────────────
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
@@ -2179,6 +2180,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isHod = effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox';
   
   const [selectedTimeline, setSelectedTimeline] = useState(TIMELINES[0]);
+  const [activeReviewTab, setActiveReviewTab] = useState('inbox');
   const [activeView, setActiveView] = useState('overview');
   const setView = (v) => setActiveView(v === 'dashboard' ? 'overview' : v);
   const [activeSection, setActiveSection] = useState('I'); // Tracks 'I' or 'II'
@@ -3552,17 +3554,35 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       {isReviewMode ? (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4 mb-4">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                {isPrincipal ? 'Institutional Executive Submission Roster' : isRegistrar ? 'Institutional Faculty Submission Roster' : 'Department Faculty Appraisal Overview Inbox'}
+                {isPrincipal ? 'Institutional Executive Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : 'Department Faculty Appraisal Dashboard'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Showing {selectedInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
                 {(isPrincipal || isRegistrar) && selectedDeptFilter !== 'ALL' ? ` [Filtered: Department of ${selectedDeptFilter}]` : ''}
               </p>
             </div>
+            <div className="flex rounded-md shadow-sm border border-slate-200 p-1 bg-slate-50">
+              <button
+                onClick={() => setActiveReviewTab('inbox')}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'inbox' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                Inbox Roster
+              </button>
+              <button
+                onClick={() => setActiveReviewTab('analytics')}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'analytics' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                Analytics & Reports
+              </button>
+            </div>
           </div>
+          
+          {activeReviewTab === 'inbox' && (
           <div className="overflow-x-auto">
             <table className="min-w-full text-left">
               <thead>
@@ -3670,6 +3690,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </tbody>
             </table>
           </div>
+          )}
+          
+          {activeReviewTab === 'analytics' && (
+            <AnalyticsDashboard data={selectedInboxRows} computeScores={computeSectionScores} />
+          )}
         </div>
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5">
