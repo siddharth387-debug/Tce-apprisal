@@ -107,7 +107,7 @@ export const exportAppraisalToPDF = ({
   doc.setFont('helvetica', 'bold');
   doc.text('Email ID:', boxX + 3, currentY + 9.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(String(user?.email || '—'), boxX + 24, currentY + 9.5);
+  doc.text(String(user?.email || '-'), boxX + 24, currentY + 9.5);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Submission Date:', boxX + boxWidth / 2 + 2, currentY + 9.5);
@@ -123,17 +123,38 @@ export const exportAppraisalToPDF = ({
   doc.setFont('helvetica', 'bold');
   doc.text('Appraisal Status:', boxX + boxWidth / 2 + 2, currentY + 14.5);
   const isRatified = statusStr === 'RATIFIED' || (record.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
-  doc.setFont('helvetica', 'bold');
+  
+  let badgeBg = [254, 243, 199];
+  let badgeBorder = [252, 211, 77];
+  let badgeText = [146, 64, 14];
+  let badgeLabel = statusStr;
+
   if (isRatified) {
-    doc.setTextColor(6, 95, 70); // emerald
+    badgeBg = [209, 250, 229];
+    badgeBorder = [52, 211, 153];
+    badgeText = [6, 95, 70];
+    badgeLabel = 'RATIFIED & LOCKED';
   } else if (statusStr === 'APPROVED') {
-    doc.setTextColor(22, 101, 52); // green
+    badgeBg = [220, 252, 231];
+    badgeBorder = [134, 239, 172];
+    badgeText = [22, 101, 52];
   } else if (statusStr === 'FIX NEEDED' || statusStr === 'NOT APPROVED' || statusStr === 'REJECTED') {
-    doc.setTextColor(190, 18, 60); // red
-  } else {
-    doc.setTextColor(180, 83, 9); // amber
+    badgeBg = [255, 228, 230];
+    badgeBorder = [253, 164, 175];
+    badgeText = [159, 18, 57];
   }
-  doc.text(isRatified ? 'RATIFIED & LOCKED' : statusStr, boxX + boxWidth / 2 + 26, currentY + 14.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.8);
+  const statusWidth = doc.getTextWidth(badgeLabel) + 4;
+  const statusX = boxX + boxWidth / 2 + 26;
+  const statusY = currentY + 11.5;
+  doc.setFillColor(badgeBg[0], badgeBg[1], badgeBg[2]);
+  doc.setDrawColor(badgeBorder[0], badgeBorder[1], badgeBorder[2]);
+  doc.setLineWidth(0.15);
+  doc.roundedRect(statusX, statusY, statusWidth, 4, 0.6, 0.6, 'FD');
+  doc.setTextColor(badgeText[0], badgeText[1], badgeText[2]);
+  doc.text(badgeLabel, statusX + 2, currentY + 14.4);
 
   currentY += boxHeight + 4;
 
@@ -141,7 +162,7 @@ export const exportAppraisalToPDF = ({
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(74, 21, 25);
-  doc.text('EXECUTIVE SCORE SUMMARY MATRIX' + (effectiveScoreObj.hasAdjustments ? ' (⚡ Includes HoD Evaluated Marks)' : ''), margin, currentY);
+  doc.text('EXECUTIVE SCORE SUMMARY MATRIX' + (effectiveScoreObj.hasAdjustments ? ' (* Includes HoD Evaluated Marks)' : ''), margin, currentY);
   currentY += 2;
 
   autoTable(doc, {
@@ -174,9 +195,9 @@ export const exportAppraisalToPDF = ({
       ['Section VIII', 'Student Development Activities', '5', String(effectiveScoreObj.section8Total)],
       ['Section IX', 'Institutional Development', '20', String(effectiveScoreObj.section9Total)],
       [
-        { content: 'TOTAL EVALUATED SCORE (SECTIONS I - IX):', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } },
-        { content: '200', styles: { fontStyle: 'bold', halign: 'center' } },
-        { content: `${effectiveScoreObj.grandTotal} / 200`, styles: { fontStyle: 'bold', textColor: [74, 21, 25], halign: 'center' } }
+        { content: 'TOTAL EVALUATED SCORE (SECTIONS I - IX):', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right', textColor: [15, 23, 42] } },
+        { content: '200', styles: { fontStyle: 'bold', halign: 'center', textColor: [15, 23, 42] } },
+        { content: `${effectiveScoreObj.grandTotal} / 200`, styles: { fontStyle: 'bold', textColor: [15, 23, 42], halign: 'center' } }
       ]
     ],
     columnStyles: {
@@ -195,17 +216,18 @@ export const exportAppraisalToPDF = ({
       doc.addPage();
       currentY = margin;
     }
-    doc.setDrawColor(241, 245, 249);
-    doc.setLineWidth(0.4);
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.setLineWidth(0.3);
     doc.line(margin, currentY, pageWidth - margin, currentY);
-    currentY += 3.5;
+    currentY += 4;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(148, 163, 184); // slate-400
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105); // slate-600
     doc.text(sectionTitle.toUpperCase(), margin, currentY);
+    doc.setTextColor(30, 41, 59); // slate-800
     doc.text(`SUBTOTAL: ${sectionScore} / ${sectionMax}`, pageWidth - margin, currentY, { align: 'right' });
-    currentY += 3.5;
+    currentY += 4.5;
   };
 
   // ── Helper: Render Subsection Table with 1:1 Exact Styling and Clickable Links ─
@@ -230,13 +252,35 @@ export const exportAppraisalToPDF = ({
     doc.setTextColor(74, 21, 25);
     doc.text(title.toUpperCase(), margin, currentY);
 
-    // Score Pill Box on Right
+    // Score Pill Badge on Right (Identical to CSS Component)
     if (max !== null) {
-      const pillText = `Score: ${effMark ?? 0} / ${max} Marks${isOverridden ? ` (⚡ HoD: ${effMark}, Auto: ${autoMark})` : ''}`;
+      const scoreStr = `${effMark ?? 0}`;
+      const maxStr = ` / ${max} Marks${isOverridden ? ` (HoD: ${effMark}, Auto: ${autoMark})` : ''}`;
+      const fullPillStr = `Score: ${scoreStr}${maxStr}`;
+      
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
-      doc.setTextColor(30, 41, 59);
-      doc.text(pillText, pageWidth - margin, currentY, { align: 'right' });
+      const textWidth = doc.getTextWidth(fullPillStr);
+      const pillWidth = textWidth + 6;
+      const pillHeight = 4.2;
+      const pillX = pageWidth - margin - pillWidth;
+      const pillY = currentY - 3.2;
+
+      doc.setFillColor(248, 250, 252); // slate-50
+      doc.setDrawColor(203, 213, 225); // slate-300
+      doc.setLineWidth(0.2);
+      doc.roundedRect(pillX, pillY, pillWidth, pillHeight, 0.8, 0.8, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text('Score: ', pillX + 3, currentY);
+      const scoreOffsetX = pillX + 3 + doc.getTextWidth('Score: ');
+      doc.setTextColor(74, 21, 25); // maroon score
+      doc.text(scoreStr, scoreOffsetX, currentY);
+      const maxOffsetX = scoreOffsetX + doc.getTextWidth(scoreStr);
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text(maxStr, maxOffsetX, currentY);
     }
     currentY += 2;
 
@@ -244,16 +288,20 @@ export const exportAppraisalToPDF = ({
     const tableBody = validRows.map((r, rIdx) => {
       const rowData = [String(rIdx + 1)];
       columns.forEach(col => {
-        const val = r[col.key];
+        const primaryVal = r[col.key];
+        const altVal = col.altKey ? r[col.altKey] : undefined;
+        const val = (primaryVal !== undefined && primaryVal !== null && String(primaryVal).trim() !== '')
+          ? primaryVal
+          : (altVal !== undefined && altVal !== null ? altVal : '');
         const isLink = col.key === 'evidenceLink' || col.isLink;
         if (isLink && val) {
           rowData.push({
-            content: 'View Proof ↗',
+            content: 'View Proof',
             rawUrl: formatExternalLink(val),
             isEvidenceLink: true,
           });
         } else {
-          rowData.push(val || '—');
+          rowData.push(val || '-');
         }
       });
       return rowData;
@@ -267,24 +315,24 @@ export const exportAppraisalToPDF = ({
         styles: {
           fontSize: 7,
           cellPadding: 1.2,
-          textColor: [30, 41, 59],
-          lineColor: [203, 213, 225],
+          textColor: [30, 41, 59], // slate-800
+          lineColor: [203, 213, 225], // slate-300
           lineWidth: 0.15,
         },
         headStyles: {
           fillColor: [255, 255, 255],
-          textColor: [148, 163, 184],
+          textColor: [148, 163, 184], // slate-400 (exact match to text-slate-400)
           fontStyle: 'bold',
           lineColor: [203, 213, 225],
           lineWidth: 0.15,
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252],
+          fillColor: [248, 250, 252], // slate-50/60
         },
         head: [tableHeaders],
         body: tableBody,
         columnStyles: {
-          0: { cellWidth: 7, halign: 'center', textColor: [100, 116, 139] },
+          0: { cellWidth: 7, halign: 'center', textColor: [100, 116, 139], fontStyle: 'bold' },
         },
         didDrawCell: (data) => {
           if (data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.isEvidenceLink && data.cell.raw.rawUrl) {
@@ -338,9 +386,28 @@ export const exportAppraisalToPDF = ({
     doc.setFontSize(8);
     doc.setTextColor(74, 21, 25);
     doc.text('1.7 MENTORING SYSTEM', margin, currentY);
+
+    const mScoreStr = `${effectiveScoreObj.effectiveMap['1.7'] ?? 0}`;
+    const mPillStr = `Score: ${mScoreStr} / 2 Marks`;
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
-    doc.setTextColor(30, 41, 59);
-    doc.text(`Score: ${effectiveScoreObj.effectiveMap['1.7'] ?? 0} / 2 Marks`, pageWidth - margin, currentY, { align: 'right' });
+    const mTextWidth = doc.getTextWidth(mPillStr);
+    const mPillWidth = mTextWidth + 6;
+    const mPillX = pageWidth - margin - mPillWidth;
+    const mPillY = currentY - 3.2;
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.2);
+    doc.roundedRect(mPillX, mPillY, mPillWidth, 4.2, 0.8, 0.8, 'FD');
+
+    doc.setTextColor(71, 85, 105);
+    doc.text('Score: ', mPillX + 3, currentY);
+    const mScoreOff = mPillX + 3 + doc.getTextWidth('Score: ');
+    doc.setTextColor(74, 21, 25);
+    doc.text(mScoreStr, mScoreOff, currentY);
+    doc.setTextColor(71, 85, 105);
+    doc.text(' / 2 Marks', mScoreOff + doc.getTextWidth(mScoreStr), currentY);
     currentY += 2;
 
     const mentoringUrl = formatExternalLink(sectionData.mentoring.evidenceLink);
@@ -353,9 +420,9 @@ export const exportAppraisalToPDF = ({
       head: [['Mentee Count', 'Batch', 'Description', 'Evidence Link']],
       body: [[
         sectionData.mentoring.menteeCount || '0',
-        sectionData.mentoring.batch || '—',
-        sectionData.mentoring.description || '—',
-        mentoringUrl ? { content: 'View Proof ↗', rawUrl: mentoringUrl, isEvidenceLink: true } : '—'
+        sectionData.mentoring.batch || '-',
+        sectionData.mentoring.description || '-',
+        mentoringUrl ? { content: 'View Proof', rawUrl: mentoringUrl, isEvidenceLink: true } : '-'
       ]],
       didDrawCell: (data) => {
         if (data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.isEvidenceLink && data.cell.raw.rawUrl) {
@@ -399,13 +466,13 @@ export const exportAppraisalToPDF = ({
           '2.2 Citations Received (Last 3 Years)',
           String(sectionData.citationsReceived?.totalCount || '0'),
           `${effectiveScoreObj.effectiveMap['2.2'] ?? 0} / 8 Marks`,
-          citUrl ? { content: 'View Proof ↗', rawUrl: citUrl, isEvidenceLink: true } : '—'
+          citUrl ? { content: 'View Proof', rawUrl: citUrl, isEvidenceLink: true } : '-'
         ],
         [
           '2.3 Total Q1 Citations',
           String(sectionData.q1Citations?.totalCount || '0'),
           `${effectiveScoreObj.effectiveMap['2.3'] ?? 0} / 7 Marks`,
-          q1Url ? { content: 'View Proof ↗', rawUrl: q1Url, isEvidenceLink: true } : '—'
+          q1Url ? { content: 'View Proof', rawUrl: q1Url, isEvidenceLink: true } : '-'
         ]
       ],
       didDrawCell: (data) => {
@@ -431,11 +498,11 @@ export const exportAppraisalToPDF = ({
 
   // ── Section III: Patents & Innovation ─────────────────────────────────────
   renderSectionHeader('SECTION III: Patents & Innovation', effectiveScoreObj.section3Total, 15);
-  renderSectionTable('3.1 Patents Published', [{ key: 'appNumber', label: 'Application No' }, { key: 'title', label: 'Patent Title' }, { key: 'inventors', label: 'Inventors' }, { key: 'datePublished', label: 'Date Published' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.patentsPublished, '3.1');
+  renderSectionTable('3.1 Patents Published', [{ key: 'refNumber', altKey: 'appNumber', label: 'Application / Ref No' }, { key: 'title', label: 'Patent Title' }, { key: 'inventors', label: 'Inventors' }, { key: 'datePublished', label: 'Date Published' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.patentsPublished, '3.1');
   renderSectionTable('3.2 Patents Granted', [{ key: 'refNumber', label: 'Patent Ref No' }, { key: 'title', label: 'Patent Title' }, { key: 'inventors', label: 'Inventors' }, { key: 'dateGranted', label: 'Date Granted' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.patentsGranted, '3.2');
-  renderSectionTable('3.3 Transfer of Technology', [{ key: 'title', label: 'Technology Title' }, { key: 'industryPartner', label: 'Partner' }, { key: 'amount', label: 'Amount (Rs.)' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.transferOfTechnology, '3.3');
-  renderSectionTable('3.4 Prototypes / Products Developed', [{ key: 'title', label: 'Product Title' }, { key: 'studentsInvolved', label: 'Students' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.prototypesDeveloped, '3.4');
-  renderSectionTable('3.5 Hackathon Mentoring & Prizes', [{ key: 'eventName', label: 'Event' }, { key: 'studentsMentored', label: 'Students' }, { key: 'prize', label: 'Award' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.hackathonPrizes, '3.5');
+  renderSectionTable('3.3 Transfer of Technology', [{ key: 'title', label: 'Technology Title' }, { key: 'industryPartner', altKey: 'partner', label: 'Partner' }, { key: 'amount', label: 'Amount (Rs.)' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.transferOfTechnology, '3.3');
+  renderSectionTable('3.4 Prototypes / Products Developed', [{ key: 'title', label: 'Product Title' }, { key: 'studentsInvolved', altKey: 'students', label: 'Students' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.prototypesDeveloped, '3.4');
+  renderSectionTable('3.5 Hackathon Mentoring & Prizes', [{ key: 'eventName', label: 'Event' }, { key: 'studentsMentored', altKey: 'students', label: 'Students' }, { key: 'prize', altKey: 'awardWon', label: 'Award' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.hackathonPrizes, '3.5');
 
   // ── Section IV: Sponsored Research & Consultancy ──────────────────────────
   renderSectionHeader('SECTION IV: Sponsored Research & Consultancy', effectiveScoreObj.section4Total, 15);
@@ -444,38 +511,38 @@ export const exportAppraisalToPDF = ({
 
   // ── Section V: International Engagement & Rankings ────────────────────────
   renderSectionHeader('SECTION V: International Engagement & Rankings', effectiveScoreObj.section5Total, 10);
-  renderSectionTable('5.1 International Engagement / MoUs', [{ key: 'institution', label: 'Partner Institution' }, { key: 'activities', label: 'Activities' }, { key: 'period', label: 'Period' }, { key: 'outcomes', label: 'Outcomes' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.internationalEngagement, '5.1');
-  renderSectionTable('5.2 Visiting / Adjunct Positions Abroad', [{ key: 'institution', label: 'Host Institution' }, { key: 'country', label: 'Country' }, { key: 'durationDays', label: 'Days' }, { key: 'period', label: 'Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.visitingPositions, '5.2');
-  renderSectionTable('5.3 Foreign Faculty / Student Hosted', [{ key: 'name', label: 'Visitor Name' }, { key: 'affiliation', label: 'Affiliation' }, { key: 'topics', label: 'Topics' }, { key: 'period', label: 'Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.foreignFaculty, '5.3');
-  renderSectionTable('5.4 QS / THE Reputation Survey Nominations', [{ key: 'academicianDetails', label: 'Academician' }, { key: 'university', label: 'University' }, { key: 'submitted', label: 'Submitted' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.reputationSurvey, '5.4');
-  renderSectionTable('5.5 NIRF Survey Nominations', [{ key: 'employerDetails', label: 'Employer' }, { key: 'submitted', label: 'Submitted' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.nirfSurvey, '5.5');
+  renderSectionTable('5.1 International Engagement / MoUs', [{ key: 'institution', label: 'Partner Institution' }, { key: 'nature', altKey: 'activities', label: 'Activities / Nature' }, { key: 'country', label: 'Country' }, { key: 'period', label: 'Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.internationalEngagement, '5.1');
+  renderSectionTable('5.2 Visiting / Adjunct Positions Abroad', [{ key: 'institution', label: 'Host Institution' }, { key: 'country', label: 'Country' }, { key: 'duration', altKey: 'durationDays', label: 'Duration / Days' }, { key: 'period', label: 'Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.visitingPositions, '5.2');
+  renderSectionTable('5.3 Foreign Faculty / Student Hosted', [{ key: 'name', label: 'Visitor Name' }, { key: 'institution', altKey: 'affiliation', label: 'Institution' }, { key: 'engagementType', altKey: 'topics', label: 'Topics / Nature' }, { key: 'period', label: 'Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.foreignFaculty, '5.3');
+  renderSectionTable('5.4 QS / THE Reputation Survey Nominations', [{ key: 'surveyName', altKey: 'academicianDetails', label: 'Survey / Academician' }, { key: 'evidenceSubmitted', altKey: 'university', label: 'University / Details' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.reputationSurvey, '5.4');
+  renderSectionTable('5.5 NIRF Survey Nominations', [{ key: 'nominationDetails', altKey: 'employerDetails', label: 'Employer / Nomination' }, { key: 'evidenceSubmitted', label: 'Details' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.nirfSurvey, '5.5');
 
   // ── Section VI: Faculty Development & Professional Activities ─────────────
   renderSectionHeader('SECTION VI: Faculty Development & Professional Activities', effectiveScoreObj.section6Total, 20);
   renderSectionTable('6.1 FDP / STTP Attended', [{ key: 'programName', label: 'Program Name' }, { key: 'organizer', label: 'Organizer' }, { key: 'duration', label: 'Days' }, { key: 'dateRange', label: 'Dates' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.fdpAttended, '6.1');
   renderSectionTable('6.2 Programs Organized', [{ key: 'programName', label: 'Program Name' }, { key: 'days', label: 'Days' }, { key: 'dateRange', label: 'Dates' }, { key: 'role', label: 'Role' }, { key: 'participants', label: 'Participants' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.programsOrganized, '6.2');
   renderSectionTable('6.3 Resource Person / Keynote Speaker', [{ key: 'eventName', label: 'Event' }, { key: 'level', label: 'Level' }, { key: 'topic', label: 'Topic' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.resourcePerson, '6.3');
-  renderSectionTable('6.4 Professional Memberships', [{ key: 'societyName', label: 'Society' }, { key: 'membershipGrade', label: 'Grade' }, { key: 'status', label: 'Status' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.professionalMembership, '6.4');
-  renderSectionTable('6.5 Designation in Professional Body / Editorial Board', [{ key: 'journalName', label: 'Journal / Body' }, { key: 'role', label: 'Role' }, { key: 'year', label: 'Year' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.editorialBoard, '6.5');
-  renderSectionTable('6.6 MOOC Content Developed', [{ key: 'courseName', label: 'Course Name' }, { key: 'creditsOrWeeks', label: 'Weeks' }, { key: 'modules', label: 'Modules' }, { key: 'learnersEnrolled', label: 'Learners' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.moocDeveloped, '6.6');
+  renderSectionTable('6.4 Professional Memberships', [{ key: 'societyName', label: 'Society' }, { key: 'membershipType', altKey: 'membershipGrade', label: 'Grade / Type' }, { key: 'status', label: 'Status' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.professionalMembership, '6.4');
+  renderSectionTable('6.5 Designation in Professional Body / Editorial Board', [{ key: 'bodyName', altKey: 'journalName', label: 'Journal / Body' }, { key: 'position', altKey: 'role', label: 'Role / Position' }, { key: 'period', altKey: 'year', label: 'Year / Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.editorialBoard, '6.5');
+  renderSectionTable('6.6 MOOC Content Developed', [{ key: 'courseName', label: 'Course Name' }, { key: 'weeks', altKey: 'creditsOrWeeks', label: 'Weeks' }, { key: 'coFacultyCount', altKey: 'modules', label: 'Modules / Co-Faculty' }, { key: 'takersCount', altKey: 'learnersEnrolled', label: 'Learners' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.moocDeveloped, '6.6');
 
   // ── Section VII: Industry Interaction & Internship ────────────────────────
   renderSectionHeader('SECTION VII: Industry Interaction & Internship', effectiveScoreObj.section7Total, 10);
-  renderSectionTable('7.1 Partial Course Delivery by Industry Experts', [{ key: 'courseCode', label: 'Course' }, { key: 'deliveryMode', label: 'Mode' }, { key: 'industryName', label: 'Industry' }, { key: 'expertName', label: 'Expert' }, { key: 'hoursDelivered', label: 'Hours' }, { key: 'dateConducted', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.partialDelivery, '7.1');
-  renderSectionTable('7.2 Accompanying Industrial Visits', [{ key: 'industryName', label: 'Industry' }, { key: 'location', label: 'Location' }, { key: 'studentsCount', label: 'Students' }, { key: 'visitDate', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.industrialVisits, '7.2');
-  renderSectionTable('7.3 Faculty Internships in Industry', [{ key: 'industryName', label: 'Industry' }, { key: 'durationDays', label: 'Days' }, { key: 'outcomes', label: 'Outcomes' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.facultyInternships, '7.3');
-  renderSectionTable('7.4 Employer / Alumni Engagement', [{ key: 'companyName', label: 'Company' }, { key: 'activityType', label: 'Type' }, { key: 'outcomes', label: 'Outcomes' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.employerEngagement, '7.4');
+  renderSectionTable('7.1 Partial Course Delivery by Industry Experts', [{ key: 'courseDetails', altKey: 'courseCode', label: 'Course' }, { key: 'mode', altKey: 'deliveryMode', label: 'Mode' }, { key: 'industryName', label: 'Industry' }, { key: 'expertDetails', altKey: 'expertName', label: 'Expert' }, { key: 'duration', altKey: 'hoursDelivered', label: 'Hours / Duration' }, { key: 'date', altKey: 'dateConducted', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.partialDelivery, '7.1');
+  renderSectionTable('7.2 Accompanying Industrial Visits', [{ key: 'industry', altKey: 'industryName', label: 'Industry' }, { key: 'visitDetails', altKey: 'location', label: 'Location / Details' }, { key: 'studentsCount', label: 'Students' }, { key: 'date', altKey: 'visitDate', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.industrialVisits, '7.2');
+  renderSectionTable('7.3 Faculty Internships in Industry', [{ key: 'industryName', label: 'Industry' }, { key: 'duration', altKey: 'durationDays', label: 'Duration' }, { key: 'purpose', altKey: 'outcomes', label: 'Purpose / Outcomes' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.facultyInternships, '7.3');
+  renderSectionTable('7.4 Employer / Alumni Engagement', [{ key: 'activityName', altKey: 'companyName', label: 'Company / Activity' }, { key: 'involvedParty', altKey: 'activityType', label: 'Type / Party' }, { key: 'date', altKey: 'outcomes', label: 'Date / Outcomes' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.employerEngagement, '7.4');
 
   // ── Section VIII: Student Development Activities ──────────────────────────
   renderSectionHeader('SECTION VIII: Student Development Activities', effectiveScoreObj.section8Total, 5);
-  renderSectionTable('8.1 Student Project Publications', [{ key: 'studentNames', label: 'Students' }, { key: 'title', label: 'Paper Title' }, { key: 'journalOrConference', label: 'Journal / Conf' }, { key: 'publicationDate', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.projectPublications, '8.1');
-  renderSectionTable('8.2 Hackathon Mentoring', [{ key: 'teamName', label: 'Team' }, { key: 'studentsMentored', label: 'Students' }, { key: 'eventName', label: 'Event' }, { key: 'awardWon', label: 'Award' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.hackathonMentoring, '8.2');
-  renderSectionTable('8.3 Startup & Incubation Support', [{ key: 'startupName', label: 'Startup' }, { key: 'studentNames', label: 'Students' }, { key: 'incubationCenter', label: 'Center' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.startupSupport, '8.3');
+  renderSectionTable('8.1 Student Project Publications', [{ key: 'title', label: 'Paper Title' }, { key: 'students', altKey: 'studentNames', label: 'Students' }, { key: 'journalDetails', altKey: 'journalOrConference', label: 'Journal / Conf' }, { key: 'date', altKey: 'publicationDate', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.projectPublications, '8.1');
+  renderSectionTable('8.2 Hackathon Mentoring', [{ key: 'eventName', altKey: 'teamName', label: 'Event / Team' }, { key: 'students', altKey: 'studentsMentored', label: 'Students' }, { key: 'outcome', altKey: 'awardWon', label: 'Award / Outcome' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.hackathonMentoring, '8.2');
+  renderSectionTable('8.3 Startup & Incubation Support', [{ key: 'startupName', label: 'Startup' }, { key: 'role', altKey: 'studentNames', label: 'Role / Students' }, { key: 'duration', altKey: 'incubationCenter', label: 'Duration / Center' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.startupSupport, '8.3');
 
   // ── Section IX: Institutional Development ─────────────────────────────────
   renderSectionHeader('SECTION IX: Institutional Development', effectiveScoreObj.section9Total, 20);
-  renderSectionTable('9.1 Department-Level Activities', [{ key: 'role', label: 'Role' }, { key: 'activityType', label: 'Type' }, { key: 'involvementLevel', label: 'Level' }, { key: 'completedSuccessfully', label: 'Completed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.deptActivities, '9.1');
-  renderSectionTable('9.2 College-Level Activities', [{ key: 'role', label: 'Role' }, { key: 'committeeLevel', label: 'Committee' }, { key: 'natureOfInvolvement', label: 'Nature' }, { key: 'completedSuccessfully', label: 'Completed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.collegeActivities, '9.2');
+  renderSectionTable('9.1 Department-Level Activities', [{ key: 'description', altKey: 'role', label: 'Role / Description' }, { key: 'type', altKey: 'activityType', label: 'Activity Type' }, { key: 'approval', altKey: 'completedSuccessfully', label: 'Status' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.deptActivities, '9.1');
+  renderSectionTable('9.2 College-Level Activities', [{ key: 'description', altKey: 'role', label: 'Role / Description' }, { key: 'category', altKey: 'committeeLevel', label: 'Committee' }, { key: 'approval', altKey: 'completedSuccessfully', label: 'Status' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.collegeActivities, '9.2');
   renderSectionTable('9.3 Administrative Responsibilities', [{ key: 'role', label: 'Position / Role' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.adminResponsibilities, '9.3');
 
   // ── HoD Feedback & Verification ───────────────────────────────────────────
@@ -535,7 +602,7 @@ export const exportAppraisalToPDF = ({
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(6, 95, 70);
-    doc.text('🎓 Digitally Ratified & Sealed', margin + colW * 2.5, sigY - 2, { align: 'center' });
+    doc.text('[Digitally Ratified & Sealed]', margin + colW * 2.5, sigY - 2, { align: 'center' });
   }
 
   doc.setFont('helvetica', 'bold');

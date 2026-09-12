@@ -45,6 +45,13 @@ select {
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-document * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .print-document a,
@@ -52,6 +59,7 @@ select {
     color: #1d4ed8 !important;
     text-decoration: underline !important;
     cursor: pointer !important;
+    pointer-events: auto !important;
   }
 
   body {
@@ -59,6 +67,8 @@ select {
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   @page {

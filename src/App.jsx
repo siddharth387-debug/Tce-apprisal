@@ -1781,6 +1781,22 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           <button
             type="button"
             onClick={() => {
+              exportAppraisalToPDF({
+                user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty' },
+                timeline: appraisal.timeline,
+                sectionData: fullData,
+                scores: effectiveScoreObj,
+                record: appraisal,
+              });
+            }}
+            className="text-[11px] py-1 px-2.5 h-7 bg-white border border-[#4A1519] text-[#4A1519] hover:bg-[#4A1519] hover:text-white rounded-md font-medium shadow-xs transition flex items-center gap-1"
+            title="Download PDF with Clickable Evidence Links"
+          >
+            <span>📄</span> PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => {
               if (onExportPDF) {
                 onExportPDF({
                   user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty' },
@@ -1793,10 +1809,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                 window.print();
               }
             }}
-            className="text-[11px] py-1 px-2.5 h-7 bg-white border border-[#4A1519] text-[#4A1519] hover:bg-[#4A1519] hover:text-white rounded-md font-medium shadow-xs transition flex items-center gap-1"
-            title="Download PDF Report with Clickable Hyperlinks"
+            className="text-[11px] py-1 px-2 h-7 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-md font-medium shadow-xs transition flex items-center gap-1"
+            title="Print Document"
           >
-            <span>📄</span> PDF
+            <span>🖨️</span> Print
           </button>
           <button
             type="button"
@@ -3373,14 +3389,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const exportToPDF = useCallback(() => {
     const section = workspaceByTimeline[selectedTimeline] || createEmptySectionState();
     const effScores = scores || computeEffectiveScores(section, activeTimelineRecord?.hodSubsectionScores || {});
-    handlePrintDocument({
+    exportAppraisalToPDF({
       user,
       timeline: selectedTimeline,
       sectionData: section,
       scores: effScores,
       record: activeTimelineRecord || {},
     });
-  }, [workspaceByTimeline, selectedTimeline, user, scores, activeTimelineRecord, handlePrintDocument]);
+  }, [workspaceByTimeline, selectedTimeline, user, scores, activeTimelineRecord]);
 
   const exportToExcel = useCallback(() => {
     const section = workspaceByTimeline[selectedTimeline] || createEmptySectionState();
@@ -3749,8 +3765,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               onClick={() => {
                                 const flattened = flattenAppraisalRecord(row);
                                 const effScores = computeEffectiveScores(flattened, row.hodSubsectionScores || {});
-                                handlePrintDocument({
-                                  user,
+                                exportAppraisalToPDF({
+                                  user: {
+                                    name: row.facultyName || row.name || user?.name || 'Faculty Member',
+                                    email: row.facultyEmail || row.email || user?.email || '',
+                                    role: row.role || 'Faculty',
+                                  },
                                   timeline: row.timeline,
                                   sectionData: flattened,
                                   scores: effScores,
@@ -3758,7 +3778,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 });
                               }}
                               className="text-[10.5px] py-1 px-2 bg-white border border-[#4A1519] text-[#4A1519] hover:bg-[#4A1519] hover:text-white font-medium rounded shadow-xs transition flex items-center gap-0.5"
-                              title="Download PDF Report with Clickable Evidence Links"
+                              title="Download PDF / Print Document"
                             >
                               <span>📄</span> PDF
                             </button>

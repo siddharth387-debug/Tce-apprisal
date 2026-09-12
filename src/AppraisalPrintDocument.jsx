@@ -92,7 +92,11 @@ export default function AppraisalPrintDocument({
                     {rIdx + 1}
                   </td>
                   {columns.map((col, cIdx) => {
-                    const val = row[col.key];
+                    const primaryVal = row[col.key];
+                    const altVal = col.altKey ? row[col.altKey] : undefined;
+                    const val = (primaryVal !== undefined && primaryVal !== null && String(primaryVal).trim() !== '')
+                      ? primaryVal
+                      : (altVal !== undefined && altVal !== null ? altVal : '');
                     const isLink = col.key === 'evidenceLink' || col.isLink;
                     const url = isLink ? formatExternalLink(val) : '';
                     return (
@@ -102,8 +106,8 @@ export default function AppraisalPrintDocument({
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-700 underline font-medium cursor-pointer"
-                            style={{ color: '#1d4ed8', textDecoration: 'underline' }}
+                            className="text-blue-700 underline font-semibold hover:text-blue-900 cursor-pointer"
+                            style={{ color: '#1d4ed8', textDecoration: 'underline', pointerEvents: 'auto' }}
                           >
                             View Proof ↗
                           </a>
