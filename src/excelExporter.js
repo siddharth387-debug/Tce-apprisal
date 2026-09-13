@@ -22,12 +22,11 @@ export const exportAppraisalToExcel = async ({
     pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5 } }
   });
 
-  wsSummary.columns = [
-    { width: 22 }, // A
-    { width: 45 }, // B
-    { width: 18 }, // C
-    { width: 20 }, // D
-  ];
+  // Set exact column widths to prevent squishing
+  wsSummary.getColumn(1).width = 25; // Column A (Labels)
+  wsSummary.getColumn(2).width = 45; // Column B (Values / Names)
+  wsSummary.getColumn(3).width = 22; // Column C (Labels)
+  wsSummary.getColumn(4).width = 25; // Column D (Values / Dates)
 
   // Header
   wsSummary.mergeCells('A1:D1');
@@ -129,13 +128,15 @@ export const exportAppraisalToExcel = async ({
     'Category', 'Sub-Category', 'Detail 1', 'Detail 2', 'Detail 3', 'Detail 4', 'Detail 5', 'Evidence Link'
   ];
   
-  const rawDataHeaderRow = wsData.addRow(dataHeaders);
+  // Explicitly set headers AND widths
+  wsData.columns = dataHeaders.map(h => ({ header: h, key: h, width: 25 }));
+  
+  // The first row is now automatically added as headers by exceljs, so we style it:
+  const rawDataHeaderRow = wsData.getRow(1);
   rawDataHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
   rawDataHeaderRow.eachCell(cell => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
   });
-
-  wsData.columns = dataHeaders.map(() => ({ width: 25 }));
 
   const pushFlatRows = (category, subCategory, dataArray, keys) => {
     if (!dataArray || !Array.isArray(dataArray)) return;
