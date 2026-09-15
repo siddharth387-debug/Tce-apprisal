@@ -4,11 +4,16 @@ import { computeEffectiveScores, SUBSECTION_MAX_MARKS } from './scoringEngine.js
 
 export const exportAppraisalToExcel = async ({
   user,
+  userRole: roleParam,
   timeline,
   sectionData = {},
   scores = {},
   record = {},
 }) => {
+  const userRole = roleParam || user?.role || 'Faculty';
+  const isPrincipalOrAdmin = userRole === 'Principal' || userRole === 'Admin';
+  const isHod = userRole === 'HOD';
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'TCE Appraisal System';
   workbook.created = new Date();
@@ -19,7 +24,14 @@ export const exportAppraisalToExcel = async ({
   // SHEET 1: THE SUMMARY (PRETTY PRINTABLE FORMAT)
   // =========================================================================
   const wsSummary = workbook.addWorksheet('Appraisal Summary', {
-    pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5 } }
+    pageSetup: {
+      paperSize: 9,
+      orientation: 'portrait',
+      fitToPage: true,
+      fitToWidth: 1,
+      fitToHeight: isPrincipalOrAdmin ? 1 : 0, // Rule 3: Fit to 1 page height for Principal Signature Pad
+      margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4 }
+    }
   });
 
   // Set exact column widths to prevent squishing
@@ -37,16 +49,17 @@ export const exportAppraisalToExcel = async ({
 
   wsSummary.mergeCells('A2:D2');
   const title2 = wsSummary.getCell('A2');
-  title2.value = 'FACULTY PERFORMANCE APPRAISAL SYSTEM - SUMMARY REPORT';
+  title2.value = `FACULTY PERFORMANCE APPRAISAL SYSTEM - SUMMARY REPORT (${userRole.toUpperCase()} VIEW)`;
   title2.font = { bold: true, size: 12, color: { argb: 'FF800000' } }; // Maroon
   title2.alignment = { horizontal: 'center' };
 
   wsSummary.addRow([]); // Blank
 
-  // Faculty Info
+  // Rule 1 & 2: Metadata Block with Live Status
+  const liveStatus = record.appraisalStatus || 'Pending';
   wsSummary.addRow(['Faculty Name:', user?.name || 'Faculty Member', 'Academic Year:', timeline || '2024-2025']);
   wsSummary.addRow(['Email Address:', user?.email || '—', 'Date Generated:', new Date().toLocaleDateString('en-GB')]);
-  wsSummary.addRow(['Designation:', user?.role || 'Faculty', 'Status:', record.appraisalStatus || 'Pending']);
+  wsSummary.addRow(['Designation:', user?.role || 'Faculty', 'Status:', liveStatus]);
   wsSummary.addRow(['Grand Total Score:', `${effectiveScoreObj.grandTotal} / 200 Marks`, 'Percentage:', `${((effectiveScoreObj.grandTotal / 200) * 100).toFixed(1)}%`]);
 
   [4, 5, 6, 7].forEach(r => {
@@ -96,25 +109,49 @@ export const exportAppraisalToExcel = async ({
 
   wsSummary.addRow([]);
   
-  // Remarks
+  // Rule 2: Remarks text box
   const remarkTitle = wsSummary.addRow(['Head of Department (HoD) Remarks:']);
   remarkTitle.getCell(1).font = { bold: true };
-  const remarkValue = wsSummary.addRow([record.hodRemarks || '—']);
+
+  const hodRemarksText = (isHod || isPrincipalOrAdmin)
+    ? (record.hodRemarks || 'Evaluation verified. No additional remarks.')
+    : (record.hodRemarks || '— (Pending HoD Review)');
+
+  const remarkValue = wsSummary.addRow([hodRemarksText]);
   wsSummary.mergeCells(`A${remarkValue.number}:D${remarkValue.number}`);
   remarkValue.getCell(1).alignment = { wrapText: true, vertical: 'top' };
-  wsSummary.getRow(remarkValue.number).height = 40;
 
   wsSummary.addRow([]);
-  wsSummary.addRow([]);
-  wsSummary.addRow([]);
 
-  // Explicit Signature Block for Printing
+  // Signature Blocks
   const sigRow1 = wsSummary.addRow(['Faculty Member Signature', '', 'Head of Department Signature', '']);
   sigRow1.getCell(1).font = { bold: true };
   sigRow1.getCell(3).font = { bold: true };
   
-  const sigRow2 = wsSummary.addRow(['Name: ______________________', '', 'Name: ______________________', '']);
-  const sigRow3 = wsSummary.addRow(['Date: ______________________', '', 'Date: ______________________', '']);
+  let hodSigDateText = 'Date: ______________________';
+  let hodSigNameText = 'Name: ______________________';
+
+  if (isHod || isPrincipalOrAdmin) {
+    const verifiedDate = record.updatedAt || record.submittedAt ? new Date(record.updatedAt || record.submittedAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+    hodSigDateText = `Verified Date: ${verifiedDate}`;
+    hodSigNameText = `Status: Verified by HoD (${liveStatus})`;
+  }
+
+  wsSummary.addRow(['Name: ______________________', '', hodSigNameText, '']);
+  wsSummary.addRow(['Date: ______________________', '', hodSigDateText, '']);
+
+  // Rule 3: IF Principal / Admin, add 3rd Signature Pad block spanning C & D
+  if (isPrincipalOrAdmin) {
+    wsSummary.addRow([]);
+    const princTitleRow = wsSummary.addRow(['', '', 'Principal / Institutional Approval Signature', '']);
+    princTitleRow.getCell(3).font = { bold: true, color: { argb: 'FF800000' } };
+
+    const princStatus = (record.principalApprovalStatus || 'RATIFIED').toUpperCase();
+    const endAt = record.principalEndorsedAt ? new Date(record.principalEndorsedAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+
+    wsSummary.addRow(['', '', `Endorsement: ${princStatus}`, '']);
+    wsSummary.addRow(['', '', `Date: ${endAt}`, '']);
+  }
 
   // =========================================================================
   // SHEET 2: THE RAW DATA (FLAT DATABASE FORMAT FOR EASY FILTERING/COPYING)

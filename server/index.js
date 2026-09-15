@@ -8,6 +8,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { computeEffectiveScores } from '../src/scoringEngine.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -421,9 +423,9 @@ app.use(express.json());
 // ── JWT authentication middleware ────────────────────────────────────────────
 function authenticateToken(request, response, next) {
   const authHeader = request.headers['authorization'];
-  const token = authHeader && authHeader.startsWith('Bearer ')
+  const token = (authHeader && authHeader.startsWith('Bearer '))
     ? authHeader.slice(7)
-    : null;
+    : (request.query?.token || null);
 
   if (!token) {
     return response.status(401).json({ message: 'Authentication token is required.' });
@@ -667,6 +669,237 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       success: false,
       message: `Database validation rejected: ${mongooseCrashError.message}. Check your running terminal window for details.`,
     });
+  }
+});
+
+// ── Role-Based Dynamic ExcelJS Export Engine Endpoint ────────────────────────
+app.get('/api/appraisals/:id/export', authenticateToken, async (req, res) => {
+  try {
+    const appraisalId = req.params.id;
+    const appraisal = await Appraisal.findById(appraisalId);
+
+    if (!appraisal) {
+      return res.status(404).json({ message: 'Appraisal record not found in database.' });
+    }
+
+    // Extract userRole context (supports token role, or role override for HOD/Principal review mode)
+    const userRole = (req.query.role || req.user?.role || 'Faculty').trim();
+    const facultyName = appraisal.facultyName || appraisal.name || 'Faculty Member';
+    const timeline = appraisal.timeline || '2024-2025';
+    const sectionData = appraisal.sectionData || appraisal;
+    const hodScores = appraisal.hodSubsectionScores || {};
+
+    // Compute scores using the shared scoring engine
+    const effectiveScoreObj = computeEffectiveScores(sectionData, hodScores);
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'TCE Appraisal System';
+    workbook.created = new Date();
+
+    const isPrincipalOrAdmin = userRole === 'Principal' || userRole === 'Admin';
+    const isHod = userRole === 'HOD';
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TAB 1: SUMMARY REPORT (Printable & Role-Adapted Layout)
+    // ─────────────────────────────────────────────────────────────────────────
+    const wsSummary = workbook.addWorksheet('Appraisal Summary', {
+      pageSetup: {
+        paperSize: 9, // A4
+        orientation: 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 1, // Rule 3: Prevents spillage onto a 2nd page on portrait printing
+        margins: { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4 }
+      }
+    });
+
+    wsSummary.getColumn(1).width = 25; // A (Labels)
+    wsSummary.getColumn(2).width = 45; // B (Domain / Values)
+    wsSummary.getColumn(3).width = 22; // C (Max Marks / Signatures)
+    wsSummary.getColumn(4).width = 25; // D (Evaluated Score / Signatures)
+
+    // Header Title
+    wsSummary.mergeCells('A1:D1');
+    const title1 = wsSummary.getCell('A1');
+    title1.value = 'THIAGARAJAR COLLEGE OF ENGINEERING, MADURAI - 625 015';
+    title1.font = { bold: true, size: 13 };
+    title1.alignment = { horizontal: 'center' };
+
+    wsSummary.mergeCells('A2:D2');
+    const title2 = wsSummary.getCell('A2');
+    title2.value = `FACULTY PERFORMANCE APPRAISAL SYSTEM - SUMMARY REPORT (${userRole.toUpperCase()} VIEW)`;
+    title2.font = { bold: true, size: 11, color: { argb: 'FF800000' } }; // Maroon
+    title2.alignment = { horizontal: 'center' };
+
+    wsSummary.addRow([]); // Blank
+
+    // Rule 1 & 2: Metadata Block with Live Status
+    const liveStatus = appraisal.appraisalStatus || 'Pending';
+    wsSummary.addRow(['Faculty Name:', facultyName, 'Academic Year:', timeline]);
+    wsSummary.addRow(['Email Address:', appraisal.email || appraisal.facultyEmail || '—', 'Date Generated:', new Date().toLocaleDateString('en-GB')]);
+    wsSummary.addRow(['Designation:', appraisal.designation || 'Faculty', 'Status:', liveStatus]);
+    wsSummary.addRow(['Grand Total Score:', `${effectiveScoreObj.grandTotal} / 200 Marks`, 'Percentage:', `${((effectiveScoreObj.grandTotal / 200) * 100).toFixed(1)}%`]);
+
+    [4, 5, 6, 7].forEach(r => {
+      wsSummary.getCell(`A${r}`).font = { bold: true, color: { argb: 'FF475569' } };
+      wsSummary.getCell(`C${r}`).font = { bold: true, color: { argb: 'FF475569' } };
+    });
+
+    wsSummary.addRow([]); // Blank
+
+    // Matrix Header
+    const matrixTitleRow = wsSummary.addRow(['EXECUTIVE SCORE SUMMARY MATRIX' + (effectiveScoreObj.hasAdjustments ? ' (Includes HoD Evaluated Marks)' : '')]);
+    wsSummary.mergeCells('A9:D9');
+    matrixTitleRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+    matrixTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF800000' } };
+    matrixTitleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const headerRow = wsSummary.addRow(['Section', 'Assessment Domain', 'Maximum Marks', 'Evaluated Score']);
+    headerRow.font = { bold: true };
+    headerRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' } };
+    });
+
+    const addSummaryRow = (sec, domain, max, score) => {
+      const r = wsSummary.addRow([sec, domain, max, score]);
+      r.getCell(3).alignment = { horizontal: 'center' };
+      r.getCell(4).alignment = { horizontal: 'center' };
+      return r;
+    };
+
+    addSummaryRow('Section I', 'Teaching & Learning', 50, effectiveScoreObj.section1Total);
+    addSummaryRow('Section II', 'Research Publications', 55, effectiveScoreObj.section2Total);
+    addSummaryRow('Section III', 'Patents & Innovation', 15, effectiveScoreObj.section3Total);
+    addSummaryRow('Section IV', 'Sponsored Research & Consultancy', 15, effectiveScoreObj.section4Total);
+    addSummaryRow('Section V', 'International Engagement & Rankings', 10, effectiveScoreObj.section5Total);
+    addSummaryRow('Section VI', 'Faculty Development & Professional Activities', 20, effectiveScoreObj.section6Total);
+    addSummaryRow('Section VII', 'Industry Interaction & Internship', 10, effectiveScoreObj.section7Total);
+    addSummaryRow('Section VIII', 'Student Development Activities', 5, effectiveScoreObj.section8Total);
+    addSummaryRow('Section IX', 'Institutional Development', 20, effectiveScoreObj.section9Total);
+
+    const totalRow = addSummaryRow('TOTAL SCORE', 'Cumulative Score (Sections I - IX)', 200, effectiveScoreObj.grandTotal);
+    totalRow.font = { bold: true };
+    totalRow.eachCell(c => {
+      c.border = { top: { style: 'thin' }, bottom: { style: 'double' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
+    });
+
+    wsSummary.addRow([]);
+
+    // Rule 2: Populate HoD Remarks text box directly from database evaluation collection data
+    const remarkTitle = wsSummary.addRow(['Head of Department (HoD) Remarks:']);
+    remarkTitle.getCell(1).font = { bold: true };
+
+    const hodRemarksText = (isHod || isPrincipalOrAdmin)
+      ? (appraisal.hodRemarks || 'Evaluation verified. No additional remarks.')
+      : (appraisal.hodRemarks || '— (Pending HoD Review)');
+
+    const remarkValue = wsSummary.addRow([hodRemarksText]);
+    wsSummary.mergeCells(`A${remarkValue.number}:D${remarkValue.number}`);
+    remarkValue.getCell(1).alignment = { wrapText: true, vertical: 'top' };
+
+    wsSummary.addRow([]);
+
+    // ── Signature Blocks Logic ────────────────────────────────────────────────
+    const sigRow1 = wsSummary.addRow(['Faculty Member Signature', '', 'Head of Department Signature', '']);
+    sigRow1.getCell(1).font = { bold: true };
+    sigRow1.getCell(3).font = { bold: true };
+
+    // Rule 1: Blank for Faculty
+    let hodSigDateText = 'Date: ______________________';
+    let hodSigNameText = 'Name: ______________________';
+
+    // Rule 2: IF HoD, Principal or Admin, append automatic uneditable timestamp/verification date
+    if (isHod || isPrincipalOrAdmin) {
+      const verifiedDate = appraisal.updatedAt || appraisal.submittedAt ? new Date(appraisal.updatedAt || appraisal.submittedAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+      hodSigDateText = `Verified Date: ${verifiedDate}`;
+      hodSigNameText = `Status: Verified by HoD (${liveStatus})`;
+    }
+
+    wsSummary.addRow(['Name: ______________________', '', hodSigNameText, '']);
+    wsSummary.addRow(['Date: ______________________', '', hodSigDateText, '']);
+
+    // Rule 3: IF Principal or Admin, add 3rd Signature Pad block spanning C & D
+    if (isPrincipalOrAdmin) {
+      wsSummary.addRow([]);
+      const princTitleRow = wsSummary.addRow(['', '', 'Principal / Institutional Approval Signature', '']);
+      princTitleRow.getCell(3).font = { bold: true, color: { argb: 'FF800000' } };
+      
+      const princStatus = (appraisal.principalApprovalStatus || 'RATIFIED').toUpperCase();
+      const endAt = appraisal.principalEndorsedAt ? new Date(appraisal.principalEndorsedAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+
+      wsSummary.addRow(['', '', `Endorsement: ${princStatus}`, '']);
+      wsSummary.addRow(['', '', `Date: ${endAt}`, '']);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TAB 2: RAW DATA EXPORT (Database Format)
+    // ─────────────────────────────────────────────────────────────────────────
+    const wsData = workbook.addWorksheet('Raw Data Export');
+    wsData.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const dataHeaders = [
+      'Category', 'Sub-Category', 'Detail 1', 'Detail 2', 'Detail 3', 'Detail 4', 'Detail 5', 'Evidence Link'
+    ];
+    wsData.columns = dataHeaders.map(h => ({ header: h, key: h, width: 25 }));
+    const rawDataHeaderRow = wsData.getRow(1);
+    rawDataHeaderRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    rawDataHeaderRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+    });
+
+    const pushFlatRows = (category, subCategory, dataArray, keys) => {
+      if (!dataArray || !Array.isArray(dataArray)) return;
+      dataArray.forEach(item => {
+        const row = [category, subCategory];
+        keys.forEach(key => {
+          row.push(item[key] || '');
+        });
+        while (row.length < 7) row.push('');
+        row.push(item.evidenceLink || '');
+        wsData.addRow(row);
+      });
+    };
+
+    const sd = sectionData;
+    pushFlatRows('Teaching', '1.1 Courses Handled', sd.coursesHandled, ['courseCode', 'courseName', 'type', 'semester']);
+    pushFlatRows('Teaching', '1.2 Course File', sd.courseFiles, ['courseCode', 'courseName', 'compliance']);
+    pushFlatRows('Teaching', '1.3 Course Design', sd.coursesDesigned, ['courseCode', 'courseName', 'remarks']);
+    pushFlatRows('Teaching', '1.4 Value-Added', sd.valueAdded, ['courseName', 'particulars', 'studentCount']);
+    pushFlatRows('Teaching', '1.5 Innovative Methods', sd.innovativeMethods, ['courseCode', 'method']);
+    pushFlatRows('Teaching', '1.8 Certifications', sd.certifications, ['courseName', 'platform', 'certType']);
+    pushFlatRows('Teaching', '1.9 Student Feedback', sd.studentFeedback, ['courseCode', 'feedbackPct']);
+    pushFlatRows('Teaching', '1.10 Result Analysis', sd.resultAnalysis, ['courseCode', 'courseName', 'passPercentage']);
+    pushFlatRows('Teaching', '1.11 CO Attainment', sd.coAttainment, ['courseCode', 'courseName', 'attainmentPct']);
+
+    pushFlatRows('Research', '2.1 Journal Papers', sd.journalPapers, ['paperTitle', 'journalName', 'tier']);
+    pushFlatRows('Research', '2.4 Books', sd.bookPublications, ['title', 'type']);
+    pushFlatRows('Research', '2.5 Conferences', sd.conferencePapers, ['paperTitle', 'proceedingName']);
+    pushFlatRows('Research', '3.1 Patents Pub', sd.patentsPublished, ['appNumber', 'title', 'inventors', 'datePublished']);
+    pushFlatRows('Research', '3.2 Patents Grant', sd.patentsGranted, ['refNumber', 'title', 'inventors', 'dateGranted']);
+    pushFlatRows('Research', '4.1 Sponsored Proj', sd.researchProjects, ['projectName', 'fundingAgency', 'amount', 'role', 'status']);
+    pushFlatRows('Research', '4.2 Consultancy', sd.consultancyProjects, ['title', 'clientDetails', 'amount', 'facultyInvolved']);
+
+    wsData.autoFilter = { from: 'A1', to: `H${wsData.rowCount}` };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STREAM WORKBOOK DIRECTLY TO EXPRESS RESPONSE
+    // ─────────────────────────────────────────────────────────────────────────
+    const cleanName = facultyName.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `TCE_Appraisal_${cleanName}_${timeline}_${userRole.toUpperCase()}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error('Error generating role-based Excel export:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to generate Excel export.', error: error.message });
+    }
   }
 });
 
