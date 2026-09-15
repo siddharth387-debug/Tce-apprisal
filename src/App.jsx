@@ -33,11 +33,25 @@ const STATS = [
 ];
 
 const TIMELINES = ['2025-2026', '2026-2027', '2027-2028'];
+const MENTORING_BATCH_GROUPS = [
+  {
+    label: '4-Year UG Programs (B.E. / B.Tech)',
+    options: ['2021 - 2025', '2022 - 2026', '2023 - 2027', '2024 - 2028', '2025 - 2029']
+  },
+  {
+    label: '2-Year PG Programs (M.C.A. / M.E. / M.Tech)',
+    options: ['2023 - 2025', '2024 - 2026', '2025 - 2027', '2026 - 2028']
+  },
+  {
+    label: '5-Year Integrated Programs (M.Sc. Data Science / B.Arch)',
+    options: ['2020 - 2025', '2021 - 2026', '2022 - 2027', '2023 - 2028', '2024 - 2029', '2025 - 2030']
+  }
+];
+
 const MENTORING_BATCH_OPTIONS = [
-  '2022 - 2026',
-  '2023 - 2027',
-  '2024 - 2028',
-  '2025 - 2029',
+  '2021 - 2025', '2022 - 2026', '2023 - 2027', '2024 - 2028', '2025 - 2029',
+  '2023 - 2025', '2024 - 2026', '2025 - 2027', '2026 - 2028',
+  '2020 - 2025', '2021 - 2026', '2022 - 2027', '2023 - 2028', '2024 - 2029', '2025 - 2030'
 ];
 const SEMESTER_OPTIONS = [
   'Semester I',
@@ -4113,10 +4127,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:cursor-default disabled:bg-slate-100`}
               >
                 <option value="">Select Batch</option>
-                {MENTORING_BATCH_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
+                {MENTORING_BATCH_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.options.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </label>

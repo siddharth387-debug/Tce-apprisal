@@ -24,10 +24,9 @@ const jwtSecret = process.env.JWT_SECRET;
 const mongoUri = process.env.MONGO_URI;
 const timelines = ['2025-2026', '2026-2027', '2027-2028'];
 const mentoringBatchOptions = [
-  '2022 - 2026',
-  '2023 - 2027',
-  '2024 - 2028',
-  '2025 - 2029',
+  '2021 - 2025', '2022 - 2026', '2023 - 2027', '2024 - 2028', '2025 - 2029',
+  '2023 - 2025', '2024 - 2026', '2025 - 2027', '2026 - 2028',
+  '2020 - 2025', '2021 - 2026', '2022 - 2027', '2023 - 2028', '2024 - 2029', '2025 - 2030'
 ];
 const semesterOptions = [
   'Semester I',
