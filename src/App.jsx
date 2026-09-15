@@ -66,6 +66,18 @@ const SEMESTER_OPTIONS = [
   'Semester X',
 ];
 
+const ACADEMIC_COLLABORATION_TYPES = [
+  'Joint Research Project',
+  'Joint Publication / Patent',
+  'Faculty Exchange Program',
+  'Student Exchange Program',
+  'Joint Course Design / Curriculum Development',
+  'Guest / Adjunct Faculty Engagement',
+  'Joint Conference / Seminar / Workshop',
+  'Institutional MoU Activity',
+  'Other Academic Collaboration',
+];
+
 const ACADEMIC_PERIOD_OPTIONS = [
   '2021 - 2022',
   '2022 - 2023',
@@ -2491,8 +2503,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
   ];
   const academicCollaborationsColumns = [
-    { name: 'organization', label: 'Organization', placeholder: 'Enter Organization / Institution' },
-    { name: 'collaborationType', label: 'Collaboration Type', placeholder: 'e.g. Joint Research, Faculty Exchange' },
+    { name: 'organization', label: 'Organization / Partner Institution', placeholder: 'Enter Organization / Institution' },
+    {
+      name: 'collaborationType',
+      label: 'Collaboration Type',
+      type: 'select',
+      options: ACADEMIC_COLLABORATION_TYPES,
+    },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
   ];
   const studentFeedbackColumns = [
