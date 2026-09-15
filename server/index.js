@@ -37,6 +37,8 @@ const semesterOptions = [
   'Semester VI',
   'Semester VII',
   'Semester VIII',
+  'Semester IX',
+  'Semester X',
 ];
 const courseCodeRegex = /^[A-Z0-9]{5,7}$/i;
 

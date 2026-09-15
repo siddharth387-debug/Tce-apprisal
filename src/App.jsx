@@ -62,6 +62,8 @@ const SEMESTER_OPTIONS = [
   'Semester VI',
   'Semester VII',
   'Semester VIII',
+  'Semester IX',
+  'Semester X',
 ];
 
 const ACADEMIC_PERIOD_OPTIONS = [
