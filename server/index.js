@@ -108,8 +108,8 @@ const AppraisalSchema = new mongoose.Schema({
   timeline: { type: String, required: true },
   facultyName: { type: String, default: "Faculty Member" },
   email: { type: String, required: true, lowercase: true, index: true },
-  department: { type: String, default: 'CSE', index: true },
-  departmentName: { type: String, default: 'Computer Science and Engineering' },
+  department: { type: String, default: 'MCA', index: true },
+  departmentName: { type: String, default: 'Computer Applications' },
   convertedScore: { type: Number, default: 0 },
   systemScore: { type: Number, default: 0 },
   appraisalStatus: { type: String, default: 'Pending' },
@@ -491,10 +491,11 @@ app.post('/api/auth/google', async (request, response) => {
       ]
     });
 
-    // Determine Role & Department
+    // Determine Role & Department (Default to MCA for gmail.com logins)
+    const isGmailLogin = verifiedEmail.endsWith('@gmail.com');
     let assignedRole = 'Faculty';
-    let assignedDept = 'CSE';
-    let assignedDeptName = 'Computer Science and Engineering';
+    let assignedDept = isGmailLogin ? 'MCA' : 'CSE';
+    let assignedDeptName = isGmailLogin ? 'Computer Applications' : 'Computer Science and Engineering';
     let assignedDesignation = 'Faculty';
 
     if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu') {
@@ -509,8 +510,8 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDesignation = 'Principal';
     } else if (facultyRecord) {
       assignedRole = facultyRecord.role || 'Faculty';
-      assignedDept = facultyRecord.department || 'CSE';
-      assignedDeptName = facultyRecord.departmentName || '';
+      assignedDept = isGmailLogin ? 'MCA' : (facultyRecord.department || 'CSE');
+      assignedDeptName = isGmailLogin ? 'Computer Applications' : (facultyRecord.departmentName || '');
       assignedDesignation = facultyRecord.designation || 'Faculty';
     } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
       assignedRole = 'HOD';
@@ -1811,6 +1812,53 @@ app.post(['/api/ai/suggest-feedback', '/ai/suggest-feedback'], authenticateToken
   }
 });
 
+// One-time database migration helper to update existing gmail.com logins to MCA department
+async function migrateGmailLoginsToMca() {
+  try {
+    const gmailFilter = {
+      $or: [
+        { email: /@gmail\.com$/i },
+        { personalEmail: /@gmail\.com$/i },
+        { alternateEmails: /@gmail\.com$/i }
+      ]
+    };
+
+    const facultyResult = await FacultyMember.updateMany(
+      gmailFilter,
+      {
+        $set: {
+          department: 'MCA',
+          departmentName: 'Computer Applications',
+          hodEmail: 'hodmca@tce.edu'
+        }
+      }
+    );
+
+    const appraisalFilter = {
+      $or: [
+        { email: /@gmail\.com$/i },
+        { facultyEmail: /@gmail\.com$/i }
+      ]
+    };
+
+    const appraisalResult = await Appraisal.updateMany(
+      appraisalFilter,
+      {
+        $set: {
+          department: 'MCA',
+          departmentName: 'Computer Applications'
+        }
+      }
+    );
+
+    if (facultyResult.modifiedCount > 0 || appraisalResult.modifiedCount > 0) {
+      console.log(`✅ Gmail Migration Complete: Updated ${facultyResult.modifiedCount} faculty record(s) and ${appraisalResult.modifiedCount} appraisal record(s) to MCA department.`);
+    }
+  } catch (err) {
+    console.warn('⚠️ Gmail to MCA migration warning:', err.message);
+  }
+}
+
 // ── Asynchronous Server Initialization ───────────────────────────────────────
 async function startServer() {
   try {
@@ -1823,6 +1871,9 @@ async function startServer() {
 
     // Auto-seed/verify faculty master directory
     await seedFacultyDirectory(false);
+
+    // Auto-migrate existing gmail.com logins to MCA department
+    await migrateGmailLoginsToMca();
 
     app.listen(port, () => {
       console.log(`✓ Auth server listening on http://localhost:${port}`);
