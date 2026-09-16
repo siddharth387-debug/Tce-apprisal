@@ -5348,17 +5348,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </button>
             )}
 
-            {/* Master Faculty Roster Verification Modal Button */}
-            {(hasHodPrivileges || isSuperAdmin) && (
-              <button 
-                type="button"
-                onClick={() => setIsFacultyModalOpen(true)}
-                className="text-[11px] font-bold text-[#4A1519] bg-amber-50 hover:bg-amber-100 border border-amber-300 shadow-sm rounded-full px-3.5 py-1.5 transition-all flex items-center space-x-1.5"
-              >
-                <span>👥</span>
-                <span>Faculty Roster</span>
-              </button>
-            )}
+
             
             {/* User Profile Rounded Badge Box */}
             <div className="flex items-center space-x-3 bg-[#4A1519] px-3 py-1.5 rounded-xl shadow-sm border border-red-950/20 text-left">
