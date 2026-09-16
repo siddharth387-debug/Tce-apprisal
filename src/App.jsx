@@ -2216,8 +2216,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [selectedInboxRecordId, setSelectedInboxRecordId] = useState('');
   const [hodFeedbackDraft, setHodFeedbackDraft] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+
+  // Auto-dismiss submission toast after 4 seconds
+  useEffect(() => {
+    if (!submitSuccess) return;
+    const timer = setTimeout(() => {
+      setSubmitSuccess('');
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [submitSuccess]);
   // Drill-down view: holds the appraisal object the user clicked "View Summary" on.
   const [selectedAppraisal, setSelectedAppraisal] = useState(null);
   // HOD review: the appraisal record currently being evaluated, and the remarks text.
@@ -5432,8 +5440,23 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         )}
       </main>
       {submitSuccess ? (
-        <div className="fixed right-4 top-4 z-50 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700 shadow-sm">
-          {submitSuccess}
+        <div className="fixed right-4 top-4 z-50 rounded-lg border border-emerald-200 bg-white p-3.5 shadow-xl shadow-black/10 text-xs font-semibold text-emerald-800 flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-800">Success</span>
+            <span className="text-slate-600 font-medium">{submitSuccess}</span>
+          </div>
+          <button
+            onClick={() => setSubmitSuccess('')}
+            className="ml-3 text-slate-400 hover:text-slate-700 transition p-1"
+            title="Dismiss notification"
+          >
+            ✕
+          </button>
         </div>
       ) : null}
     </div>
