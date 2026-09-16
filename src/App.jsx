@@ -2216,6 +2216,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [selectedInboxRecordId, setSelectedInboxRecordId] = useState('');
   const [hodFeedbackDraft, setHodFeedbackDraft] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
 
   // Auto-dismiss submission toast after 4 seconds
