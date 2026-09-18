@@ -93,6 +93,7 @@ const FacultyMemberSchema = new mongoose.Schema({
   role: { type: String, enum: ['Faculty', 'HOD', 'Registrar', 'Principal', 'Admin'], default: 'Faculty', index: true },
   photo: { type: String, default: '' },
   profileUrl: { type: String, default: '' },
+  joiningDate: { type: Date, default: () => new Date(Date.now() - 400 * 24 * 60 * 60 * 1000) },
   active: { type: Boolean, default: true }
 }, { timestamps: true });
 
@@ -528,20 +529,41 @@ app.post('/api/auth/google', async (request, response) => {
     if (canonicalPersonalEmail && !userAliases.includes(canonicalPersonalEmail)) userAliases.push(canonicalPersonalEmail);
     if (canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
 
+    // Calculate 1-Year Service Eligibility (365 Days)
+    const rawDOJ = facultyRecord?.joiningDate || new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
+    const dojDate = new Date(rawDOJ);
+    const now = new Date();
+    const serviceMs = Math.max(0, now - dojDate);
+    const serviceDays = Math.floor(serviceMs / (1000 * 60 * 60 * 24));
+    const monthsOfService = Math.floor(serviceDays / 30.44);
+    const isEligibleForAppraisal = serviceDays >= 365;
+
+    const unlockDateObj = new Date(dojDate);
+    unlockDateObj.setFullYear(unlockDateObj.getFullYear() + 1);
+    const formattedUnlockDate = unlockDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const formattedDOJ = dojDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const userPayload = {
+      sub: payload.sub,
+      email: verifiedEmail,
+      personalEmail: canonicalPersonalEmail,
+      hodEmail: canonicalHodEmail,
+      alternateEmails: userAliases,
+      name: facultyRecord ? facultyRecord.name : payload.name,
+      picture: payload.picture,
+      role: assignedRole,
+      department: assignedDept,
+      departmentName: assignedDeptName,
+      designation: assignedDesignation,
+      joiningDate: formattedDOJ,
+      serviceDays,
+      monthsOfService,
+      isEligibleForAppraisal,
+      unlockDate: formattedUnlockDate
+    };
+
     const token = jwt.sign(
-      {
-        sub: payload.sub,
-        email: verifiedEmail,
-        personalEmail: canonicalPersonalEmail,
-        hodEmail: canonicalHodEmail,
-        alternateEmails: userAliases,
-        name: facultyRecord ? facultyRecord.name : payload.name,
-        picture: payload.picture,
-        role: assignedRole,
-        department: assignedDept,
-        departmentName: assignedDeptName,
-        designation: assignedDesignation
-      },
+      userPayload,
       jwtSecret,
       {
         expiresIn: '7d',
@@ -553,16 +575,7 @@ app.post('/api/auth/google', async (request, response) => {
       token,
       user: {
         id: payload.sub,
-        email: verifiedEmail,
-        personalEmail: canonicalPersonalEmail,
-        hodEmail: canonicalHodEmail,
-        alternateEmails: userAliases,
-        name: facultyRecord ? facultyRecord.name : payload.name,
-        picture: payload.picture,
-        role: assignedRole,
-        department: assignedDept,
-        departmentName: assignedDeptName,
-        designation: assignedDesignation
+        ...userPayload
       },
     });
   } catch (error) {

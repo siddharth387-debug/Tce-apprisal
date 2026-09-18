@@ -5421,7 +5421,62 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       </div>
 
       <main className="mx-auto w-full max-w-7xl px-6 py-8 lg:px-8">
-        {isReviewMode ? (
+        {effectiveRole === 'Faculty' && user?.isEligibleForAppraisal === false ? (
+          <div className="max-w-4xl mx-auto my-8 p-8 bg-white rounded-2xl border border-slate-200 shadow-xl space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 text-2xl font-black shadow-inner flex-shrink-0">
+                ⏳
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full">
+                    Service Eligibility Notice
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">TCE Governance Policy</span>
+                </div>
+                <h2 className="text-xl font-black text-slate-800 mt-1">Appraisal Workbench Locked (Probation Period)</h2>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Annual performance appraisal is accessible after completing 1 full year (365 days) of continuous college service.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-400">Faculty Name</p>
+                <p className="text-sm font-extrabold text-slate-800 mt-0.5 truncate">{user?.name || 'Faculty Member'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-400">Department</p>
+                <p className="text-sm font-extrabold text-slate-800 mt-0.5">{user?.departmentName || user?.department || 'MCA'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-400">Date of Joining (DOJ)</p>
+                <p className="text-sm font-extrabold text-slate-800 mt-0.5">{user?.joiningDate || 'Pending Records'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-400">Completed Service</p>
+                <p className="text-sm font-extrabold text-amber-700 mt-0.5">{user?.monthsOfService || 0} Months ({user?.serviceDays || 0} Days)</p>
+              </div>
+            </div>
+
+            <div className="p-5 bg-gradient-to-r from-amber-500/10 via-maroon-500/5 to-amber-500/10 rounded-xl border border-amber-300 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-1 text-center sm:text-left">
+                <p className="text-xs font-extrabold text-amber-900 uppercase tracking-wider">Automated Unlock Date</p>
+                <p className="text-lg font-black text-[#4A1519]">
+                  Unlocks on: {user?.unlockDate || '1 Year From DOJ'}
+                </p>
+                <p className="text-[11px] text-slate-600 font-medium">
+                  Your account is active. On your 365th day of service, your self-appraisal workbench will automatically open.
+                </p>
+              </div>
+              <div className="bg-white px-4 py-2 rounded-lg border border-amber-200 shadow-sm text-center flex-shrink-0">
+                <p className="text-[10px] font-bold uppercase text-slate-400">Days Remaining</p>
+                <p className="text-2xl font-black text-amber-600 mt-0.5">{Math.max(0, 365 - (user?.serviceDays || 0))}</p>
+              </div>
+            </div>
+          </div>
+        ) : isReviewMode ? (
           renderOverview()
         ) : (
           <>
