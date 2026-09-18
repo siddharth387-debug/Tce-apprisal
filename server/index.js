@@ -445,6 +445,141 @@ app.get('/api/health', (_request, response) => {
   response.status(200).json({ status: 'ok' });
 });
 
+// ── Department Mapping Helper ────────────────────────────────────────────────
+const DEPARTMENT_NAME_MAP = {
+  MCA: 'Computer Applications',
+  CSE: 'Computer Science and Engineering',
+  ECE: 'Electronics and Communication Engineering',
+  EEE: 'Electrical and Electronics Engineering',
+  MECH: 'Mechanical Engineering',
+  CIVIL: 'Civil Engineering',
+  IT: 'Information Technology',
+  DS: 'Data Science',
+  MATHS: 'Mathematics',
+  PHYSICS: 'Physics',
+  CHEMISTRY: 'Chemistry',
+  HUMANITIES: 'Humanities & Social Sciences',
+  ALL: 'All Academic Departments'
+};
+
+// ── Secure Enterprise ERP Webhook Endpoint ──────────────────────────────────
+async function handleFacultyWebhook(req, res) {
+  const secretHeader = req.headers['x-webhook-secret'] || req.headers['x-api-key'] || req.query.secret;
+  const expectedSecret = process.env.WEBHOOK_SECRET || 'tce-appraisal-webhook-secret-2026';
+
+  if (!secretHeader || secretHeader !== expectedSecret) {
+    return res.status(401).json({
+      success: false,
+      message: 'Unauthorized: Invalid or missing webhook security token.'
+    });
+  }
+
+  try {
+    const {
+      staffId,
+      name,
+      email,
+      personalEmail,
+      hodEmail,
+      alternateEmails = [],
+      department,
+      departmentName,
+      role = 'Faculty',
+      designation = 'Faculty',
+      joiningDate,
+      active = true
+    } = req.body ?? {};
+
+    if (!email || !department) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required webhook fields: email and department are mandatory.'
+      });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanDept = department.toUpperCase().trim();
+    const cleanDeptName = departmentName || DEPARTMENT_NAME_MAP[cleanDept] || `${cleanDept} Department`;
+    const cleanRole = ['Faculty', 'HOD', 'Registrar', 'Principal', 'Admin'].includes(role) ? role : 'Faculty';
+
+    let userAliases = Array.isArray(alternateEmails) ? alternateEmails.map(e => e.toLowerCase().trim()) : [];
+    if (!userAliases.includes(cleanEmail)) userAliases.push(cleanEmail);
+    if (personalEmail && !userAliases.includes(personalEmail.toLowerCase().trim())) userAliases.push(personalEmail.toLowerCase().trim());
+    if (hodEmail && !userAliases.includes(hodEmail.toLowerCase().trim())) userAliases.push(hodEmail.toLowerCase().trim());
+
+    // Find existing faculty member by any email alias or staffId
+    let facultyRecord = await FacultyMember.findOne({
+      $or: [
+        { email: cleanEmail },
+        { personalEmail: cleanEmail },
+        { hodEmail: cleanEmail },
+        { alternateEmails: cleanEmail },
+        ...(staffId ? [{ staffId }] : [])
+      ]
+    });
+
+    const updateFields = {
+      name: name || facultyRecord?.name || 'Faculty Member',
+      department: cleanDept,
+      departmentName: cleanDeptName,
+      role: cleanRole,
+      designation,
+      active: Boolean(active),
+      alternateEmails: userAliases
+    };
+
+    if (staffId) updateFields.staffId = staffId;
+    if (personalEmail) updateFields.personalEmail = personalEmail.toLowerCase().trim();
+    if (hodEmail) updateFields.hodEmail = hodEmail.toLowerCase().trim();
+    if (joiningDate) updateFields.joiningDate = new Date(joiningDate);
+
+    if (facultyRecord) {
+      Object.assign(facultyRecord, updateFields);
+      await facultyRecord.save();
+    } else {
+      facultyRecord = await FacultyMember.create({
+        email: cleanEmail,
+        ...updateFields
+      });
+    }
+
+    // Align active/pending appraisal records to the updated department
+    const appraisalUpdateResult = await Appraisal.updateMany(
+      {
+        $or: [
+          { email: cleanEmail },
+          { facultyEmail: cleanEmail },
+          { email: { $in: userAliases } }
+        ]
+      },
+      {
+        $set: {
+          department: cleanDept,
+          departmentName: cleanDeptName
+        }
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Faculty record for ${facultyRecord.name} (${cleanEmail}) aligned to department ${cleanDept} successfully.`,
+      faculty: facultyRecord,
+      appraisalsUpdated: appraisalUpdateResult.modifiedCount
+    });
+  } catch (err) {
+    console.error('❌ Webhook Processing Error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error processing webhook payload.',
+      error: err.message
+    });
+  }
+}
+
+app.post('/api/v1/faculty/webhook', handleFacultyWebhook);
+app.post('/api/directory/webhook', handleFacultyWebhook);
+
+
 app.post('/api/auth/google', async (request, response) => {
   const { credential } = request.body ?? {};
 
