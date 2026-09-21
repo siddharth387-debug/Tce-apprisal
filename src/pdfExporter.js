@@ -116,9 +116,9 @@ export const exportAppraisalToPDF = ({
 
   // Row 3
   doc.setFont('helvetica', 'bold');
-  doc.text('Role / Desig:', boxX + 3, currentY + 14.5);
+  doc.text('Designation:', boxX + 3, currentY + 14.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(String(user?.role || 'Faculty'), boxX + 24, currentY + 14.5);
+  doc.text(String(record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor')), boxX + 24, currentY + 14.5);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Appraisal Status:', boxX + boxWidth / 2 + 2, currentY + 14.5);

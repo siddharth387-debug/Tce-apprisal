@@ -176,8 +176,8 @@ export default function AppraisalPrintDocument({
             <span className="font-medium text-slate-800">{submissionDate}</span>
           </div>
           <div>
-            <span className="font-bold text-slate-700">Role / Designation:</span>{' '}
-            <span className="font-medium text-slate-800">{user?.role || 'Faculty'}</span>
+            <span className="font-bold text-slate-700">Designation:</span>{' '}
+            <span className="font-medium text-slate-800">{record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor')}</span>
           </div>
           <div>
             <span className="font-bold text-slate-700">Appraisal Status:</span>{' '}

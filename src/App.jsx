@@ -3675,6 +3675,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
                   <th className="py-2.5 px-3">Faculty Name</th>
+                  <th className="py-2.5 px-3">Designation</th>
                   <th className="py-2.5 px-3">Faculty Email</th>
                   <th className="py-2.5 px-3">Dept</th>
                   <th className="py-2.5 px-3">Academic Year</th>
@@ -3687,7 +3688,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <tbody>
                 {selectedInboxRows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-6 px-3 text-center text-xs text-slate-500 italic">
+                    <td colSpan={9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
                       No faculty submissions available {selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.
                     </td>
                   </tr>
@@ -3705,6 +3706,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         className="border-b border-slate-100 text-xs text-slate-700 hover:bg-slate-50 transition"
                       >
                         <td className="py-2.5 px-3 font-semibold text-slate-900">{row.facultyName}</td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                            {row.designation || 'Assistant Professor'}
+                          </span>
+                        </td>
                         <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px]">{row.facultyEmail}</td>
                         <td className="py-2.5 px-3">
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-[#4A1519] border border-slate-200">
@@ -5406,7 +5412,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             </div>
 
-            {/* Role Capsule Pill */}
+            {/* Role / Designation Capsule Pill */}
             <span className={`text-[9px] font-black tracking-widest px-3 py-1.5 rounded-full uppercase border shadow-sm ${
               isPrincipal
                 ? 'bg-purple-900 text-purple-100 border-purple-800'
@@ -5416,7 +5422,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     ? 'bg-red-950 text-red-200 border-red-900/40' 
                     : 'bg-[#3B1013] text-red-100/90 border-red-950/50'
             }`}>
-              {effectiveRole}
+              {isPrincipal ? 'Principal' : isRegistrar ? 'Registrar' : (user.designation || (effectiveRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'))}
             </span>
 
             {/* Special Condition Correction Badge (Only shows if required) */}

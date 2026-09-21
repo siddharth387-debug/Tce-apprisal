@@ -59,7 +59,7 @@ export const exportAppraisalToExcel = async ({
   const liveStatus = record.appraisalStatus || 'Pending';
   wsSummary.addRow(['Faculty Name:', user?.name || 'Faculty Member', 'Academic Year:', timeline || '2024-2025']);
   wsSummary.addRow(['Email Address:', user?.email || '—', 'Date Generated:', new Date().toLocaleDateString('en-GB')]);
-  wsSummary.addRow(['Designation:', user?.role || 'Faculty', 'Status:', liveStatus]);
+  wsSummary.addRow(['Designation:', record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'), 'Status:', liveStatus]);
   wsSummary.addRow(['Grand Total Score:', `${effectiveScoreObj.grandTotal} / 200 Marks`, 'Percentage:', `${((effectiveScoreObj.grandTotal / 200) * 100).toFixed(1)}%`]);
 
   [4, 5, 6, 7].forEach(r => {

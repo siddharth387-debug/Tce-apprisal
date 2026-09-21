@@ -83,7 +83,7 @@ mongoose.connection.on('error', (err) => {
 const FacultyMemberSchema = new mongoose.Schema({
   staffId: { type: String, trim: true },
   name: { type: String, required: true, trim: true },
-  designation: { type: String, default: 'Faculty', trim: true },
+  designation: { type: String, default: 'Assistant Professor', trim: true },
   email: { type: String, required: true, lowercase: true, trim: true, unique: true, index: true },
   personalEmail: { type: String, lowercase: true, trim: true, default: '' },
   hodEmail: { type: String, lowercase: true, trim: true, default: '' },
@@ -108,6 +108,7 @@ const FacultyMember = mongoose.model('FacultyMember', FacultyMemberSchema);
 const AppraisalSchema = new mongoose.Schema({
   timeline: { type: String, required: true },
   facultyName: { type: String, default: "Faculty Member" },
+  designation: { type: String, default: 'Assistant Professor', trim: true },
   email: { type: String, required: true, lowercase: true, index: true },
   department: { type: String, default: 'MCA', index: true },
   departmentName: { type: String, default: 'Computer Applications' },
@@ -627,12 +628,12 @@ app.post('/api/auth/google', async (request, response) => {
       ]
     });
 
-    // Determine Role & Department (Default to MCA for gmail.com logins)
+    // Determine Role, Department & Designation (Dynamic lookup by email entry)
     const isGmailLogin = verifiedEmail.endsWith('@gmail.com');
     let assignedRole = 'Faculty';
     let assignedDept = isGmailLogin ? 'MCA' : 'CSE';
     let assignedDeptName = isGmailLogin ? 'Computer Applications' : 'Computer Science and Engineering';
-    let assignedDesignation = 'Faculty';
+    let assignedDesignation = 'Assistant Professor';
 
     if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu') {
       assignedRole = 'Registrar';
@@ -648,9 +649,10 @@ app.post('/api/auth/google', async (request, response) => {
       assignedRole = facultyRecord.role || 'Faculty';
       assignedDept = isGmailLogin ? 'MCA' : (facultyRecord.department || 'CSE');
       assignedDeptName = isGmailLogin ? 'Computer Applications' : (facultyRecord.departmentName || '');
-      assignedDesignation = facultyRecord.designation || 'Faculty';
+      assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
     } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
       assignedRole = 'HOD';
+      assignedDesignation = 'Professor & Head (HOD)';
       const hodMatch = verifiedEmail.match(/hod([a-z]+)/i);
       if (hodMatch && hodMatch[1]) {
         assignedDept = hodMatch[1].toUpperCase();
@@ -768,6 +770,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const replacementPayload = {
       timeline: timeline.trim(),
       facultyName: facultyName || facultyRecord?.name || req.user.name || 'Faculty Member',
+      designation: facultyRecord?.designation || req.user?.designation || (req.user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'),
       email: canonicalEmail,
       department: targetDept,
       departmentName: targetDeptName,
