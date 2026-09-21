@@ -2583,18 +2583,35 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   
   const fdpAttendedColumns = [
-    { name: "programName", label: "Name of Program", type: "text", placeholder: "e.g. FDP on AI" },
-    { name: "organizer", label: "Organizer", type: "text", placeholder: "e.g. TCE" },
+    { name: "programName", label: "Name of Program", type: "text", placeholder: "e.g. FDP on AI & Data Analytics" },
+    { name: "organizer", label: "Organizer", type: "text", placeholder: "e.g. TCE / NPTEL / AICTE" },
     { name: "duration", label: "Duration (Days)", type: "number", placeholder: "e.g. 5" },
-    { name: "dateRange", label: "Date of Program", type: "date" },
+    { name: "dateRange", label: "Start Date", type: "date" },
+    { name: "endDate", label: "End Date", type: "date" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
   const programsOrganizedColumns = [
-    { name: "programName", label: "Name of Program", type: "text", placeholder: "e.g. Workshop on IoT" },
+    { name: "programName", label: "Name of Program", type: "text", placeholder: "e.g. Workshop / FDP on Cloud Computing" },
     { name: "days", label: "Number of Days", type: "number", placeholder: "e.g. 5" },
-    { name: "dateRange", label: "Program Date", type: "date" },
-    { name: "role", label: "Coordinator / Co-coordinator", type: "select", options: ["Coordinator", "Co-coordinator"] },
-    { name: "participants", label: "Number of Participants (Internal, External)", type: "text", placeholder: "e.g. 40 (25, 15)" },
+    { name: "dateRange", label: "Start Date", type: "date" },
+    { name: "endDate", label: "End Date", type: "date" },
+    {
+      name: "role",
+      label: "Role in Program",
+      type: "select",
+      options: [
+        "Coordinator",
+        "Co-Coordinator",
+        "Convener",
+        "Co-Convener",
+        "Organizing Secretary",
+        "Joint Secretary",
+        "Session Chair / Resource Person",
+        "Committee Member",
+        "Co-Organizer"
+      ]
+    },
+    { name: "participants", label: "Number of Participants (Internal, External)", type: "text", placeholder: "e.g. 50 (30 Internal, 20 External)" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
   const resourcePersonColumns = [
@@ -2617,11 +2634,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
   const moocDevelopedColumns = [
-    { name: "courseName", label: "Course Name", type: "text", placeholder: "e.g. Intro to ML" },
-    { name: "weeks", label: "Number of Weeks", type: "number", placeholder: "e.g. 8" },
-    { name: "coFacultyCount", label: "No. of Co-Faculty members", type: "number", placeholder: "e.g. 2" },
-    { name: "takersCount", label: "Number of Takers (Internal, External)", type: "text", placeholder: "e.g. 150 (100, 50)" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "courseName", label: "Course Code & Name", type: "text", placeholder: "e.g. 21CS401 - Machine Learning Essentials (TCE MOOC)" },
+    { name: "courseId", label: "Course ID / Faculty Staff ID / Roll No", type: "text", placeholder: "e.g. Staff ID: MCA105 / Roll No: 21CS001" },
+    { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "e.g. 8 Weeks (or 3 Credits)" },
+    { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "e.g. 4 Modules / 2 Co-Faculty" },
+    { name: "takersCount", label: "Number of Learners / Takers (Internal, External)", type: "text", placeholder: "e.g. 150 Learners (100 Internal, 50 External)" },
+    { name: "evidenceLink", label: "Proof / Evidence Link (Syllabus, Video or Platform URL)", type: "url", placeholder: "https://drive.google.com/.." }
   ];
 
   const partialDeliveryColumns = [
@@ -4741,7 +4759,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.fdpAttended || []}
                 canAdd={canAddFdpAttended(currentSectionData.fdpAttended || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("fdpAttended", { programName: "", organizer: "", duration: "", dateRange: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("fdpAttended", { programName: "", organizer: "", duration: "", dateRange: "", endDate: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("fdpAttended", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("fdpAttended", rowId)}
                 columns={fdpAttendedColumns}
@@ -4752,7 +4770,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.programsOrganized || []}
                 canAdd={canAddProgramsOrganized(currentSectionData.programsOrganized || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("programsOrganized", { programName: "", days: "", dateRange: "", role: "Coordinator", participants: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("programsOrganized", { programName: "", days: "", dateRange: "", endDate: "", role: "Coordinator", participants: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("programsOrganized", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("programsOrganized", rowId)}
                 columns={programsOrganizedColumns}
@@ -4796,7 +4814,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.moocDeveloped || []}
                 canAdd={canAddMoocDeveloped(currentSectionData.moocDeveloped || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("moocDeveloped", { courseName: "", weeks: "", coFacultyCount: "", takersCount: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("moocDeveloped", { courseName: "", courseId: "", weeks: "", coFacultyCount: "", takersCount: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("moocDeveloped", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("moocDeveloped", rowId)}
                 columns={moocDevelopedColumns}

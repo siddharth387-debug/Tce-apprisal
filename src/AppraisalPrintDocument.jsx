@@ -561,13 +561,15 @@ export default function AppraisalPrintDocument({
           { key: 'programName', label: 'Program Name' },
           { key: 'organizer', label: 'Organizer' },
           { key: 'duration', label: 'Days' },
-          { key: 'dateRange', label: 'Dates' },
+          { key: 'dateRange', label: 'Start Date' },
+          { key: 'endDate', label: 'End Date' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.fdpAttended, '6.1')}
         {renderTable('6.2 Programs Organized', [
           { key: 'programName', label: 'Program Name' },
           { key: 'days', label: 'Days' },
-          { key: 'dateRange', label: 'Dates' },
+          { key: 'dateRange', label: 'Start Date' },
+          { key: 'endDate', label: 'End Date' },
           { key: 'role', label: 'Role' },
           { key: 'participants', label: 'Participants' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
@@ -592,10 +594,11 @@ export default function AppraisalPrintDocument({
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.editorialBoard, '6.5')}
         {renderTable('6.6 MOOC Content Developed', [
-          { key: 'courseName', label: 'Course Name' },
-          { key: 'creditsOrWeeks', label: 'Weeks' },
-          { key: 'modules', label: 'Modules' },
-          { key: 'learnersEnrolled', label: 'Learners' },
+          { key: 'courseName', label: 'Course Code & Name' },
+          { key: 'courseId', label: 'Course ID / Staff ID / Roll No' },
+          { key: 'weeks', label: 'Weeks' },
+          { key: 'coFacultyCount', label: 'Modules / Co-Faculty' },
+          { key: 'takersCount', label: 'Learners' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.moocDeveloped, '6.6')}
       </div>
