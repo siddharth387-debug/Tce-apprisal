@@ -578,6 +578,7 @@ export default function AppraisalPrintDocument({
           { key: 'eventName', label: 'Event' },
           { key: 'level', label: 'Level' },
           { key: 'topic', label: 'Topic' },
+          { key: 'venue', label: 'Venue / Institution' },
           { key: 'date', label: 'Date' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.resourcePerson, '6.3')}

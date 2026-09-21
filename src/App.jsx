@@ -2430,9 +2430,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     {
       name: 'attainmentPct',
-      label: 'Attainment %',
+      label: 'CO Attainment % (Single Number 0 - 100)',
       type: 'number',
-      placeholder: '72',
+      placeholder: 'e.g. 85.5',
     },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
   ];
@@ -2478,9 +2478,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     {
       name: 'passPercentage',
-      label: 'Pass Percentage',
+      label: 'Pass %',
       type: 'number',
-      placeholder: '91',
+      placeholder: '95',
     },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
   ];
@@ -2496,18 +2496,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const certificationsColumns = [
     {
       name: 'courseName',
-      label: 'Course Name',
-      placeholder: 'Enter Course Name',
+      label: 'Course / Certification Title',
+      placeholder: 'Enter Course / Certification Title',
     },
     {
       name: 'platform',
-      label: 'Platform',
-      placeholder: 'NPTEL / Coursera / Udemy',
+      label: 'Platform / Body',
+      type: 'select',
+      options: ['NPTEL / SWAYAM', 'Coursera', 'Udemy', 'IUCEE', 'IEEE', 'AWS / Industry Certification', 'Other Professional Platform'],
     },
     {
       name: 'certType',
       label: 'Certification Type',
-      placeholder: 'Elite + Silver',
+      placeholder: 'e.g. Elite + Silver / Professional Certificate',
     },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
   ];
@@ -2529,6 +2530,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const journalPapersColumns = [
     { name: 'paperTitle', label: 'Paper Title', placeholder: 'Enter Paper Title' },
     { name: 'journalName', label: 'Journal Name', placeholder: 'Enter Journal Name' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'e.g. 10.1016/j.jss.2025.101' },
+    { name: 'publisher', label: 'Publisher', placeholder: 'e.g. Elsevier / IEEE / Springer' },
+    { name: 'volumeIssue', label: 'Vol, Issue & Page Nos.', placeholder: 'e.g. Vol 15, Issue 2, pp. 45-52' },
+    { name: 'pubDate', label: 'Publication Date', type: 'date' },
     {
       name: 'tier',
       label: 'Journal Tier',
@@ -2543,6 +2548,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const bookPublicationsColumns = [
     { name: 'title', label: 'Book / Chapter Title', placeholder: 'Enter Title' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'e.g. 10.1007/978-3-030...' },
+    { name: 'publisher', label: 'Publisher', placeholder: 'e.g. Springer / CRC Press' },
+    { name: 'isbnIssn', label: 'ISBN / ISSN No.', placeholder: 'e.g. 978-3-16-148410-0' },
+    { name: 'pubDate', label: 'Publication Date', type: 'date' },
     {
       name: 'type',
       label: 'Publication Type',
@@ -2558,6 +2567,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const conferencePapersColumns = [
     { name: 'paperTitle', label: 'Conference Paper Title', placeholder: 'Enter Paper Title' },
     { name: 'proceedingName', label: 'Proceeding Name', placeholder: 'Enter Proceeding Name' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'e.g. 10.1109/ICAI.2025.101' },
+    { name: 'publisher', label: 'Publisher / Organizer', placeholder: 'e.g. IEEE Xplore / ACM' },
+    { name: 'pubDate', label: 'Conference Date', type: 'date' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/...' },
   ];
   const researchCollaborationsColumns = [
@@ -2615,9 +2627,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
   const resourcePersonColumns = [
-    { name: "eventName", label: "Event Name", type: "text", placeholder: "e.g. International Conference..." },
+    { name: "eventName", label: "Event Name", type: "text", placeholder: "e.g. International Conference on AI" },
     { name: "level", label: "International / National", type: "select", options: ["International", "National"] },
     { name: "topic", label: "Topic", type: "text", placeholder: "e.g. Keynote on Cloud Computing" },
+    { name: "venue", label: "Venue / Host Institution", type: "text", placeholder: "e.g. IIT Madras / Online (Zoom)" },
     { name: "date", label: "Date of Session", type: "date" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
@@ -2643,7 +2656,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
 
   const partialDeliveryColumns = [
-    { name: "courseDetails", label: "Course Code& Course Name", type: "text", placeholder: "e.g. 21CS401 - Database Systems" },
+    { name: "courseDetails", label: "Course Code & Course Name", type: "text", placeholder: "e.g. 21CS401 - Database Systems" },
     { name: "mode", label: "Online/Offline", type: "select", options: ["Online", "Offline"] },
     { name: "industryName", label: "Name of the Industry", type: "text", placeholder: "e.g. Microsoft" },
     { name: "expertDetails", label: "Name of the Expert & Designation", type: "text", placeholder: "e.g. Mr. Alok, Lead Engineer" },
@@ -2672,9 +2685,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
 
   const projectPublicationsColumns = [
-    { name: "title", label: "Title", type: "text", placeholder: "e.g. Smart Irrigation System using IoT" },
+    { name: "title", label: "Publication Title", type: "text", placeholder: "e.g. Smart Irrigation System using IoT" },
     { name: "students", label: "Student Name(s)", type: "text", placeholder: "e.g. Alice, Bob" },
     { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "e.g. IEEE Access..." },
+    { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "e.g. 10.1109/ACCESS.2025..." },
+    { name: "publisher", label: "Publisher", placeholder: "e.g. IEEE / Elsevier" },
     { name: "date", label: "Date of Publication", type: "date" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
@@ -2722,14 +2737,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
 
   const patentsPublishedColumns = [
-    { name: "refNumber", label: "Patent Ref Number", type: "text", placeholder: "e.g. 2024103..." },
+    { name: "refNumber", label: "Patent Ref / Application Number", type: "text", placeholder: "e.g. 2024103..." },
+    {
+      name: "patentType",
+      label: "Patent Category",
+      type: "select",
+      options: ["Design Patent", "Utility / Invention Patent", "Process Patent", "Software Patent / Copyright"]
+    },
     { name: "title", label: "Title", type: "text", placeholder: "e.g. A novel AI system..." },
     { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "e.g. Dr. John Doe" },
     { name: "datePublished", label: "Date Published", type: "date" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
   const patentsGrantedColumns = [
-    { name: "refNumber", label: "Patent Ref Number", type: "text", placeholder: "e.g. US109..." },
+    { name: "refNumber", label: "Patent Grant / Registration Number", type: "text", placeholder: "e.g. US109..." },
+    {
+      name: "patentType",
+      label: "Patent Category",
+      type: "select",
+      options: ["Design Patent", "Utility / Invention Patent", "Process Patent", "Software Patent / Copyright"]
+    },
     { name: "title", label: "Title", type: "text", placeholder: "e.g. A novel AI system..." },
     { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "e.g. Dr. John Doe" },
     { name: "dateGranted", label: "Date Granted", type: "date" },
@@ -4645,7 +4672,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-6 space-y-6 ${activeSection === "IV" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="4.1 Sponsored Research Project - PI / Co-PI"
-                subtitle="(Calculation Rubric: Based on amount threshold | Max 8 marks | Note: Sanction letter to be uploaded)"
+                subtitle="(Calculation Rubric: Sanctioned Amount >= ₹1 Lakh = 5 marks; < ₹1 Lakh = 3 marks | Max 8 marks | Note: Sanction letter to be uploaded)"
                 rows={currentSectionData.researchProjects || []}
                 canAdd={canAddResearchProjects(currentSectionData.researchProjects || [])}
                 disabled={!isEditable}
@@ -4656,7 +4683,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="4.2 Consultancy Projects"
-                subtitle="(Calculation Rubric: Based on amount threshold | Max 7 marks)"
+                subtitle="(Calculation Rubric: Consultancy Amount >= ₹50,000 = 3 marks; < ₹50,000 = 2 marks | Max 7 marks)"
                 rows={currentSectionData.consultancyProjects || []}
                 canAdd={canAddConsultancyProjects(currentSectionData.consultancyProjects || [])}
                 disabled={!isEditable}
