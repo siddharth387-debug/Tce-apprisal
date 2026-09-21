@@ -1811,7 +1811,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             type="button"
             onClick={() => {
               exportAppraisalToPDF({
-                user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty' },
+                user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty', designation: appraisal.designation || user?.designation || (appraisal.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor') },
                 timeline: appraisal.timeline,
                 sectionData: fullData,
                 scores: effectiveScoreObj,
@@ -1828,7 +1828,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             onClick={() => {
               if (onExportPDF) {
                 onExportPDF({
-                  user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty' },
+                  user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty', designation: appraisal.designation || user?.designation || (appraisal.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor') },
                   timeline: appraisal.timeline,
                   sectionData: fullData,
                   scores: effectiveScoreObj,
@@ -1847,7 +1847,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             type="button"
             onClick={() => {
               exportAppraisalToExcel({
-                user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty' },
+                user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty', designation: appraisal.designation || user?.designation || (appraisal.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor') },
                 timeline: appraisal.timeline,
                 sectionData: fullData,
                 scores: effectiveScoreObj,
