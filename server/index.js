@@ -121,6 +121,10 @@ const AppraisalSchema = new mongoose.Schema({
   principalApprovalStatus: { type: String, default: 'Pending' },
   principalEndorsedAt: { type: Date, default: null },
   principalRemarks: { type: String, default: '' },
+  iqacStatus: { type: String, default: 'Pending' },
+  iqacExcluded: { type: Boolean, default: false },
+  iqacAuditRemarks: { type: String, default: '' },
+  iqacEvaluatedAt: { type: Date, default: null },
   isLocked: { type: Boolean, default: false },
   section1Data: {
     coursesHandled: { type: Array, default: [] },
@@ -645,11 +649,16 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'Principal';
+    } else if (verifiedEmail === 'iqac@tce.edu' || verifiedEmail.includes('iqac')) {
+      assignedRole = 'IQAC';
+      assignedDept = 'ALL';
+      assignedDeptName = 'All Academic Departments';
+      assignedDesignation = 'IQAC Quality Coordinator';
     } else if (facultyRecord) {
       assignedRole = facultyRecord.role || 'Faculty';
-      assignedDept = isGmailLogin ? 'MCA' : (facultyRecord.department || 'CSE');
-      assignedDeptName = isGmailLogin ? 'Computer Applications' : (facultyRecord.departmentName || '');
-      assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
+      assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : (isGmailLogin ? 'MCA' : (facultyRecord.department || 'CSE'));
+      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (isGmailLogin ? 'Computer Applications' : (facultyRecord.departmentName || ''));
+      assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : assignedRole === 'IQAC' ? 'IQAC Quality Coordinator' : 'Assistant Professor');
     } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
       assignedRole = 'HOD';
       assignedDesignation = 'Professor & Head (HOD)';
@@ -1091,22 +1100,27 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       });
     }
 
-    // Dynamic Role Check: If user is HOD, Registrar, Principal, or Admin, retrieve departmental/campus queue
+    // Dynamic Role Check: If user is HOD, Registrar, Principal, IQAC, or Admin, retrieve departmental/campus queue
     const isElevated = requestRole === 'HOD' || 
                   requestRole === 'REGISTRAR' ||
                   requestRole === 'PRINCIPAL' ||
+                  requestRole === 'IQAC' ||
                   requestRole === 'ADMIN' ||
                   tokenRole === 'HOD' ||
                   tokenRole === 'REGISTRAR' ||
                   tokenRole === 'PRINCIPAL' ||
+                  tokenRole === 'IQAC' ||
                   tokenRole === 'ADMIN' ||
                   masterRecord?.role === 'HOD' ||
                   masterRecord?.role === 'Registrar' ||
                   masterRecord?.role === 'Principal' ||
+                  masterRecord?.role === 'IQAC' ||
                   masterRecord?.role === 'Admin' ||
                   requestEmail === 'siddharthk@student.tce.edu' || 
                   requestEmail === 'registrar@tce.edu' ||
                   requestEmail === 'principal@tce.edu' ||
+                  requestEmail === 'iqac@tce.edu' ||
+                  requestEmail.includes('iqac') ||
                   requestEmail.startsWith('hod') ||
                   requestEmail.includes('hod');
 
@@ -1119,10 +1133,14 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       const isSuperAdminOrRegistrar = requestEmail === 'siddharthk@student.tce.edu' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
+                                     requestEmail === 'iqac@tce.edu' ||
+                                     requestEmail.includes('iqac') ||
                                      requestRole === 'REGISTRAR' ||
                                      requestRole === 'PRINCIPAL' ||
+                                     requestRole === 'IQAC' ||
                                      tokenRole === 'REGISTRAR' ||
-                                     tokenRole === 'PRINCIPAL';
+                                     tokenRole === 'PRINCIPAL' ||
+                                     tokenRole === 'IQAC';
 
       if (deptQuery === 'ALL' || (!deptQuery && isSuperAdminOrRegistrar)) {
         console.log("🏛️ Registrar/Broad Access: Fetching across all 16 departments.");
@@ -1605,6 +1623,100 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
   } catch (err) {
     console.error("❌ CRITICAL BACKEND RUNTIME FAULT:", err.message);
     return res.status(500).json({ success: false, message: `Database processing crash: ${err.message}` });
+  }
+});
+
+// ── IQAC Verification & Quality Audit Endpoint ────────────────────────────
+app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req, res) => {
+  try {
+    const { id, iqacStatus, iqacAuditRemarks, iqacExcluded } = req.body;
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Appraisal ID is required." });
+    }
+
+    const allAppraisals = await Appraisal.find({});
+    let targetRecord = null;
+    if (typeof id === 'string' && id.length === 24) {
+      targetRecord = allAppraisals.find(doc => doc._id.toString() === id);
+    }
+    if (!targetRecord) {
+      targetRecord = allAppraisals.find(doc => {
+        const dbEmail = (doc.email || "").toLowerCase().trim();
+        const dbTimeline = (doc.timeline || "").trim();
+        return id.toLowerCase().includes(dbEmail) && id.includes(dbTimeline);
+      });
+    }
+
+    if (!targetRecord) {
+      return res.status(404).json({ success: false, message: "No matching appraisal record found." });
+    }
+
+    const newStatus = iqacStatus || 'IQAC Verified';
+    const updateFields = {
+      iqacStatus: newStatus,
+      appraisalStatus: newStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
+      iqacAuditRemarks: iqacAuditRemarks !== undefined ? iqacAuditRemarks : (targetRecord.iqacAuditRemarks || ''),
+      ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
+      iqacEvaluatedAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    await Appraisal.collection.updateOne(
+      { _id: targetRecord._id },
+      { $set: updateFields }
+    );
+
+    console.log(`✅ IQAC Verified: ID [${id}] updated to status [${newStatus}]`);
+    return res.status(200).json({
+      success: true,
+      message: `Appraisal successfully marked as ${newStatus} by IQAC Quality Audit.`
+    });
+  } catch (err) {
+    console.error('❌ Error in IQAC Verification API:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── IQAC Soft Curation Toggle Endpoint ──────────────────────────────────
+app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { iqacExcluded, iqacAuditRemarks } = req.body;
+    
+    const allAppraisals = await Appraisal.find({});
+    let targetRecord = null;
+    if (typeof id === 'string' && id.length === 24) {
+      targetRecord = allAppraisals.find(doc => doc._id.toString() === id);
+    }
+    if (!targetRecord) {
+      targetRecord = allAppraisals.find(doc => {
+        const dbEmail = (doc.email || "").toLowerCase().trim();
+        const dbTimeline = (doc.timeline || "").trim();
+        return id.toLowerCase().includes(dbEmail) && id.includes(dbTimeline);
+      });
+    }
+
+    if (!targetRecord) {
+      return res.status(404).json({ success: false, message: "No matching appraisal record found." });
+    }
+
+    const updateFields = {
+      ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
+      ...(iqacAuditRemarks !== undefined ? { iqacAuditRemarks } : {}),
+      updatedAt: new Date()
+    };
+
+    await Appraisal.collection.updateOne(
+      { _id: targetRecord._id },
+      { $set: updateFields }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `IQAC curation status updated successfully (Excluded: ${updateFields.iqacExcluded}).`
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 

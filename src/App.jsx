@@ -2185,26 +2185,36 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isSuperAdmin = user.email === 'siddharthk@student.tce.edu' || 
                        user.email === 'registrar@tce.edu' || 
                        user.email === 'principal@tce.edu' || 
+                       user.email === 'iqac@tce.edu' ||
+                       user.email?.includes('iqac') ||
                        user.role === 'Registrar' || 
                        user.role === 'Principal' ||
+                       user.role === 'IQAC' ||
                        user.role === 'Admin';
 
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
     if (user.role === 'Principal') return 'Principal';
     if (user.role === 'Registrar') return 'Registrar';
+    if (user.role === 'IQAC') return 'IQAC';
     if (user.role === 'HOD') return 'HOD';
     return user.role || 'Faculty';
   });
   const effectiveRole = isSuperAdmin ? adminActiveRole : user.role;
   const isPrincipal = effectiveRole === 'Principal';
   const isRegistrar = effectiveRole === 'Registrar';
-  const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal;
+  const isIQAC = effectiveRole === 'IQAC';
+  const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal || isIQAC;
   const [hodWorkspaceMode, setHodWorkspaceMode] = useState('hod_inbox'); // 'hod_inbox' | 'self_appraisal'
   const [isLeadershipModalOpen, setIsLeadershipModalOpen] = useState(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
   
-  const isReviewMode = isPrincipal || isRegistrar || (effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox');
+  // IQAC Score Filtering & Soft Curation State
+  const [iqacTargetScoreFilter, setIqacTargetScoreFilter] = useState(100);
+  const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('min'); // 'min' (>=) | 'exact' (==)
+  const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
+  
+  const isReviewMode = isPrincipal || isRegistrar || isIQAC || (effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox');
   const isHod = effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox';
   
   const [selectedTimeline, setSelectedTimeline] = useState(TIMELINES[0]);
@@ -2340,12 +2350,52 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   // Trigger the sync whenever the authenticated user session, effective role, or department filter changes.
   useEffect(() => {
     if (user) {
-      const currentDeptParam = (isPrincipal || isRegistrar) ? selectedDeptFilter : (user.department || 'ALL');
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     }
-  }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, syncHistoryFromCloud]);
+  }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, syncHistoryFromCloud]);
 
-  // HOD/Registrar INBOX BRIDGE: Whenever appraisals are refreshed from the cloud,
+  const handleIqacVerifySubmission = useCallback(async (recordId) => {
+    try {
+      setIsSubmitting(true);
+      const activeToken = getStoredAuthToken();
+      const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+      await axios.post(
+        `${API_BASE_URL}/appraisals/iqac-verify`,
+        { id: recordId, iqacStatus: 'IQAC Verified' },
+        { headers }
+      );
+      setSubmitSuccess('Appraisal successfully verified by IQAC!');
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
+      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+    } catch (err) {
+      setSubmitError(err.response?.data?.message || 'Failed to update IQAC verification status.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
+
+  const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState) => {
+    try {
+      setIsSubmitting(true);
+      const activeToken = getStoredAuthToken();
+      const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+      await axios.patch(
+        `${API_BASE_URL}/appraisals/${recordId}/iqac-status`,
+        { iqacExcluded: !currentExcludedState },
+        { headers }
+      );
+      setSubmitSuccess(currentExcludedState ? 'Faculty restored to active IQAC audit list.' : 'Faculty soft-hidden from active IQAC audit list.');
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
+      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+    } catch (err) {
+      setSubmitError(err.response?.data?.message || 'Failed to update curation status.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
+
+  // HOD/Registrar/IQAC INBOX BRIDGE: Whenever appraisals are refreshed from the cloud,
   // rebuild hodInboxByTimeline so the table reflects the latest appraisalStatus from MongoDB.
   useEffect(() => {
     if (!hasHodPrivileges || !Array.isArray(appraisals)) return;
@@ -2363,11 +2413,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         department: record.department || 'CSE',
         departmentName: record.departmentName || '',
         appraisalStatus: record.appraisalStatus || 'Pending',
+        iqacStatus: record.iqacStatus || 'Pending',
+        iqacExcluded: Boolean(record.iqacExcluded),
+        iqacAuditRemarks: record.iqacAuditRemarks || '',
+        iqacEvaluatedAt: record.iqacEvaluatedAt || null,
         hodRemarks: record.hodRemarks || '',
         subsectionRemarks: record.subsectionRemarks || {},
         hodSubsectionScores: record.hodSubsectionScores || {},
         submittedAt: record.submittedAt || record.createdAt || record.updatedAt,
         convertedScore: record.convertedScore || 0,
+        designation: record.designation || 'Assistant Professor',
         section1Data: record.section1Data || {},
         section2Data: record.section2Data || {},
         section3Data: record.section3Data || {},
@@ -3512,36 +3567,61 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { label: '1.11 CO Attainment %', value: scores.coAttainment, max: 4 },
   ];
 
-  const renderOverview = () => (
+  const renderOverview = () => {
+    const iqacActiveCount = selectedInboxRows.filter(r => !r.iqacExcluded).length;
+    const iqacExcludedCount = selectedInboxRows.filter(r => r.iqacExcluded).length;
+
+    let displayInboxRows = selectedInboxRows;
+    if (isIQAC) {
+      displayInboxRows = selectedInboxRows.filter((row) => {
+        const fullScores = computeSectionScores(row.sectionData || row, 'Faculty');
+        const totalScore = row.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
+        
+        if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
+        if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
+        
+        if (iqacScoreFilterMode === 'min') {
+          return totalScore >= iqacTargetScoreFilter;
+        } else {
+          return totalScore === iqacTargetScoreFilter;
+        }
+      });
+    }
+
+    return (
     <div className="space-y-3">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-xl">
             <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-              {isPrincipal ? '🎓 Apex Executive Governance & Oversight' : isRegistrar ? '🏛️ Institutional Governance & Review' : isHod ? '🏢 Departmental Evaluation' : 'Academic Timeline'}
+              {isPrincipal ? '🎓 Apex Executive Governance & Oversight' : isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? '🏢 Departmental Evaluation' : 'Academic Timeline'}
             </p>
             <h2 className="mt-1 text-xl font-semibold text-slate-900">
               {isPrincipal
                 ? 'Campus-Wide Accreditation & Analytics'
                 : isRegistrar
                   ? 'Campus-Wide Appraisal Overview'
-                  : isHod
-                    ? `Department of ${user.department || 'CSE'} Appraisal Inbox`
-                    : `Appraisal for ${selectedTimeline}`}
+                  : isIQAC
+                    ? 'NAAC / NIRF Benchmark & Quality Audit'
+                    : isHod
+                      ? `Department of ${user.department || 'CSE'} Appraisal Inbox`
+                      : `Appraisal for ${selectedTimeline}`}
             </h2>
             <p className="mt-1 text-xs text-slate-500">
               {isPrincipal
                 ? 'College-wide performance insights, NIRF/NAAC accreditation readiness, and departmental benchmarks across all 16 academic departments.'
                 : isRegistrar
                   ? 'Monitor, filter, and validate annual faculty performance submissions across all 16 TCE academic departments.'
-                  : isHod
-                    ? 'Review faculty submissions and validate appraisal records for the selected academic year.'
-                    : 'Select the academic year and create your Section I submission when ready.'}
+                  : isIQAC
+                    ? 'Audit faculty submissions, filter by target score threshold (e.g. Score = 100), verify accreditation evidence, and curate NAAC lists.'
+                    : isHod
+                      ? 'Review faculty submissions and validate appraisal records for the selected academic year.'
+                      : 'Select the academic year and create your Section I submission when ready.'}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {(isPrincipal || isRegistrar) && (
+            {(isPrincipal || isRegistrar || isIQAC) && (
               <label className="block">
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
                   Filter Department
@@ -3581,7 +3661,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {isReviewMode && (
               <button
                 type="button"
-                onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar) ? selectedDeptFilter : user.department)}
+                onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : user.department)}
                 className="h-8 mt-4 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition"
               >
                 <span>🔄</span> Refresh
@@ -3589,6 +3669,69 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             )}
           </div>
         </div>
+
+        {/* IQAC Score Range Filter & Soft Curation Toolbar */}
+        {isIQAC && (
+          <div className="mt-4 p-4 bg-gradient-to-r from-blue-900/10 via-slate-50 to-blue-900/10 border border-blue-200 rounded-xl space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
+                  <span className="text-[11px] font-extrabold uppercase text-blue-900 tracking-wider">🎯 Target Score Filter:</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="200"
+                    value={iqacTargetScoreFilter}
+                    onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value) || 0)}
+                    className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    value={iqacTargetScoreFilter}
+                    onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value))}
+                    className="w-28 accent-blue-900 cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300">
+                  <button
+                    type="button"
+                    onClick={() => setIqacScoreFilterMode('min')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacScoreFilterMode === 'min' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Score ≥ {iqacTargetScoreFilter}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIqacScoreFilterMode('exact')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacScoreFilterMode === 'exact' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Exact Score ({iqacTargetScoreFilter})
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setIqacShowExcludedOnly(false)}
+                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  <span>📋</span> Active Audit List ({iqacActiveCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIqacShowExcludedOnly(true)}
+                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  <span>🚫</span> Excluded Archive ({iqacExcludedCount})
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Live Metric Statistics Cards Row */}
         {isReviewMode && (
@@ -3686,24 +3829,27 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 </tr>
               </thead>
               <tbody>
-                {selectedInboxRows.length === 0 ? (
+                {displayInboxRows.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
-                      No faculty submissions available {selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.
+                      {isIQAC 
+                        ? `No faculty submissions found matching Score ${iqacScoreFilterMode === 'min' ? '≥' : '=='} ${iqacTargetScoreFilter} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
+                        : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
                     </td>
                   </tr>
                 ) : (
-                  selectedInboxRows.map((row) => {
+                  displayInboxRows.map((row) => {
                     const fullScores = computeSectionScores(row.sectionData || row, 'Faculty');
                     const totalScore = row.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
                     const formattedDate = row.submittedAt || row.createdAt
                       ? new Date(row.submittedAt || row.createdAt).toLocaleDateString('en-GB')
                       : '—';
+                    const isIqacVerified = row.iqacStatus === 'IQAC Verified' || row.appraisalStatus === 'IQAC Verified';
 
                     return (
                       <tr
                         key={row.id || row._id}
-                        className="border-b border-slate-100 text-xs text-slate-700 hover:bg-slate-50 transition"
+                        className={`border-b border-slate-100 text-xs text-slate-700 hover:bg-slate-50 transition ${row.iqacExcluded ? 'bg-rose-50/40' : ''}`}
                       >
                         <td className="py-2.5 px-3 font-semibold text-slate-900">{row.facultyName}</td>
                         <td className="py-2.5 px-3">
@@ -3719,12 +3865,23 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         </td>
                         <td className="py-2.5 px-3 font-medium text-slate-800">{row.timeline || selectedTimeline}</td>
                         <td className="py-2.5 px-3 text-slate-500">{formattedDate}</td>
-                        <td className="py-2.5 px-3 font-bold text-[#4A1519]">{totalScore} / 200</td>
+                        <td className="py-2.5 px-3 font-bold text-[#4A1519]">
+                          <span className={`px-2 py-0.5 rounded text-xs font-black ${totalScore >= 100 ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-sm' : 'text-[#4A1519]'}`}>
+                            {totalScore} / 200
+                          </span>
+                        </td>
                         <td className="py-2.5 px-3">
                           {(() => {
                             const activeStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
-                            if (isRatified) {
+                            
+                            if (isIqacVerified) {
+                              return (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
+                                  <span>📊</span> IQAC Verified
+                                </span>
+                              );
+                            } else if (isRatified) {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
                                   <span>🔒</span> Ratified
@@ -3745,14 +3902,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 shadow-sm animate-pulse">
-                                  Pending
+                                  {activeStatus || 'Pending'}
                                 </span>
                               );
                             }
                           })()}
                         </td>
                         <td className="py-2.5 px-3 text-right">
-                          <div className="flex items-center justify-end space-x-2">
+                          <div className="flex items-center justify-end space-x-1.5">
                             <button
                               onClick={() => {
                                 const flattened = flattenAppraisalRecord(row);
@@ -3763,17 +3920,45 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 setHodSubsectionRemarks(row.subsectionRemarks || {});
                                 setHodSubsectionScores(row.hodSubsectionScores || {});
                               }}
-                              className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-3 py-1 rounded-md shadow-sm transition font-medium"
+                              className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1"
                             >
-                              Review Data
+                              <span>🔍</span> {isIQAC ? 'Audit Data' : 'Review Data'}
                             </button>
-                            <button
-                              onClick={() => handleDeleteAppraisalRecord(row._id || row.id)}
-                              className="text-xs text-gray-400 hover:text-red-600 transition p-1"
-                              title="Purge Record"
-                            >
-                              🗑️
-                            </button>
+
+                            {isIQAC && (
+                              <>
+                                {!isIqacVerified && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleIqacVerifySubmission(row._id || row.id)}
+                                    disabled={isSubmitting}
+                                    className="text-[10.5px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 disabled:opacity-50"
+                                    title="Mark submission as IQAC Verified"
+                                  >
+                                    <span>✔</span> Verify
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleIqacToggleExclusion(row._id || row.id, Boolean(row.iqacExcluded))}
+                                  disabled={isSubmitting}
+                                  className={`text-[10.5px] px-2 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 ${row.iqacExcluded ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                                  title={row.iqacExcluded ? 'Restore entry to active IQAC list' : 'Soft-hide entry from active IQAC list (Does NOT delete database record)'}
+                                >
+                                  <span>{row.iqacExcluded ? '↩ Restore' : '🚫 Hide'}</span>
+                                </button>
+                              </>
+                            )}
+
+                            {!isIQAC && (
+                              <button
+                                onClick={() => handleDeleteAppraisalRecord(row._id || row.id)}
+                                className="text-xs text-gray-400 hover:text-red-600 transition p-1"
+                                title="Purge Record"
+                              >
+                                🗑️
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -3972,7 +4157,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         />
       )}
     </div>
-  );
+    );
+  };
 
   const renderSectionOne = () => (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
@@ -5326,6 +5512,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <button
                   type="button"
                   onClick={() => {
+                    setAdminActiveRole('IQAC');
+                    setActiveView('overview');
+                  }}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
+                    effectiveRole === 'IQAC'
+                      ? 'bg-[#4A1519] text-white shadow-sm'
+                      : 'text-amber-950 hover:bg-amber-100'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>IQAC</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     setAdminActiveRole('HOD');
                     setHodWorkspaceMode('hod_inbox');
                     setActiveView('overview');
@@ -5399,8 +5600,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </button>
             )}
 
-
-            
             {/* User Profile Rounded Badge Box */}
             <div className="flex items-center space-x-3 bg-[#4A1519] px-3 py-1.5 rounded-xl shadow-sm border border-red-950/20 text-left">
               <div className="w-8 h-8 rounded-xl bg-white/10 text-white font-black text-sm flex items-center justify-center border border-white/20 uppercase shadow-inner">
@@ -5418,17 +5617,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 ? 'bg-purple-900 text-purple-100 border-purple-800'
                 : isRegistrar
                   ? 'bg-purple-950 text-purple-200 border-purple-900/40'
-                  : effectiveRole === 'HOD' 
-                    ? 'bg-red-950 text-red-200 border-red-900/40' 
-                    : 'bg-[#3B1013] text-red-100/90 border-red-950/50'
+                  : isIQAC
+                    ? 'bg-blue-950 text-blue-100 border-blue-900/40'
+                    : effectiveRole === 'HOD' 
+                      ? 'bg-red-950 text-red-200 border-red-900/40' 
+                      : 'bg-[#3B1013] text-red-100/90 border-red-950/50'
             }`}>
               {isPrincipal 
                 ? 'Principal' 
                 : isRegistrar 
                   ? 'Registrar' 
-                  : effectiveRole === 'HOD' 
-                    ? 'Professor & Head (HOD)' 
-                    : (user.designation && user.designation !== 'Registrar' && user.designation !== 'Principal' ? user.designation : 'Assistant Professor')}
+                  : isIQAC
+                    ? 'IQAC Quality Coordinator'
+                    : effectiveRole === 'HOD' 
+                      ? 'Professor & Head (HOD)' 
+                      : (user.designation && user.designation !== 'Registrar' && user.designation !== 'Principal' && user.designation !== 'IQAC Quality Coordinator' ? user.designation : 'Assistant Professor')}
             </span>
 
             {/* Special Condition Correction Badge (Only shows if required) */}
@@ -5461,14 +5664,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               ? '🎓 PRINCIPAL APEX EXECUTIVE WORKBENCH (CAMPUS-WIDE ACCREDITATION & ANALYTICS)'
               : isRegistrar
                 ? '🏛️ REGISTRAR INSTITUTIONAL GOVERNANCE WORKBENCH (CAMPUS-WIDE OVERSIGHT)'
-                : effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal'
-                  ? '📋 HOD SELF-APPRAISAL WORKBENCH (FACULTY MODE)'
-                  : effectiveRole === 'HOD'
-                    ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
-                    : '📋 FACULTY APPRAISAL WORKBENCH'}
+                : isIQAC
+                  ? '📊 IQAC ACCREDITATION & QUALITY AUDIT WORKBENCH (NAAC / NIRF BENCHMARKING)'
+                  : effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal'
+                    ? '📋 HOD SELF-APPRAISAL WORKBENCH (FACULTY MODE)'
+                    : effectiveRole === 'HOD'
+                      ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
+                      : '📋 FACULTY APPRAISAL WORKBENCH'}
           </span>
           <span className="text-[11px] font-semibold text-red-200">
-            {isPrincipal || isRegistrar
+            {isPrincipal || isRegistrar || isIQAC
               ? 'Institution-Wide Oversight • 16 Academic Departments'
               : user.department
                 ? `Department of ${user.department} ${user.departmentName ? `• ${user.departmentName}` : ''}`
