@@ -699,7 +699,7 @@ export const exportIqacRosterPDF = ({
     r.timeline || timeline,
     r.submittedAt || r.createdAt ? new Date(r.submittedAt || r.createdAt).toLocaleDateString('en-GB') : '—',
     `${r.convertedScore || 0} / 200`,
-    r.iqacStatus === 'IQAC Verified' ? 'IQAC Verified' : (r.appraisalStatus || 'Pending')
+    ((r.iqacStatus || '').toUpperCase().includes('IQAC') || (r.appraisalStatus || '').toUpperCase().includes('IQAC')) ? 'IQAC Verified' : (r.appraisalStatus || 'Pending')
   ]);
 
   autoTable(doc, {

@@ -1636,14 +1636,18 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
 
     const allAppraisals = await Appraisal.find({});
     let targetRecord = null;
-    if (typeof id === 'string' && id.length === 24) {
-      targetRecord = allAppraisals.find(doc => doc._id.toString() === id);
+    const strId = String(id).trim();
+    if (strId.length === 24) {
+      targetRecord = allAppraisals.find(doc => doc._id.toString() === strId);
+    }
+    if (!targetRecord) {
+      targetRecord = allAppraisals.find(doc => doc._id.toString() === strId);
     }
     if (!targetRecord) {
       targetRecord = allAppraisals.find(doc => {
         const dbEmail = (doc.email || "").toLowerCase().trim();
         const dbTimeline = (doc.timeline || "").trim();
-        return id.toLowerCase().includes(dbEmail) && id.includes(dbTimeline);
+        return strId.toLowerCase().includes(dbEmail) && strId.includes(dbTimeline);
       });
     }
 
@@ -1661,9 +1665,10 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       updatedAt: new Date()
     };
 
-    await Appraisal.collection.updateOne(
-      { _id: targetRecord._id },
-      { $set: updateFields }
+    await Appraisal.findByIdAndUpdate(
+      targetRecord._id,
+      { $set: updateFields },
+      { new: true }
     );
 
     console.log(`✅ IQAC Verified: ID [${id}] updated to status [${newStatus}]`);
@@ -1685,14 +1690,15 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
     
     const allAppraisals = await Appraisal.find({});
     let targetRecord = null;
-    if (typeof id === 'string' && id.length === 24) {
-      targetRecord = allAppraisals.find(doc => doc._id.toString() === id);
+    const strId = String(id).trim();
+    if (strId.length === 24) {
+      targetRecord = allAppraisals.find(doc => doc._id.toString() === strId);
     }
     if (!targetRecord) {
       targetRecord = allAppraisals.find(doc => {
         const dbEmail = (doc.email || "").toLowerCase().trim();
         const dbTimeline = (doc.timeline || "").trim();
-        return id.toLowerCase().includes(dbEmail) && id.includes(dbTimeline);
+        return strId.toLowerCase().includes(dbEmail) && strId.includes(dbTimeline);
       });
     }
 
@@ -1706,9 +1712,10 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
       updatedAt: new Date()
     };
 
-    await Appraisal.collection.updateOne(
-      { _id: targetRecord._id },
-      { $set: updateFields }
+    await Appraisal.findByIdAndUpdate(
+      targetRecord._id,
+      { $set: updateFields },
+      { new: true }
     );
 
     return res.status(200).json({
