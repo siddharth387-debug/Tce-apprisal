@@ -1812,6 +1812,12 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
               </span>
             )}
           </div>
+          {appraisal.iqacAuditRemarks && (
+            <div className="mt-2 text-xs font-semibold text-blue-900 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+              <span>📊</span>
+              <span><strong>IQAC Audit Remarks:</strong> "{appraisal.iqacAuditRemarks}"</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           <button
@@ -2364,12 +2370,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const handleIqacVerifySubmission = useCallback(async (recordId) => {
     try {
+      const inputRemarks = window.prompt("✔ (Optional) Enter IQAC verification remarks or notes for this appraisal:");
+      if (inputRemarks === null) return;
+
       setIsSubmitting(true);
       const activeToken = getStoredAuthToken();
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       await axios.post(
         `${API_BASE_URL}/appraisals/iqac-verify`,
-        { id: recordId, iqacStatus: 'IQAC Verified' },
+        { 
+          id: recordId, 
+          iqacStatus: 'IQAC Verified',
+          ...(inputRemarks.trim() ? { iqacAuditRemarks: inputRemarks.trim() } : {})
+        },
         { headers }
       );
       setSubmitSuccess('Appraisal successfully verified by IQAC!');
@@ -2384,12 +2397,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState) => {
     try {
+      let remarks = '';
+      if (!currentExcludedState) {
+        const inputReason = window.prompt("🚫 (Optional) Enter reason/feedback for soft-hiding this faculty member from the active IQAC list:");
+        if (inputReason === null) return;
+        remarks = inputReason.trim();
+      }
+
       setIsSubmitting(true);
       const activeToken = getStoredAuthToken();
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       await axios.patch(
         `${API_BASE_URL}/appraisals/${recordId}/iqac-status`,
-        { iqacExcluded: !currentExcludedState },
+        { 
+          iqacExcluded: !currentExcludedState,
+          ...(remarks ? { iqacAuditRemarks: remarks } : {})
+        },
         { headers }
       );
       setSubmitSuccess(currentExcludedState ? 'Faculty restored to active IQAC audit list.' : 'Faculty soft-hidden from active IQAC audit list.');
@@ -3883,7 +3906,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         key={row.id || row._id}
                         className={`border-b border-slate-100 text-xs text-slate-700 hover:bg-slate-50 transition ${row.iqacExcluded ? 'bg-rose-50/40' : ''}`}
                       >
-                        <td className="py-2.5 px-3 font-semibold text-slate-900">{row.facultyName}</td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-900">
+                          <div>{row.facultyName}</div>
+                          {isIQAC && row.iqacAuditRemarks && (
+                            <div className={`text-[10px] font-medium px-2 py-0.5 rounded mt-1 border max-w-xs ${row.iqacExcluded ? 'bg-rose-100/80 text-rose-900 border-rose-200' : 'bg-blue-50 text-blue-900 border-blue-200'}`}>
+                              💬 <strong>IQAC Note:</strong> "{row.iqacAuditRemarks}"
+                            </div>
+                          )}
+                        </td>
                         <td className="py-2.5 px-3">
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
                             {row.designation || 'Assistant Professor'}
@@ -4085,11 +4115,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               🎓 <span className="font-bold text-emerald-950">Principal Commendation:</span> "{row.principalRemarks}"
                             </div>
                           )}
+                          {row.iqacAuditRemarks && (
+                            <div className="bg-blue-50/90 border border-blue-200 rounded-lg p-2 text-[11px] text-blue-950">
+                              📊 <span className="font-bold text-blue-900">IQAC Audit Note:</span> "{row.iqacAuditRemarks}"
+                            </div>
+                          )}
                           {row.hodRemarks ? (
                             <div className="bg-gray-50/80 border border-gray-100 rounded-lg p-2 text-[11px]">
                               💬 <span className="font-semibold text-gray-700">HOD Feedback:</span> "{row.hodRemarks}"
                             </div>
-                          ) : !row.principalRemarks ? (
+                          ) : (!row.principalRemarks && !row.iqacAuditRemarks) ? (
                             <span className="text-gray-300 italic">—</span>
                           ) : null}
                         </td>
