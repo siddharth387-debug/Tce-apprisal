@@ -5422,7 +5422,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     ? 'bg-red-950 text-red-200 border-red-900/40' 
                     : 'bg-[#3B1013] text-red-100/90 border-red-950/50'
             }`}>
-              {isPrincipal ? 'Principal' : isRegistrar ? 'Registrar' : (user.designation || (effectiveRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'))}
+              {isPrincipal 
+                ? 'Principal' 
+                : isRegistrar 
+                  ? 'Registrar' 
+                  : effectiveRole === 'HOD' 
+                    ? 'Professor & Head (HOD)' 
+                    : (user.designation && user.designation !== 'Registrar' && user.designation !== 'Principal' ? user.designation : 'Assistant Professor')}
             </span>
 
             {/* Special Condition Correction Badge (Only shows if required) */}
