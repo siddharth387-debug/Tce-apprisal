@@ -1443,6 +1443,13 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const sec1 = appraisal.section1Data || appraisal.sectionData || fullData;
   const sec2 = appraisal.section2Data || appraisal.sectionData || fullData;
   
+  const exportUserObj = {
+    name: facultyName,
+    email: facultyEmail,
+    role: appraisal.role || 'Faculty',
+    designation: appraisal.designation || (appraisal.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor')
+  };
+
   // Active HoD Scores map (either being edited in hodControls or saved on appraisal)
   const activeHodScores = (hodControls ? hodControls.subsectionScores : appraisal.hodSubsectionScores) || {};
   const effectiveScoreObj = computeEffectiveScores(fullData, activeHodScores);
@@ -1811,7 +1818,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             type="button"
             onClick={() => {
               exportAppraisalToPDF({
-                user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty', designation: appraisal.designation || user?.designation || (appraisal.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor') },
+                user: exportUserObj,
                 timeline: appraisal.timeline,
                 sectionData: fullData,
                 scores: effectiveScoreObj,
@@ -1828,7 +1835,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             onClick={() => {
               if (onExportPDF) {
                 onExportPDF({
-                  user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty', designation: appraisal.designation || user?.designation || (appraisal.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor') },
+                  user: exportUserObj,
                   timeline: appraisal.timeline,
                   sectionData: fullData,
                   scores: effectiveScoreObj,
@@ -1847,7 +1854,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             type="button"
             onClick={() => {
               exportAppraisalToExcel({
-                user: { name: facultyName, email: facultyEmail, role: appraisal.role || 'Faculty', designation: appraisal.designation || user?.designation || (appraisal.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor') },
+                user: exportUserObj,
                 timeline: appraisal.timeline,
                 sectionData: fullData,
                 scores: effectiveScoreObj,
@@ -2901,7 +2908,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     let rows = appraisals;
 
     // Department filtering:
-    if (isPrincipal || isRegistrar) {
+    if (isPrincipal || isRegistrar || isIQAC) {
       if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
         rows = rows.filter(r => (r.department || '').toUpperCase() === selectedDeptFilter.toUpperCase());
       }
@@ -2925,7 +2932,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       facultyEmail: record.email || record.facultyEmail,
       department: record.department || 'CSE',
       departmentName: record.departmentName || '',
+      designation: record.designation || 'Assistant Professor',
       appraisalStatus: record.appraisalStatus || 'Pending',
+      iqacStatus: record.iqacStatus || 'Pending',
+      iqacExcluded: Boolean(record.iqacExcluded),
+      iqacAuditRemarks: record.iqacAuditRemarks || '',
+      iqacEvaluatedAt: record.iqacEvaluatedAt || null,
       hodRemarks: record.hodRemarks || '',
       subsectionRemarks: record.subsectionRemarks || {},
       hodSubsectionScores: record.hodSubsectionScores || {},
@@ -2942,7 +2954,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       section9Data: record.section9Data || {},
       sectionData: flattenAppraisalRecord(record),
     }));
-  }, [appraisals, isRegistrar, selectedDeptFilter, effectiveRole, user.department, selectedTimeline]);
+  }, [appraisals, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, user.department, selectedTimeline]);
 
   const selectedInboxRecord = selectedInboxRows.find(
     (row) => row.id === selectedInboxRecordId
