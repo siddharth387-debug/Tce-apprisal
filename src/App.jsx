@@ -5,7 +5,7 @@ import tceBanner from './tce-banner.png';
 import tceLogo from './tce-logo.png';
 import AppraisalPrintDocument from './AppraisalPrintDocument.jsx';
 import { exportAppraisalToExcel } from './excelExporter.js';
-import { exportAppraisalToPDF } from './pdfExporter.js';
+import { exportAppraisalToPDF, exportIqacRosterPDF } from './pdfExporter.js';
 import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SECTION_MAX_MARKS } from './scoringEngine.js';
 import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
@@ -3713,20 +3713,40 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 </div>
               </div>
 
-              <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => setIqacShowExcludedOnly(false)}
+                    className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    <span>📋</span> Active Audit List ({iqacActiveCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIqacShowExcludedOnly(true)}
+                    className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    <span>🚫</span> Excluded Archive ({iqacExcludedCount})
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setIqacShowExcludedOnly(false)}
-                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  onClick={() => {
+                    exportIqacRosterPDF({
+                      rows: selectedInboxRows,
+                      timeline: selectedTimeline,
+                      departmentFilter: selectedDeptFilter,
+                      targetScore: iqacTargetScoreFilter,
+                      scoreFilterMode: iqacScoreFilterMode,
+                      showExcludedArchive: iqacShowExcludedOnly,
+                    });
+                  }}
+                  className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
+                  title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
                 >
-                  <span>📋</span> Active Audit List ({iqacActiveCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIqacShowExcludedOnly(true)}
-                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                >
-                  <span>🚫</span> Excluded Archive ({iqacExcludedCount})
+                  <span>📄</span> Export Audit PDF
                 </button>
               </div>
             </div>

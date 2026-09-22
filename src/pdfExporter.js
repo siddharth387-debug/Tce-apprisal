@@ -631,3 +631,114 @@ export const exportAppraisalToPDF = ({
   const filename = `TCE_Appraisal_${facultyCleanName}_${timeline || '2024-2025'}.pdf`;
   doc.save(filename);
 };
+
+export const exportIqacRosterPDF = ({
+  rows = [],
+  timeline = 'All',
+  departmentFilter = 'ALL',
+  targetScore = 100,
+  scoreFilterMode = 'min',
+  showExcludedArchive = false,
+}) => {
+  // Exclude soft-hidden faculty entries when exporting active audit list
+  const activeRows = rows.filter((r) => {
+    if (showExcludedArchive) return r.iqacExcluded === true;
+    return !r.iqacExcluded;
+  });
+
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 12;
+  let currentY = margin;
+
+  // Header Banner
+  doc.setFillColor(74, 21, 25);
+  doc.rect(margin, currentY, pageWidth - margin * 2, 22, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(255, 255, 255);
+  doc.text('THIAGARAJAR COLLEGE OF ENGINEERING, MADURAI', pageWidth / 2, currentY + 8, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('INTERNAL QUALITY ASSURANCE CELL (IQAC) — ACCREDITATION AUDIT REPORT', pageWidth / 2, currentY + 15, { align: 'center' });
+
+  currentY += 27;
+
+  // Metadata Box
+  doc.setDrawColor(200, 200, 200);
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(margin, currentY, pageWidth - margin * 2, 18, 2, 2, 'FD');
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 41, 59);
+  doc.text(`Audit View: ${showExcludedArchive ? 'Excluded Archive' : 'Active Audit Roster'}`, margin + 4, currentY + 6);
+  doc.text(`Score Filter: ${scoreFilterMode === 'min' ? '≥' : '=='} ${targetScore} / 200`, margin + 4, currentY + 12);
+
+  doc.text(`Department: ${departmentFilter === 'ALL' ? 'All 16 Departments' : departmentFilter}`, pageWidth / 2, currentY + 6);
+  doc.text(`Academic Year: ${timeline}`, pageWidth / 2, currentY + 12);
+
+  doc.text(`Records: ${activeRows.length}`, pageWidth - margin - 35, currentY + 6);
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-GB')}`, pageWidth - margin - 35, currentY + 12);
+
+  currentY += 24;
+
+  // Roster Table Data
+  const tableData = activeRows.map((r, idx) => [
+    idx + 1,
+    r.facultyName || r.name || 'Faculty Member',
+    r.designation || 'Assistant Professor',
+    (r.department || 'CSE').toUpperCase(),
+    r.timeline || timeline,
+    r.submittedAt || r.createdAt ? new Date(r.submittedAt || r.createdAt).toLocaleDateString('en-GB') : '—',
+    `${r.convertedScore || 0} / 200`,
+    r.iqacStatus === 'IQAC Verified' ? 'IQAC Verified' : (r.appraisalStatus || 'Pending')
+  ]);
+
+  autoTable(doc, {
+    startY: currentY,
+    head: [['S.No', 'Faculty Name', 'Designation', 'Dept', 'Timeline', 'Date', 'Score', 'Status']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [74, 21, 25],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      halign: 'center'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [51, 65, 85]
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 42, fontStyle: 'bold' },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 16, halign: 'center' },
+      4: { cellWidth: 20, halign: 'center' },
+      5: { cellWidth: 20, halign: 'center' },
+      6: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+      7: { cellWidth: 23, halign: 'center' }
+    },
+    margin: { left: margin, right: margin }
+  });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Page ${i} of ${pageCount} — TCE IQAC Accreditation Quality Audit Report`, pageWidth / 2, 287, { align: 'center' });
+  }
+
+  const filename = `TCE_IQAC_Quality_Report_${departmentFilter}_${timeline}_${Date.now()}.pdf`;
+  doc.save(filename);
+};
