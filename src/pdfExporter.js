@@ -637,6 +637,8 @@ export const exportIqacRosterPDF = ({
   timeline = 'All',
   departmentFilter = 'ALL',
   targetScore = 100,
+  scoreFrom = 10,
+  scoreTo = 20,
   scoreFilterMode = 'min',
   showExcludedArchive = false,
 }) => {
@@ -680,7 +682,11 @@ export const exportIqacRosterPDF = ({
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
   doc.text(`Audit View: ${showExcludedArchive ? 'Excluded Archive' : 'Active Audit Roster'}`, margin + 4, currentY + 6);
-  doc.text(`Score Filter: ${scoreFilterMode === 'min' ? '≥' : '=='} ${targetScore} / 200`, margin + 4, currentY + 12);
+  
+  const scoreFilterLabel = scoreFilterMode === 'range'
+    ? `Score Range: ${scoreFrom} – ${scoreTo} / 200`
+    : `Score Filter: ${scoreFilterMode === 'min' ? '≥' : '=='} ${targetScore} / 200`;
+  doc.text(scoreFilterLabel, margin + 4, currentY + 12);
 
   doc.text(`Department: ${departmentFilter === 'ALL' ? 'All 16 Departments' : departmentFilter}`, pageWidth / 2, currentY + 6);
   doc.text(`Academic Year: ${timeline}`, pageWidth / 2, currentY + 12);

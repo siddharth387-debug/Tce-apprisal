@@ -2256,7 +2256,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   // IQAC Score Filtering & Soft Curation State
   const [iqacTargetScoreFilter, setIqacTargetScoreFilter] = useState(100);
-  const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('min'); // 'min' (>=) | 'exact' (==)
+  const [iqacScoreFrom, setIqacScoreFrom] = useState(10);
+  const [iqacScoreTo, setIqacScoreTo] = useState(20);
+  const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('min'); // 'min' (>=) | 'exact' (==) | 'range' (from-to)
   const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
   
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || (effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox');
@@ -3649,9 +3651,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         
         if (iqacScoreFilterMode === 'min') {
           return totalScore >= iqacTargetScoreFilter;
-        } else {
+        } else if (iqacScoreFilterMode === 'exact') {
           return totalScore === iqacTargetScoreFilter;
+        } else if (iqacScoreFilterMode === 'range') {
+          const minS = Math.min(Number(iqacScoreFrom) || 0, Number(iqacScoreTo) || 0);
+          const maxS = Math.max(Number(iqacScoreFrom) || 0, Number(iqacScoreTo) || 0);
+          return totalScore >= minS && totalScore <= maxS;
         }
+        return true;
       });
     }
 
@@ -3680,7 +3687,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 : isRegistrar
                   ? 'Monitor, filter, and validate annual faculty performance submissions across all 16 TCE academic departments.'
                   : isIQAC
-                    ? 'Audit faculty submissions, filter by target score threshold (e.g. Score = 100), verify accreditation evidence, and curate NAAC lists.'
+                    ? 'Audit faculty submissions, filter by score range (e.g. 10 to 20) or target threshold (e.g. Score = 100), verify accreditation evidence, and curate NAAC lists.'
                     : isHod
                       ? 'Review faculty submissions and validate appraisal records for the selected academic year.'
                       : 'Select the academic year and create your Section I submission when ready.'}
@@ -3742,25 +3749,49 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="mt-4 p-4 bg-gradient-to-r from-blue-900/10 via-slate-50 to-blue-900/10 border border-blue-200 rounded-xl space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
-                  <span className="text-[11px] font-extrabold uppercase text-blue-900 tracking-wider">🎯 Target Score Filter:</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="200"
-                    value={iqacTargetScoreFilter}
-                    onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value) || 0)}
-                    className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
-                  />
-                  <input
-                    type="range"
-                    min="0"
-                    max="200"
-                    value={iqacTargetScoreFilter}
-                    onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value))}
-                    className="w-28 accent-blue-900 cursor-pointer"
-                  />
-                </div>
+                {iqacScoreFilterMode === 'range' ? (
+                  <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
+                    <span className="text-[11px] font-extrabold uppercase text-blue-900 tracking-wider">🎯 Score Range (From – To):</span>
+                    <span className="text-xs font-bold text-slate-600">From</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={iqacScoreFrom}
+                      onChange={(e) => setIqacScoreFrom(Number(e.target.value) || 0)}
+                      className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
+                    />
+                    <span className="text-xs font-bold text-slate-600">To</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={iqacScoreTo}
+                      onChange={(e) => setIqacScoreTo(Number(e.target.value) || 0)}
+                      className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
+                    <span className="text-[11px] font-extrabold uppercase text-blue-900 tracking-wider">🎯 Target Score Filter:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={iqacTargetScoreFilter}
+                      onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value) || 0)}
+                      className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max="200"
+                      value={iqacTargetScoreFilter}
+                      onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value))}
+                      className="w-28 accent-blue-900 cursor-pointer"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300">
                   <button
@@ -3775,7 +3806,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     onClick={() => setIqacScoreFilterMode('exact')}
                     className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacScoreFilterMode === 'exact' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
-                    Exact Score ({iqacTargetScoreFilter})
+                    Exact ({iqacTargetScoreFilter})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIqacScoreFilterMode('range')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacScoreFilterMode === 'range' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Range ({iqacScoreFrom}–{iqacScoreTo})
                   </button>
                 </div>
               </div>
@@ -3802,10 +3840,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   type="button"
                   onClick={() => {
                     exportIqacRosterPDF({
-                      rows: selectedInboxRows,
+                      rows: displayInboxRows,
                       timeline: selectedTimeline,
                       departmentFilter: selectedDeptFilter,
                       targetScore: iqacTargetScoreFilter,
+                      scoreFrom: iqacScoreFrom,
+                      scoreTo: iqacScoreTo,
                       scoreFilterMode: iqacScoreFilterMode,
                       showExcludedArchive: iqacShowExcludedOnly,
                     });
@@ -3920,7 +3960,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <tr>
                     <td colSpan={9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
                       {isIQAC 
-                        ? `No faculty submissions found matching Score ${iqacScoreFilterMode === 'min' ? '≥' : '=='} ${iqacTargetScoreFilter} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
+                        ? `No faculty submissions found matching Score ${iqacScoreFilterMode === 'min' ? `≥ ${iqacTargetScoreFilter}` : iqacScoreFilterMode === 'exact' ? `== ${iqacTargetScoreFilter}` : `Range ${iqacScoreFrom} – ${iqacScoreTo}`} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
                         : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
                     </td>
                   </tr>
