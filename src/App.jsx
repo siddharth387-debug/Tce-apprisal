@@ -2407,7 +2407,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const inputRemarks = window.prompt("✔ (Optional) Enter IQAC verification remarks or notes for this appraisal:");
       if (inputRemarks === null) return;
 
-      setIsSubmitting(true);
+      const trimmedRemarks = inputRemarks.trim();
+
+      // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
+      setAppraisals(prev => prev.map(rec => {
+        const isMatch = rec._id === recordId || rec.id === recordId || `${rec.email}-${rec.timeline}` === recordId;
+        if (isMatch) {
+          return {
+            ...rec,
+            iqacStatus: 'IQAC Verified',
+            appraisalStatus: rec.appraisalStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
+            ...(trimmedRemarks ? { iqacAuditRemarks: trimmedRemarks } : {}),
+            iqacEvaluatedAt: new Date().toISOString()
+          };
+        }
+        return rec;
+      }));
+
+      setSubmitSuccess('Appraisal successfully verified by IQAC!');
+
       const activeToken = getStoredAuthToken();
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       await axios.post(
@@ -2415,17 +2433,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { 
           id: recordId, 
           iqacStatus: 'IQAC Verified',
-          ...(inputRemarks.trim() ? { iqacAuditRemarks: inputRemarks.trim() } : {})
+          ...(trimmedRemarks ? { iqacAuditRemarks: trimmedRemarks } : {})
         },
         { headers }
       );
-      setSubmitSuccess('Appraisal successfully verified by IQAC!');
+      
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
       setSubmitError(err.response?.data?.message || 'Failed to update IQAC verification status.');
-    } finally {
-      setIsSubmitting(false);
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
+      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
@@ -2438,24 +2456,40 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         remarks = inputReason.trim();
       }
 
-      setIsSubmitting(true);
+      const nextExcludedState = !currentExcludedState;
+
+      // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
+      setAppraisals(prev => prev.map(rec => {
+        const isMatch = rec._id === recordId || rec.id === recordId || `${rec.email}-${rec.timeline}` === recordId;
+        if (isMatch) {
+          return {
+            ...rec,
+            iqacExcluded: nextExcludedState,
+            ...(remarks ? { iqacAuditRemarks: remarks } : {})
+          };
+        }
+        return rec;
+      }));
+
+      setSubmitSuccess(currentExcludedState ? 'Faculty restored to active IQAC audit list.' : 'Faculty soft-hidden from active IQAC audit list.');
+
       const activeToken = getStoredAuthToken();
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       await axios.patch(
         `${API_BASE_URL}/appraisals/${recordId}/iqac-status`,
         { 
-          iqacExcluded: !currentExcludedState,
+          iqacExcluded: nextExcludedState,
           ...(remarks ? { iqacAuditRemarks: remarks } : {})
         },
         { headers }
       );
-      setSubmitSuccess(currentExcludedState ? 'Faculty restored to active IQAC audit list.' : 'Faculty soft-hidden from active IQAC audit list.');
+      
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
       setSubmitError(err.response?.data?.message || 'Failed to update curation status.');
-    } finally {
-      setIsSubmitting(false);
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
+      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
@@ -2981,37 +3015,44 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       rows = rows.filter(r => r.timeline === selectedTimeline);
     }
 
-    return rows.map((record) => ({
-      id: record._id || `${record.email}-${record.timeline}`,
-      _id: record._id,
-      timeline: record.timeline,
-      facultyName: record.facultyName || record.name || record.email,
-      facultyEmail: record.email || record.facultyEmail,
-      department: record.department || 'CSE',
-      departmentName: record.departmentName || '',
-      designation: record.designation || 'Assistant Professor',
-      appraisalStatus: record.appraisalStatus || 'Pending',
-      iqacStatus: record.iqacStatus || 'Pending',
-      iqacExcluded: Boolean(record.iqacExcluded),
-      iqacAuditRemarks: record.iqacAuditRemarks || '',
-      iqacEvaluatedAt: record.iqacEvaluatedAt || null,
-      hodRemarks: record.hodRemarks || '',
-      subsectionRemarks: record.subsectionRemarks || {},
-      hodSubsectionScores: record.hodSubsectionScores || {},
-      submittedAt: record.submittedAt || record.createdAt || record.updatedAt,
-      convertedScore: record.convertedScore || 0,
-      section1Data: record.section1Data || {},
-      section2Data: record.section2Data || {},
-      section3Data: record.section3Data || {},
-      section4Data: record.section4Data || {},
-      section5Data: record.section5Data || {},
-      section6Data: record.section6Data || {},
-      section7Data: record.section7Data || {},
-      section8Data: record.section8Data || {},
-      section9Data: record.section9Data || {},
-      sectionData: flattenAppraisalRecord(record),
-    }));
-  }, [appraisals, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, user.department, selectedTimeline]);
+    return rows.map((record) => {
+      const flattenedData = flattenAppraisalRecord(record);
+      const fullScores = computeSectionScores(flattenedData, 'Faculty');
+      const calculatedTotalScore = record.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
+
+      return {
+        id: record._id || `${record.email}-${record.timeline}`,
+        _id: record._id,
+        timeline: record.timeline,
+        facultyName: record.facultyName || record.name || record.email,
+        facultyEmail: record.email || record.facultyEmail,
+        department: record.department || 'CSE',
+        departmentName: record.departmentName || '',
+        designation: record.designation || 'Assistant Professor',
+        appraisalStatus: record.appraisalStatus || 'Pending',
+        iqacStatus: record.iqacStatus || 'Pending',
+        iqacExcluded: Boolean(record.iqacExcluded),
+        iqacAuditRemarks: record.iqacAuditRemarks || '',
+        iqacEvaluatedAt: record.iqacEvaluatedAt || null,
+        hodRemarks: record.hodRemarks || '',
+        subsectionRemarks: record.subsectionRemarks || {},
+        hodSubsectionScores: record.hodSubsectionScores || {},
+        submittedAt: record.submittedAt || record.createdAt || record.updatedAt,
+        convertedScore: record.convertedScore || 0,
+        totalScore: calculatedTotalScore,
+        section1Data: record.section1Data || {},
+        section2Data: record.section2Data || {},
+        section3Data: record.section3Data || {},
+        section4Data: record.section4Data || {},
+        section5Data: record.section5Data || {},
+        section6Data: record.section6Data || {},
+        section7Data: record.section7Data || {},
+        section8Data: record.section8Data || {},
+        section9Data: record.section9Data || {},
+        sectionData: flattenedData,
+      };
+    });
+  }, [appraisals, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, user.department, selectedTimeline, computeSectionScores]);
 
   const selectedInboxRecord = selectedInboxRows.find(
     (row) => row.id === selectedInboxRecordId
@@ -3643,8 +3684,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     let displayInboxRows = selectedInboxRows;
     if (isIQAC) {
       displayInboxRows = selectedInboxRows.filter((row) => {
-        const fullScores = computeSectionScores(row.sectionData || row, 'Faculty');
-        const totalScore = row.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
+        const totalScore = row.totalScore || 0;
         
         if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
         if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
@@ -3966,8 +4006,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   </tr>
                 ) : (
                   displayInboxRows.map((row) => {
-                    const fullScores = computeSectionScores(row.sectionData || row, 'Faculty');
-                    const totalScore = row.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
+                    const totalScore = row.totalScore || 0;
                     const formattedDate = row.submittedAt || row.createdAt
                       ? new Date(row.submittedAt || row.createdAt).toLocaleDateString('en-GB')
                       : '—';
