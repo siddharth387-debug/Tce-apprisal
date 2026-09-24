@@ -2420,8 +2420,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, syncHistoryFromCloud]);
 
-  const handleIqacVerifySubmission = useCallback(async (recordId) => {
+  const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '') => {
     try {
+      const cleanId = String(recordId || '').trim();
       const inputRemarks = window.prompt("✔ (Optional) Enter IQAC verification remarks or notes for this appraisal:");
       if (inputRemarks === null) return;
 
@@ -2429,7 +2430,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
       setAppraisals(prev => prev.map(rec => {
-        const isMatch = rec._id === recordId || rec.id === recordId || `${rec.email}-${rec.timeline}` === recordId;
+        const recIdStr = rec._id ? String(rec._id) : String(rec.id || '');
+        const isMatch = recIdStr === cleanId || rec.id === cleanId || `${rec.email}-${rec.timeline}` === cleanId;
         if (isMatch) {
           return {
             ...rec,
@@ -2449,7 +2451,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       await axios.post(
         `${API_BASE_URL}/appraisals/iqac-verify`,
         { 
-          id: recordId, 
+          id: cleanId, 
+          email: recordEmail,
+          timeline: recordTimeline,
           iqacStatus: 'IQAC Verified',
           ...(trimmedRemarks ? { iqacAuditRemarks: trimmedRemarks } : {})
         },
@@ -2459,14 +2463,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
+      console.error('IQAC Verification Error:', err);
       setSubmitError(err.response?.data?.message || 'Failed to update IQAC verification status.');
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
-  const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState) => {
+  const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState, recordEmail = '', recordTimeline = '') => {
     try {
+      const cleanId = String(recordId || '').trim();
       let remarks = '';
       if (!currentExcludedState) {
         const inputReason = window.prompt("🚫 (Optional) Enter reason/feedback for soft-hiding this faculty member from the active IQAC list:");
@@ -2478,7 +2484,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
       setAppraisals(prev => prev.map(rec => {
-        const isMatch = rec._id === recordId || rec.id === recordId || `${rec.email}-${rec.timeline}` === recordId;
+        const recIdStr = rec._id ? String(rec._id) : String(rec.id || '');
+        const isMatch = recIdStr === cleanId || rec.id === cleanId || `${rec.email}-${rec.timeline}` === cleanId;
         if (isMatch) {
           return {
             ...rec,
@@ -2494,9 +2501,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const activeToken = getStoredAuthToken();
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       await axios.patch(
-        `${API_BASE_URL}/appraisals/${recordId}/iqac-status`,
+        `${API_BASE_URL}/appraisals/${encodeURIComponent(cleanId)}/iqac-status`,
         { 
           iqacExcluded: nextExcludedState,
+          email: recordEmail,
+          timeline: recordTimeline,
           ...(remarks ? { iqacAuditRemarks: remarks } : {})
         },
         { headers }
@@ -2505,6 +2514,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
+      console.error('IQAC Exclusion Error:', err);
       setSubmitError(err.response?.data?.message || 'Failed to update curation status.');
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
@@ -4148,7 +4158,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 {!isIqacVerified && (
                                   <button
                                     type="button"
-                                    onClick={() => handleIqacVerifySubmission(row._id || row.id)}
+                                    onClick={() => handleIqacVerifySubmission(row._id ? String(row._id) : row.id, row.facultyEmail || row.email, row.timeline)}
                                     disabled={isSubmitting}
                                     className="text-[10.5px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 disabled:opacity-50"
                                     title="Mark submission as IQAC Verified"
@@ -4158,7 +4168,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 )}
                                 <button
                                   type="button"
-                                  onClick={() => handleIqacToggleExclusion(row._id || row.id, Boolean(row.iqacExcluded))}
+                                  onClick={() => handleIqacToggleExclusion(row._id ? String(row._id) : row.id, Boolean(row.iqacExcluded), row.facultyEmail || row.email, row.timeline)}
                                   disabled={isSubmitting}
                                   className={`text-[10.5px] px-2 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 ${row.iqacExcluded ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
                                   title={row.iqacExcluded ? 'Restore entry to active IQAC list' : 'Soft-hide entry from active IQAC list (Does NOT delete database record)'}
