@@ -2544,7 +2544,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return {
             ...rec,
             iqacStatus: targetStatus,
-            appraisalStatus: targetStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
+            appraisalStatus: targetStatus === 'Needs Clarification' ? rec.appraisalStatus : 'IQAC Verified',
             ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
             iqacEvaluatedAt: new Date().toISOString()
           };
@@ -2560,7 +2560,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return {
             ...prev,
             iqacStatus: targetStatus,
-            appraisalStatus: targetStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
+            appraisalStatus: targetStatus === 'Needs Clarification' ? prev.appraisalStatus : 'IQAC Verified',
             ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
             iqacEvaluatedAt: new Date().toISOString()
           };
@@ -4201,7 +4201,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       >
                         <td className="py-2.5 px-3 font-semibold text-slate-900">
                           <div>{row.facultyName}</div>
-                          {row.iqacAuditRemarks && (
+                          {(isPrincipal || isRegistrar || isIQAC) && row.iqacAuditRemarks && (
                             <div className={`text-[10px] font-medium px-2 py-0.5 rounded mt-1 border max-w-xs ${row.iqacExcluded ? 'bg-rose-100/80 text-rose-900 border-rose-200' : 'bg-blue-50 text-blue-900 border-blue-200'}`}>
                               💬 <strong>IQAC Note:</strong> "{row.iqacAuditRemarks}"
                             </div>
@@ -4229,8 +4229,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           {(() => {
                             const activeStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
-                            
-                            if (isRatified && isIqacVerified) {
+                            const isElevatedView = isPrincipal || isRegistrar || isIQAC;
+                            const isNeedsClarification = isElevatedView && (row.iqacStatus || '').toUpperCase() === 'NEEDS CLARIFICATION';
+
+                            if (isNeedsClarification) {
+                              return (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shadow-sm flex items-center gap-1 w-fit">
+                                  <span>⚠️</span> Needs Clarification
+                                </span>
+                              );
+                            } else if (isRatified && isIqacVerified) {
                               return (
                                 <div className="flex flex-col gap-1 items-start">
                                   <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">

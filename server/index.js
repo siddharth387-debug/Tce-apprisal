@@ -1674,7 +1674,7 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
     const newStatus = iqacStatus || 'IQAC Verified';
     const updateFields = {
       iqacStatus: newStatus,
-      appraisalStatus: newStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
+      appraisalStatus: newStatus === 'Needs Clarification' ? (targetRecord.appraisalStatus || 'Pending') : 'IQAC Verified',
       iqacAuditRemarks: iqacAuditRemarks !== undefined ? iqacAuditRemarks : (targetRecord.iqacAuditRemarks || ''),
       ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
       iqacEvaluatedAt: new Date(),
