@@ -2247,9 +2247,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const effectiveRole = isSuperAdmin ? adminActiveRole : user.role;
   const isPrincipal = effectiveRole === 'Principal';
   const isRegistrar = effectiveRole === 'Registrar';
-  const isIQAC = effectiveRole === 'IQAC';
-  const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal || isIQAC;
+  const [iqacWorkspaceMode, setIqacWorkspaceMode] = useState('iqac_audit'); // 'iqac_audit' | 'hod_inbox' | 'self_appraisal'
   const [hodWorkspaceMode, setHodWorkspaceMode] = useState('hod_inbox'); // 'hod_inbox' | 'self_appraisal'
+  
+  const isIQAC = (effectiveRole === 'IQAC' || user?.role === 'IQAC') && iqacWorkspaceMode === 'iqac_audit';
+  const isHod = (effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox') || ((effectiveRole === 'IQAC' || user?.role === 'IQAC') && iqacWorkspaceMode === 'hod_inbox');
+  const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal || isIQAC || effectiveRole === 'IQAC';
+  
   const [isLeadershipModalOpen, setIsLeadershipModalOpen] = useState(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
@@ -2261,8 +2265,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('min'); // 'min' (>=) | 'exact' (==) | 'range' (from-to)
   const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
   
-  const isReviewMode = isPrincipal || isRegistrar || isIQAC || (effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox');
-  const isHod = effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox';
+  const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   
   const [selectedTimeline, setSelectedTimeline] = useState(TIMELINES[0]);
   const [activeReviewTab, setActiveReviewTab] = useState('inbox');
@@ -5797,33 +5800,60 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             )}
 
-            {/* HoD Dual Mode Switcher (Self-Appraisal vs Dept Review Queue) */}
-            {effectiveRole === 'HOD' && (
+            {/* HoD & IQAC Mode Switcher (HOD Review Queue | Self-Appraisal | IQAC Audit) */}
+            {(effectiveRole === 'HOD' || effectiveRole === 'IQAC' || user?.role === 'IQAC') && (
               <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-inner">
                 <button
                   type="button"
-                  onClick={() => { setHodWorkspaceMode('hod_inbox'); setActiveView('overview'); }}
+                  onClick={() => {
+                    setHodWorkspaceMode('hod_inbox');
+                    setIqacWorkspaceMode('hod_inbox');
+                    setActiveView('overview');
+                  }}
                   className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
-                    hodWorkspaceMode === 'hod_inbox'
-                      ? 'bg-[#4A1519] text-white shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                    (effectiveRole === 'IQAC' || user?.role === 'IQAC')
+                      ? iqacWorkspaceMode === 'hod_inbox' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                      : hodWorkspaceMode === 'hod_inbox' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   <span>🏢</span>
-                  <span>Dept Review Queue</span>
+                  <span>HOD Review Queue</span>
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => { setHodWorkspaceMode('self_appraisal'); setActiveView('overview'); }}
+                  onClick={() => {
+                    setHodWorkspaceMode('self_appraisal');
+                    setIqacWorkspaceMode('self_appraisal');
+                    setActiveView('overview');
+                  }}
                   className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
-                    hodWorkspaceMode === 'self_appraisal'
-                      ? 'bg-[#4A1519] text-white shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                    (effectiveRole === 'IQAC' || user?.role === 'IQAC')
+                      ? iqacWorkspaceMode === 'self_appraisal' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                      : hodWorkspaceMode === 'self_appraisal' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   <span>📋</span>
-                  <span>My Self-Appraisal</span>
+                  <span>Self-Appraisal</span>
                 </button>
+
+                {(effectiveRole === 'IQAC' || user?.role === 'IQAC') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIqacWorkspaceMode('iqac_audit');
+                      setActiveView('overview');
+                    }}
+                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                      iqacWorkspaceMode === 'iqac_audit'
+                        ? 'bg-[#4A1519] text-white shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <span>📊</span>
+                    <span>IQAC Audit</span>
+                  </button>
+                )}
               </div>
             )}
 
