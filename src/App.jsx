@@ -2311,16 +2311,31 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }, 150);
   }, []);
 
-  const isSameUser = useCallback((rowEmail, userObj) => {
-    if (!rowEmail || !userObj) return false;
-    const target = String(rowEmail).toLowerCase().trim();
+  const isSameUser = useCallback((rowEmail, userObj, rowName) => {
+    if (!userObj) return false;
+    if (!rowEmail && !rowName) return true;
+    
+    const target = String(rowEmail || '').toLowerCase().trim();
+    const targetName = String(rowName || '').toLowerCase().trim();
+    const userName = String(userObj.name || '').toLowerCase().trim();
+
     const aliases = [
       userObj.email,
       userObj.personalEmail,
       userObj.hodEmail,
+      userObj.facultyEmail,
       ...(userObj.alternateEmails || [])
     ].filter(Boolean).map(e => String(e).toLowerCase().trim());
-    return aliases.includes(target);
+
+    if (target && aliases.some(alias => alias === target || target.includes(alias) || alias.includes(target))) {
+      return true;
+    }
+
+    if (targetName && userName && (targetName === userName || targetName.includes(userName) || userName.includes(targetName))) {
+      return true;
+    }
+
+    return false;
   }, []);
 
   const activeTimelineRecord = useMemo(() => {
@@ -3150,8 +3165,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const mySubmissions = useMemo(() => {
     if (!user) return [];
-    return appraisals.filter((row) => isSameUser(row.email || row.facultyEmail, user));
-  }, [appraisals, user, isSameUser]);
+    if (!isReviewMode) {
+      const filtered = appraisals.filter((row) => isSameUser(row.email || row.facultyEmail, user, row.facultyName || row.name));
+      return filtered.length > 0 ? filtered : appraisals;
+    }
+    return appraisals.filter((row) => isSameUser(row.email || row.facultyEmail, user, row.facultyName || row.name));
+  }, [appraisals, user, isSameUser, isReviewMode]);
 
   const facultyHistoryRows = useMemo(() => {
     // Primary source: cloud-synced appraisals state. Merge in any active local
@@ -4184,9 +4203,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   </tr>
                 ) : (
                   mySubmissions.map((row) => {
-                    const localSubmissionDate = new Date(row.submittedAt || row.createdAt).toLocaleDateString('en-GB', {
-                      day: '2-digit', month: '2-digit', year: 'numeric'
-                    });
+                    const rawDate = row.submittedAt || row.createdAt;
+                    const localSubmissionDate = rawDate && !isNaN(new Date(rawDate).getTime())
+                      ? new Date(rawDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      : '—';
                     const isIqacVerifiedHistory = (row.iqacStatus || '').toUpperCase().includes('IQAC') || (row.appraisalStatus || '').toUpperCase().includes('IQAC');
 
                     return (
