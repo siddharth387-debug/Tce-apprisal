@@ -214,7 +214,14 @@ function flattenAppraisalRecord(record) {
     hodRemarks: record.hodRemarks,
     subsectionRemarks: record.subsectionRemarks || {},
     hodSubsectionScores: record.hodSubsectionScores || {},
-    systemScore: record.systemScore || 0
+    systemScore: record.systemScore || 0,
+    iqacStatus: record.iqacStatus || 'Pending',
+    iqacAuditRemarks: record.iqacAuditRemarks || '',
+    iqacExcluded: Boolean(record.iqacExcluded),
+    iqacEvaluatedAt: record.iqacEvaluatedAt || null,
+    principalRemarks: record.principalRemarks || '',
+    principalApprovalStatus: record.principalApprovalStatus || 'Pending',
+    principalEndorsedAt: record.principalEndorsedAt || null,
   };
 }
 
@@ -1436,7 +1443,7 @@ function LandingPage({ googleClientId, onLogin }) {
 
 // Read-only drill-down view of a submitted appraisal record.
 // When hodControls is provided, a feedback textarea and action buttons render at the bottom.
-function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, onExportPDF }) {
+function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, iqacControls, onExportPDF }) {
   const facultyName = appraisal.facultyName || appraisal.name || "Faculty Member";
   const facultyEmail = appraisal.facultyEmail || appraisal.email || "";
   const fullData = flattenAppraisalRecord(appraisal);
@@ -2106,15 +2113,109 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         )}
       </div>
 
-      {/* Read-Only HoD Evaluation Remarks & Recommendation (for Principal / Registrar inspection) */}
+      {/* Read-Only HoD Evaluation Remarks & Recommendation (for Principal / Registrar / IQAC inspection) */}
       {appraisal.hodRemarks && !hodControls && (
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 space-y-1">
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 space-y-1">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#4A1519]">
             <span>👨‍🏫</span> Department HoD Evaluation Remarks &amp; Recommendation
           </div>
-          <p className="text-xs text-slate-800 italic leading-relaxed">
+          <p className="text-xs text-slate-800 italic leading-relaxed bg-white/80 border border-amber-200/60 rounded-md p-2.5">
             "{appraisal.hodRemarks}"
           </p>
+        </div>
+      )}
+
+      {/* Read-Only IQAC Quality Audit Comments & Feedback (viewable to Registrar, Principal & HOD) */}
+      {appraisal.iqacAuditRemarks && !iqacControls && (
+        <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50/90 p-3.5 space-y-1">
+          <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-blue-950">
+            <span className="flex items-center gap-1.5">
+              <span>📊</span> IQAC Quality Audit Comments &amp; Scoring Feedback
+            </span>
+            {appraisal.iqacEvaluatedAt && (
+              <span className="text-[10px] text-blue-700 font-semibold">
+                Recorded on {new Date(appraisal.iqacEvaluatedAt).toLocaleDateString('en-GB')}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-blue-950 font-medium italic leading-relaxed bg-white/90 border border-blue-200/60 rounded-md p-2.5">
+            "{appraisal.iqacAuditRemarks}"
+          </p>
+        </div>
+      )}
+
+      {/* Interactive IQAC Quality Audit & Scoring Evaluation Controls */}
+      {iqacControls && (
+        <div className="mt-4 border-t border-slate-200 pt-4 print-hidden bg-gradient-to-br from-blue-50/60 via-indigo-50/40 to-sky-50/60 rounded-xl p-4 border border-blue-200 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📊</span>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-blue-950">
+                  IQAC Quality Audit Comments &amp; Scoring Verification
+                </h4>
+                <p className="text-[11px] text-blue-800">
+                  Review faculty submissions and HoD evaluation comments, then pass official IQAC audit notes and score confirmation.
+                </p>
+              </div>
+            </div>
+            {iqacControls.isVerified && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-xs flex items-center gap-1">
+                <span>✔</span> Quality Verified
+              </span>
+            )}
+          </div>
+
+          {/* Reference: HoD Submitted Remarks for IQAC Member */}
+          {appraisal.hodRemarks && (
+            <div className="bg-amber-50/90 border border-amber-200 rounded-lg p-3 text-xs text-slate-800 space-y-1">
+              <span className="font-bold text-[#4A1519] flex items-center gap-1.5">
+                <span>👨‍🏫</span> Department HoD Submitted Feedback &amp; Recommendation:
+              </span>
+              <p className="italic text-slate-800 bg-white/80 border border-amber-200/60 rounded-md p-2">
+                "{appraisal.hodRemarks}"
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[11px] font-bold text-blue-950 mb-1">
+              IQAC Quality Audit Remarks / Scoring Comments (Viewable to Registrar &amp; Principal):
+            </label>
+            <textarea
+              value={iqacControls.remarksValue}
+              onChange={(e) => iqacControls.onRemarksChange(e.target.value)}
+              placeholder="Enter IQAC quality audit feedback, scoring verification notes, or observations (e.g., 'Score verified against Section 2 journal proofs. NAAC Category A compliance confirmed.')..."
+              className="w-full min-h-24 rounded-md border border-blue-300 px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-500/20 font-sans leading-relaxed"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => iqacControls.onVerify('IQAC Verified')}
+                className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 hover:bg-blue-800 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
+              >
+                <span>✔</span> Verify &amp; Save IQAC Audit Notes
+              </button>
+              <button
+                type="button"
+                onClick={() => iqacControls.onVerify('Needs Clarification')}
+                className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 hover:bg-amber-700 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
+              >
+                <span>⚠️</span> Request Clarification
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={iqacControls.onToggleExclusion}
+              className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer ${iqacControls.isExcluded ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+            >
+              <span>{iqacControls.isExcluded ? '↩ Restore to Active Audit List' : '🚫 Soft-Hide from Active Audit List'}</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -2294,6 +2395,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [hodRemarksInput, setHodRemarksInput] = useState('');
   const [hodSubsectionRemarks, setHodSubsectionRemarks] = useState({});
   const [hodSubsectionScores, setHodSubsectionScores] = useState({});
+  const [iqacRemarksInput, setIqacRemarksInput] = useState('');
   const [workspaceByTimeline, setWorkspaceByTimeline] = useState(() => {
     const stored = onWorkspaceLoad?.();
     return stored || buildTimelineState();
@@ -2420,13 +2522,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, syncHistoryFromCloud]);
 
-  const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '') => {
+  const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Verified') => {
     try {
       const cleanId = String(recordId || '').trim();
-      const inputRemarks = window.prompt("✔ (Optional) Enter IQAC verification remarks or notes for this appraisal:");
-      if (inputRemarks === null) return;
+      let trimmedRemarks = '';
+      if (customRemarks !== null) {
+        trimmedRemarks = String(customRemarks).trim();
+      } else {
+        const inputRemarks = window.prompt("✔ (Optional) Enter IQAC verification remarks or notes for this appraisal:");
+        if (inputRemarks === null) return;
+        trimmedRemarks = inputRemarks.trim();
+      }
 
-      const trimmedRemarks = inputRemarks.trim();
+      const targetStatus = customStatus || 'IQAC Verified';
 
       // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
       setAppraisals(prev => prev.map(rec => {
@@ -2435,16 +2543,32 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         if (isMatch) {
           return {
             ...rec,
-            iqacStatus: 'IQAC Verified',
-            appraisalStatus: rec.appraisalStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
-            ...(trimmedRemarks ? { iqacAuditRemarks: trimmedRemarks } : {}),
+            iqacStatus: targetStatus,
+            appraisalStatus: targetStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
+            ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
             iqacEvaluatedAt: new Date().toISOString()
           };
         }
         return rec;
       }));
 
-      setSubmitSuccess('Appraisal successfully verified by IQAC!');
+      // Update selectedAppraisal state if currently open in modal
+      setSelectedAppraisal(prev => {
+        if (!prev) return null;
+        const prevId = prev._id ? String(prev._id) : String(prev.id || '');
+        if (prevId === cleanId || `${prev.email}-${prev.timeline}` === cleanId) {
+          return {
+            ...prev,
+            iqacStatus: targetStatus,
+            appraisalStatus: targetStatus === 'Needs Clarification' ? 'Needs Clarification' : 'IQAC Verified',
+            ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
+            iqacEvaluatedAt: new Date().toISOString()
+          };
+        }
+        return prev;
+      });
+
+      setSubmitSuccess(`Appraisal audit status updated to [${targetStatus}] by IQAC!`);
 
       const activeToken = getStoredAuthToken();
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
@@ -2454,8 +2578,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           id: cleanId, 
           email: recordEmail,
           timeline: recordTimeline,
-          iqacStatus: 'IQAC Verified',
-          ...(trimmedRemarks ? { iqacAuditRemarks: trimmedRemarks } : {})
+          iqacStatus: targetStatus,
+          iqacAuditRemarks: trimmedRemarks
         },
         { headers }
       );
@@ -2495,6 +2619,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         }
         return rec;
       }));
+
+      // Update selectedAppraisal state if currently open in modal
+      setSelectedAppraisal(prev => {
+        if (!prev) return null;
+        const prevId = prev._id ? String(prev._id) : String(prev.id || '');
+        if (prevId === cleanId || `${prev.email}-${prev.timeline}` === cleanId) {
+          return {
+            ...prev,
+            iqacExcluded: nextExcludedState,
+            ...(remarks ? { iqacAuditRemarks: remarks } : {})
+          };
+        }
+        return prev;
+      });
 
       setSubmitSuccess(currentExcludedState ? 'Faculty restored to active IQAC audit list.' : 'Faculty soft-hidden from active IQAC audit list.');
 
@@ -4147,6 +4285,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 setHodRemarksInput(row.hodRemarks || '');
                                 setHodSubsectionRemarks(row.subsectionRemarks || {});
                                 setHodSubsectionScores(row.hodSubsectionScores || {});
+                                setIqacRemarksInput(row.iqacAuditRemarks || '');
                               }}
                               className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1"
                             >
@@ -4389,6 +4528,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             setHodRemarksInput('');
             setHodSubsectionRemarks({});
             setHodSubsectionScores({});
+            setIqacRemarksInput('');
           }}
           onExportPDF={handlePrintDocument}
           hodControls={isHod && selectedReviewAppraisal && selectedAppraisal.principalApprovalStatus !== 'Ratified' && selectedAppraisal.appraisalStatus !== 'Ratified' ? {
@@ -4405,6 +4545,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             isRatified: selectedAppraisal.principalApprovalStatus === 'Ratified' || selectedAppraisal.appraisalStatus === 'Ratified',
             endorsedAt: selectedAppraisal.principalEndorsedAt,
             remarks: selectedAppraisal.principalRemarks,
+          } : null}
+          iqacControls={isIQAC && selectedAppraisal ? {
+            remarksValue: iqacRemarksInput,
+            onRemarksChange: setIqacRemarksInput,
+            onVerify: (targetStatus) => handleIqacVerifySubmission(selectedAppraisal._id || selectedAppraisal.id, selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline, iqacRemarksInput, targetStatus),
+            onToggleExclusion: () => handleIqacToggleExclusion(selectedAppraisal._id || selectedAppraisal.id, Boolean(selectedAppraisal.iqacExcluded), selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline),
+            isVerified: (selectedAppraisal.iqacStatus || '').toUpperCase().includes('IQAC') || (selectedAppraisal.appraisalStatus || '').toUpperCase().includes('IQAC'),
+            isExcluded: Boolean(selectedAppraisal.iqacExcluded)
           } : null}
         />
       )}
