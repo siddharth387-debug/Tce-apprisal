@@ -3817,7 +3817,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       min="0"
                       max="200"
                       value={iqacScoreFrom}
-                      onChange={(e) => setIqacScoreFrom(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                        setIqacScoreFrom(raw === '' ? '' : Math.min(200, Math.max(0, Number(raw))));
+                      }}
                       className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
                     />
                     <span className="text-xs font-bold text-slate-600">To</span>
@@ -3826,7 +3830,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       min="0"
                       max="200"
                       value={iqacScoreTo}
-                      onChange={(e) => setIqacScoreTo(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                        setIqacScoreTo(raw === '' ? '' : Math.min(200, Math.max(0, Number(raw))));
+                      }}
                       className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
                     />
                   </div>
@@ -3838,14 +3846,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       min="0"
                       max="200"
                       value={iqacTargetScoreFilter}
-                      onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value) || 0)}
+                      onFocus={(e) => e.target.select()}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/^0+(?=\d)/, '');
+                        setIqacTargetScoreFilter(raw === '' ? '' : Math.min(200, Math.max(0, Number(raw))));
+                      }}
                       className="w-16 px-2 py-0.5 border border-slate-300 rounded text-xs font-black text-blue-900 outline-none focus:border-blue-700 text-center"
                     />
                     <input
                       type="range"
                       min="0"
                       max="200"
-                      value={iqacTargetScoreFilter}
+                      value={Number(iqacTargetScoreFilter) || 0}
                       onChange={(e) => setIqacTargetScoreFilter(Number(e.target.value))}
                       className="w-28 accent-blue-900 cursor-pointer"
                     />
