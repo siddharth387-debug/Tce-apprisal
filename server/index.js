@@ -1563,9 +1563,52 @@ app.post('/api/directory/register', async (req, res) => {
 });
 
 
+// Helper to robustly locate an appraisal document without matching empty strings
+function findAppraisalRecordInDb(allDocs, targetId, email = '', timeline = '') {
+  const cleanId = targetId ? String(targetId).trim() : '';
+  const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+  const cleanTimeline = timeline ? String(timeline).trim() : '';
+
+  // 1. Direct MongoDB ObjectId match (24 hex characters)
+  if (cleanId.length === 24) {
+    const found = allDocs.find(doc => doc._id && doc._id.toString() === cleanId);
+    if (found) return found;
+  }
+
+  // 2. Email + timeline match
+  if (cleanEmail) {
+    const found = allDocs.find(doc => {
+      const dbEmail = (doc.email || doc.facultyEmail || "").toLowerCase().trim();
+      const dbTimeline = (doc.timeline || "").trim();
+      if (!dbEmail) return false;
+      if (cleanTimeline) {
+        return dbEmail === cleanEmail && dbTimeline === cleanTimeline;
+      }
+      return dbEmail === cleanEmail;
+    });
+    if (found) return found;
+  }
+
+  // 3. Fallback composite match (targetId contains dbEmail & dbTimeline)
+  if (cleanId) {
+    const found = allDocs.find(doc => {
+      if (doc._id && doc._id.toString() === cleanId) return true;
+      const dbEmail = (doc.email || doc.facultyEmail || "").toLowerCase().trim();
+      const dbTimeline = (doc.timeline || "").trim();
+      if (!dbEmail) return false; // PREVENT empty string substring match matching doc #0!
+      if (cleanTimeline && dbTimeline !== cleanTimeline) return false;
+      return cleanId.toLowerCase().includes(dbEmail) && (dbTimeline ? cleanId.includes(dbTimeline) : true);
+    });
+    if (found) return found;
+  }
+
+  return null;
+}
+
+
 app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
   try {
-    const { id, appraisalStatus, hodRemarks, subsectionRemarks, hodSubsectionScores, finalScore } = req.body;
+    const { id, appraisalStatus, hodRemarks, subsectionRemarks, hodSubsectionScores, finalScore, email, timeline } = req.body;
     
     if (!id || !appraisalStatus) {
       return res.status(400).json({ success: false, message: "Missing required identifier or status parameters." });
@@ -1573,22 +1616,8 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
 
     console.log(`📡 Inbound Verification ID: ${id}`);
 
-    // 1. Fetch active appraisal records to locate the targeted document line safely
     const allAppraisals = await Appraisal.find({});
-    
-    // 2. DUAL RESOLUTION MATCHING: First check for direct ObjectId match if ID is a valid hex string, fallback to composite string matching
-    let targetRecord = null;
-    if (typeof id === 'string' && id.length === 24) {
-      targetRecord = allAppraisals.find(doc => doc._id.toString() === id);
-    }
-    
-    if (!targetRecord) {
-      targetRecord = allAppraisals.find(doc => {
-        const dbEmail = (doc.email || "").toLowerCase().trim();
-        const dbTimeline = (doc.timeline || "").trim();
-        return id.toLowerCase().includes(dbEmail) && id.includes(dbTimeline);
-      });
-    }
+    const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {
       console.error(`❌ Mismatch: No database record contains the substrings or matches the ID: ${id}`);
@@ -1602,9 +1631,9 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
           ? Number(req.body.convertedScore)
           : targetRecord.convertedScore);
 
-    // 3. Execute atomic native driver update using the verified document's real system parameters
-    await Appraisal.collection.updateOne(
-      { _id: targetRecord._id },
+    // Execute update using targetRecord._id
+    await Appraisal.findByIdAndUpdate(
+      targetRecord._id,
       { 
         $set: { 
           appraisalStatus: appraisalStatus, 
@@ -1614,7 +1643,8 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
           convertedScore: evaluatedConvertedScore,
           updatedAt: new Date()
         } 
-      }
+      },
+      { new: true }
     );
 
     console.log(`✅ Success: Status updated to [${appraisalStatus}] with Score [${evaluatedConvertedScore}] for ${targetRecord.email}`);
@@ -1629,27 +1659,13 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
 // ── IQAC Verification & Quality Audit Endpoint ────────────────────────────
 app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req, res) => {
   try {
-    const { id, iqacStatus, iqacAuditRemarks, iqacExcluded } = req.body;
+    const { id, iqacStatus, iqacAuditRemarks, iqacExcluded, email, timeline } = req.body;
     if (!id) {
       return res.status(400).json({ success: false, message: "Appraisal ID is required." });
     }
 
     const allAppraisals = await Appraisal.find({});
-    let targetRecord = null;
-    const strId = String(id).trim();
-    if (strId.length === 24) {
-      targetRecord = allAppraisals.find(doc => doc._id.toString() === strId);
-    }
-    if (!targetRecord) {
-      targetRecord = allAppraisals.find(doc => doc._id.toString() === strId);
-    }
-    if (!targetRecord) {
-      targetRecord = allAppraisals.find(doc => {
-        const dbEmail = (doc.email || "").toLowerCase().trim();
-        const dbTimeline = (doc.timeline || "").trim();
-        return strId.toLowerCase().includes(dbEmail) && strId.includes(dbTimeline);
-      });
-    }
+    const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {
       return res.status(404).json({ success: false, message: "No matching appraisal record found." });
@@ -1686,21 +1702,10 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
 app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], async (req, res) => {
   try {
     const { id } = req.params;
-    const { iqacExcluded, iqacAuditRemarks } = req.body;
+    const { iqacExcluded, iqacAuditRemarks, email, timeline } = req.body;
     
     const allAppraisals = await Appraisal.find({});
-    let targetRecord = null;
-    const strId = String(id).trim();
-    if (strId.length === 24) {
-      targetRecord = allAppraisals.find(doc => doc._id.toString() === strId);
-    }
-    if (!targetRecord) {
-      targetRecord = allAppraisals.find(doc => {
-        const dbEmail = (doc.email || "").toLowerCase().trim();
-        const dbTimeline = (doc.timeline || "").trim();
-        return strId.toLowerCase().includes(dbEmail) && strId.includes(dbTimeline);
-      });
-    }
+    const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {
       return res.status(404).json({ success: false, message: "No matching appraisal record found." });
@@ -1738,38 +1743,7 @@ app.post(['/api/appraisals/endorse', '/appraisals/endorse'], async (req, res) =>
     console.log(`🎓 Inbound Endorsement Request: ID=${id}, Email=${email}, Timeline=${timeline}`);
 
     const allAppraisals = await Appraisal.find({});
-    let targetRecord = null;
-
-    // 1. Direct MongoDB ObjectId match
-    if (id && typeof id === 'string' && id.length === 24) {
-      targetRecord = allAppraisals.find(doc => doc._id && doc._id.toString() === id);
-    }
-
-    // 2. Direct email + timeline match
-    if (!targetRecord && email) {
-      const targetEmail = String(email).toLowerCase().trim();
-      const targetTl = timeline ? String(timeline).trim() : '';
-      targetRecord = allAppraisals.find(doc => {
-        const dbEmail = (doc.email || doc.facultyEmail || "").toLowerCase().trim();
-        const dbTimeline = (doc.timeline || "").trim();
-        const matchesEmail = dbEmail === targetEmail;
-        const matchesTl = !targetTl || dbTimeline === targetTl;
-        return matchesEmail && matchesTl;
-      });
-    }
-
-    // 3. Fallback composite match if id is "email-timeline"
-    if (!targetRecord && id) {
-      const cleanId = String(id).toLowerCase().trim();
-      targetRecord = allAppraisals.find(doc => {
-        const dbId = doc._id ? doc._id.toString() : "";
-        const dbEmail = (doc.email || doc.facultyEmail || "").toLowerCase().trim();
-        const dbTimeline = (doc.timeline || "").trim();
-        if (dbId && cleanId === dbId.toLowerCase()) return true;
-        if (dbEmail && cleanId.includes(dbEmail) && (!dbTimeline || cleanId.includes(dbTimeline))) return true;
-        return false;
-      });
-    }
+    const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {
       console.error(`❌ Mismatch: No database record found for ID: ${id} / Email: ${email}`);

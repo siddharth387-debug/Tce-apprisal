@@ -4053,7 +4053,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       >
                         <td className="py-2.5 px-3 font-semibold text-slate-900">
                           <div>{row.facultyName}</div>
-                          {isIQAC && row.iqacAuditRemarks && (
+                          {row.iqacAuditRemarks && (
                             <div className={`text-[10px] font-medium px-2 py-0.5 rounded mt-1 border max-w-xs ${row.iqacExcluded ? 'bg-rose-100/80 text-rose-900 border-rose-200' : 'bg-blue-50 text-blue-900 border-blue-200'}`}>
                               💬 <strong>IQAC Note:</strong> "{row.iqacAuditRemarks}"
                             </div>
