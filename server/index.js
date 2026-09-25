@@ -1179,7 +1179,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
-    const records = await Appraisal.find(queryFilter).sort({ createdAt: -1 });
+    const records = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
     console.log(`✅ Database retrieval sync complete. Total rows found: ${records.length} for filter:`, JSON.stringify(queryFilter));
     return res.status(200).json({ success: true, count: records.length, data: records });
 
@@ -1616,7 +1616,7 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
 
     console.log(`📡 Inbound Verification ID: ${id}`);
 
-    const allAppraisals = await Appraisal.find({});
+    const allAppraisals = await Appraisal.find({}).sort({ updatedAt: -1, createdAt: -1 });
     const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {
@@ -1664,7 +1664,7 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       return res.status(400).json({ success: false, message: "Appraisal ID is required." });
     }
 
-    const allAppraisals = await Appraisal.find({});
+    const allAppraisals = await Appraisal.find({}).sort({ updatedAt: -1, createdAt: -1 });
     const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {
@@ -1681,7 +1681,7 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       updatedAt: new Date()
     };
 
-    await Appraisal.findByIdAndUpdate(
+    const updatedRecord = await Appraisal.findByIdAndUpdate(
       targetRecord._id,
       { $set: updateFields },
       { new: true }
@@ -1690,7 +1690,8 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
     console.log(`✅ IQAC Verified: ID [${id}] updated to status [${newStatus}]`);
     return res.status(200).json({
       success: true,
-      message: `Appraisal successfully marked as ${newStatus} by IQAC Quality Audit.`
+      message: `Appraisal successfully marked as ${newStatus} by IQAC Quality Audit.`,
+      updatedRecord
     });
   } catch (err) {
     console.error('❌ Error in IQAC Verification API:', err.message);
@@ -1704,7 +1705,7 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
     const { id } = req.params;
     const { iqacExcluded, iqacAuditRemarks, email, timeline } = req.body;
     
-    const allAppraisals = await Appraisal.find({});
+    const allAppraisals = await Appraisal.find({}).sort({ updatedAt: -1, createdAt: -1 });
     const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {
@@ -1717,7 +1718,7 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
       updatedAt: new Date()
     };
 
-    await Appraisal.findByIdAndUpdate(
+    const updatedRecord = await Appraisal.findByIdAndUpdate(
       targetRecord._id,
       { $set: updateFields },
       { new: true }
@@ -1725,7 +1726,8 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
 
     return res.status(200).json({
       success: true,
-      message: `IQAC curation status updated successfully (Excluded: ${updateFields.iqacExcluded}).`
+      message: `IQAC curation status updated successfully (Excluded: ${updateFields.iqacExcluded}).`,
+      updatedRecord
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -1742,7 +1744,7 @@ app.post(['/api/appraisals/endorse', '/appraisals/endorse'], async (req, res) =>
 
     console.log(`🎓 Inbound Endorsement Request: ID=${id}, Email=${email}, Timeline=${timeline}`);
 
-    const allAppraisals = await Appraisal.find({});
+    const allAppraisals = await Appraisal.find({}).sort({ updatedAt: -1, createdAt: -1 });
     const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
 
     if (!targetRecord) {

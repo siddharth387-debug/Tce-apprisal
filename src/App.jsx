@@ -196,6 +196,20 @@ function createEmptySectionState() {
 }
 
 
+function extractStringId(input) {
+  if (!input) return '';
+  if (typeof input === 'string') return input.trim();
+  if (typeof input === 'object') {
+    if (input._id) return extractStringId(input._id);
+    if (input.id) return extractStringId(input.id);
+    if (typeof input.toString === 'function') {
+      const str = input.toString();
+      if (str !== '[object Object]') return str.trim();
+    }
+  }
+  return String(input).trim();
+}
+
 function flattenAppraisalRecord(record) {
   if (!record) return createEmptySectionState();
   return {
@@ -1925,8 +1939,8 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       {(() => {
         const iqacState = (appraisal.iqacStatus || '').toUpperCase();
         const appraisalState = (appraisal.appraisalStatus || '').toUpperCase();
-        const isApproved = iqacState.includes('IQAC') || iqacState.includes('APPROVED') || appraisalState.includes('IQAC');
         const isNeedsClarification = iqacState === 'NEEDS CLARIFICATION';
+        const isApproved = !isNeedsClarification && (iqacState.includes('IQAC') || iqacState.includes('APPROVED') || iqacState.includes('VERIF') || appraisalState.includes('IQAC'));
 
         if (isApproved) {
           return (
@@ -2585,7 +2599,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Approved') => {
     try {
-      const cleanId = String(recordId || '').trim();
+      const cleanId = extractStringId(recordId);
       let trimmedRemarks = '';
       if (customRemarks !== null) {
         trimmedRemarks = String(customRemarks).trim();
@@ -2596,11 +2610,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
 
       const targetStatus = customStatus || 'IQAC Approved';
+      const targetEmail = recordEmail ? String(recordEmail).toLowerCase().trim() : '';
 
       // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
       setAppraisals(prev => prev.map(rec => {
-        const recIdStr = rec._id ? String(rec._id) : String(rec.id || '');
-        const isMatch = recIdStr === cleanId || rec.id === cleanId || `${rec.email}-${rec.timeline}` === cleanId;
+        const recIdStr = extractStringId(rec._id || rec.id);
+        const recEmail = (rec.facultyEmail || rec.email || '').toLowerCase().trim();
+        const isMatch = (cleanId && recIdStr === cleanId) || 
+                        (targetEmail && recEmail === targetEmail && (!recordTimeline || rec.timeline === recordTimeline));
         if (isMatch) {
           return {
             ...rec,
@@ -2616,8 +2633,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       // Update selectedAppraisal state if currently open in modal
       setSelectedAppraisal(prev => {
         if (!prev) return null;
-        const prevId = prev._id ? String(prev._id) : String(prev.id || '');
-        if (prevId === cleanId || `${prev.email}-${prev.timeline}` === cleanId) {
+        const prevIdStr = extractStringId(prev._id || prev.id);
+        const prevEmail = (prev.facultyEmail || prev.email || '').toLowerCase().trim();
+        const isMatch = (cleanId && prevIdStr === cleanId) || 
+                        (targetEmail && prevEmail === targetEmail && (!recordTimeline || prev.timeline === recordTimeline));
+        if (isMatch) {
           return {
             ...prev,
             iqacStatus: targetStatus,
@@ -2657,7 +2677,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState, recordEmail = '', recordTimeline = '') => {
     try {
-      const cleanId = String(recordId || '').trim();
+      const cleanId = extractStringId(recordId);
       let remarks = '';
       if (!currentExcludedState) {
         const inputReason = window.prompt("🚫 (Optional) Enter reason/feedback for soft-hiding this faculty member from the active IQAC list:");
@@ -2666,11 +2686,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
 
       const nextExcludedState = !currentExcludedState;
+      const targetEmail = recordEmail ? String(recordEmail).toLowerCase().trim() : '';
 
       // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
       setAppraisals(prev => prev.map(rec => {
-        const recIdStr = rec._id ? String(rec._id) : String(rec.id || '');
-        const isMatch = recIdStr === cleanId || rec.id === cleanId || `${rec.email}-${rec.timeline}` === cleanId;
+        const recIdStr = extractStringId(rec._id || rec.id);
+        const recEmail = (rec.facultyEmail || rec.email || '').toLowerCase().trim();
+        const isMatch = (cleanId && recIdStr === cleanId) || 
+                        (targetEmail && recEmail === targetEmail && (!recordTimeline || rec.timeline === recordTimeline));
         if (isMatch) {
           return {
             ...rec,
@@ -2684,8 +2707,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       // Update selectedAppraisal state if currently open in modal
       setSelectedAppraisal(prev => {
         if (!prev) return null;
-        const prevId = prev._id ? String(prev._id) : String(prev.id || '');
-        if (prevId === cleanId || `${prev.email}-${prev.timeline}` === cleanId) {
+        const prevIdStr = extractStringId(prev._id || prev.id);
+        const prevEmail = (prev.facultyEmail || prev.email || '').toLowerCase().trim();
+        const isMatch = (cleanId && prevIdStr === cleanId) || 
+                        (targetEmail && prevEmail === targetEmail && (!recordTimeline || prev.timeline === recordTimeline));
+        if (isMatch) {
           return {
             ...prev,
             iqacExcluded: nextExcludedState,
