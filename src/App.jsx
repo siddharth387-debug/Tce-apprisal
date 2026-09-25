@@ -2651,7 +2651,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       setSubmitSuccess(`Appraisal audit status updated to [${targetStatus}] by IQAC!`);
 
-      const activeToken = getStoredAuthToken();
+      const activeToken = getAuthToken() || user?.token;
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       await axios.post(
         `${API_BASE_URL}/appraisals/iqac-verify`,
@@ -2665,13 +2665,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { headers }
       );
       
+      // Delay sync to ensure MongoDB updateMany completes before re-fetching
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
-      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+      setTimeout(() => syncHistoryFromCloud(user, effectiveRole, currentDeptParam), 1500);
     } catch (err) {
       console.error('IQAC Verification Error:', err);
       setSubmitError(err.response?.data?.message || 'Failed to update IQAC verification status.');
-      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
-      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+      // Do NOT call syncHistoryFromCloud here — it would overwrite the optimistic state with stale server data
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
@@ -2723,7 +2723,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       setSubmitSuccess(currentExcludedState ? 'Faculty restored to active IQAC audit list.' : 'Faculty soft-hidden from active IQAC audit list.');
 
-      const activeToken = getStoredAuthToken();
+      const activeToken = getAuthToken() || user?.token;
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       await axios.patch(
         `${API_BASE_URL}/appraisals/${encodeURIComponent(cleanId)}/iqac-status`,
@@ -2736,13 +2736,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { headers }
       );
       
+      // Delay sync to ensure MongoDB updateMany completes before re-fetching
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
-      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+      setTimeout(() => syncHistoryFromCloud(user, effectiveRole, currentDeptParam), 1500);
     } catch (err) {
       console.error('IQAC Exclusion Error:', err);
       setSubmitError(err.response?.data?.message || 'Failed to update curation status.');
-      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
-      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+      // Do NOT call syncHistoryFromCloud here — it would overwrite the optimistic state with stale server data
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
@@ -4666,7 +4666,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             onRemarksChange: setIqacRemarksInput,
             onVerify: (targetStatus) => handleIqacVerifySubmission(selectedAppraisal._id || selectedAppraisal.id, selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline, iqacRemarksInput, targetStatus),
             onToggleExclusion: () => handleIqacToggleExclusion(selectedAppraisal._id || selectedAppraisal.id, Boolean(selectedAppraisal.iqacExcluded), selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline),
-            isVerified: (selectedAppraisal.iqacStatus || '').toUpperCase().includes('IQAC') || (selectedAppraisal.iqacStatus || '').toUpperCase().includes('APPROVED') || (selectedAppraisal.iqacStatus || '').toUpperCase().includes('VERIF') || (selectedAppraisal.appraisalStatus || '').toUpperCase().includes('IQAC') || (selectedAppraisal.appraisalStatus || '').toUpperCase().includes('APPROVED'),
+            isVerified: (() => { const iqSt = (selectedAppraisal.iqacStatus || '').toUpperCase(); return iqSt.includes('IQAC') || iqSt.includes('VERIF') || (iqSt.includes('APPROVED') && iqSt !== 'PENDING'); })(),
             isExcluded: Boolean(selectedAppraisal.iqacExcluded)
           } : null}
         />

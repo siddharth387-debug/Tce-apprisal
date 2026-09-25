@@ -804,7 +804,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       principalApprovalStatus: existingDoc?.principalApprovalStatus || 'Pending',
       principalRemarks: existingDoc?.principalRemarks || '',
       principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
-      appraisalStatus: existingDoc?.iqacStatus === 'IQAC Approved' ? 'IQAC Approved' : (existingDoc?.appraisalStatus || 'Pending'),
+      appraisalStatus: (existingDoc?.iqacStatus || '').toUpperCase().includes('IQAC') || (existingDoc?.iqacStatus || '').toUpperCase().includes('VERIF') ? 'IQAC Approved' : (existingDoc?.appraisalStatus || 'Pending'),
     };
 
     const options = { upsert: true, new: true, runValidators: false, setDefaultsOnInsert: true };
@@ -1718,9 +1718,11 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
 
     const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
     if (targetEmail) {
+      const timelineFilter = targetRecord.timeline ? { timeline: targetRecord.timeline } : {};
       await Appraisal.updateMany(
         {
-          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }]
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
+          ...timelineFilter
         },
         { $set: updateFields }
       );
@@ -1765,9 +1767,11 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
 
     const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
     if (targetEmail) {
+      const timelineFilter = targetRecord.timeline ? { timeline: targetRecord.timeline } : {};
       await Appraisal.updateMany(
         {
-          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }]
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
+          ...timelineFilter
         },
         { $set: updateFields }
       );
