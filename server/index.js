@@ -1671,10 +1671,10 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       return res.status(404).json({ success: false, message: "No matching appraisal record found." });
     }
 
-    const newStatus = iqacStatus || 'IQAC Verified';
+    const newStatus = iqacStatus || 'IQAC Approved';
     const updateFields = {
       iqacStatus: newStatus,
-      appraisalStatus: newStatus === 'Needs Clarification' ? (targetRecord.appraisalStatus || 'Pending') : 'IQAC Verified',
+      appraisalStatus: newStatus === 'Needs Clarification' ? (targetRecord.appraisalStatus || 'Pending') : 'IQAC Approved',
       iqacAuditRemarks: iqacAuditRemarks !== undefined ? iqacAuditRemarks : (targetRecord.iqacAuditRemarks || ''),
       ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
       iqacEvaluatedAt: new Date(),

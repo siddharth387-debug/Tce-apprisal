@@ -1921,37 +1921,98 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         </div>
       )}
 
-      {/* IQAC Verification Status Banner */}
-      {((appraisal.iqacStatus || '').toUpperCase().includes('IQAC') || (appraisal.appraisalStatus || '').toUpperCase().includes('IQAC')) && (
-        <div className="rounded-xl border border-blue-300 bg-gradient-to-r from-blue-50 via-indigo-50 to-sky-50 p-4 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl p-2 bg-blue-100 rounded-lg text-blue-900 shrink-0">📊</div>
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h4 className="text-xs font-black uppercase tracking-wider text-blue-950 flex items-center gap-1.5">
-                  <span>📊 IQAC Audit Verified</span>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-200 text-blue-900">
-                    Quality Assured
-                  </span>
-                </h4>
-                <span className="text-[11px] font-semibold text-blue-700">
-                  {appraisal.iqacEvaluatedAt
-                    ? `Verified on ${new Date(appraisal.iqacEvaluatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-                    : 'Audited by IQAC Cell'}
-                </span>
-              </div>
-              {appraisal.iqacAuditRemarks && (
-                <div className="mt-2 text-xs text-blue-900 bg-white/80 border border-blue-200/70 rounded-lg p-2.5 leading-relaxed">
-                  <span className="font-bold text-blue-950">IQAC Audit Note &amp; Feedback:</span> "{appraisal.iqacAuditRemarks}"
+      {/* IQAC Audit Status Callout Banner (Prominently viewable to Registrar, Principal & IQAC) */}
+      {(() => {
+        const iqacState = (appraisal.iqacStatus || '').toUpperCase();
+        const appraisalState = (appraisal.appraisalStatus || '').toUpperCase();
+        const isApproved = iqacState.includes('IQAC') || iqacState.includes('APPROVED') || appraisalState.includes('IQAC');
+        const isNeedsClarification = iqacState === 'NEEDS CLARIFICATION';
+
+        if (isApproved) {
+          return (
+            <div className="rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/80 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl p-2 bg-emerald-100 rounded-lg text-emerald-900 shrink-0">📊</div>
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
+                      <span>✔ APPROVED BY IQAC CELL</span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-200 text-emerald-900 border border-emerald-300">
+                        Quality Assured
+                      </span>
+                    </h4>
+                    <span className="text-[11px] font-semibold text-emerald-800">
+                      {appraisal.iqacEvaluatedAt
+                        ? `Approved on ${new Date(appraisal.iqacEvaluatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                        : 'Approved by IQAC Audit Cell'}
+                    </span>
+                  </div>
+                  {appraisal.iqacAuditRemarks && (
+                    <div className="mt-2 text-xs text-emerald-950 bg-white/90 border border-emerald-200/80 rounded-lg p-2.5 leading-relaxed shadow-2xs">
+                      <span className="font-bold text-emerald-950">IQAC Audit Note &amp; Feedback:</span> "{appraisal.iqacAuditRemarks}"
+                    </div>
+                  )}
+                  <p className="text-[10px] text-emerald-700 mt-1.5 font-medium">
+                    This faculty appraisal submission has undergone institutional quality audit and is formally APPROVED by the IQAC Cell.
+                  </p>
                 </div>
-              )}
-              <p className="text-[10px] text-blue-700 mt-1.5 font-medium">
-                This appraisal submission has undergone IQAC institutional quality audit and meets quality compliance benchmarks.
-              </p>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          );
+        } else if (isNeedsClarification) {
+          return (
+            <div className="rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50/80 p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl p-2 bg-amber-100 rounded-lg text-amber-900 shrink-0">⚠️</div>
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                      <span>⚠️ NOT APPROVED - NEEDS CLARIFICATION</span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-200 text-amber-900 border border-amber-300">
+                        Action Required
+                      </span>
+                    </h4>
+                    <span className="text-[11px] font-semibold text-amber-800">
+                      {appraisal.iqacEvaluatedAt
+                        ? `Flagged on ${new Date(appraisal.iqacEvaluatedAt).toLocaleDateString('en-GB')}`
+                        : 'IQAC Audit Flagged'}
+                    </span>
+                  </div>
+                  {appraisal.iqacAuditRemarks && (
+                    <div className="mt-2 text-xs text-amber-950 bg-white/90 border border-amber-200/80 rounded-lg p-2.5 leading-relaxed shadow-2xs">
+                      <span className="font-bold text-amber-950">IQAC Audit Observation:</span> "{appraisal.iqacAuditRemarks}"
+                    </div>
+                  )}
+                  <p className="text-[10px] text-amber-800 mt-1.5 font-medium">
+                    IQAC Audit Cell has reviewed this submission and marked it as requiring clarification or document correction.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        } else {
+          return (
+            <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 via-gray-50 to-slate-50 p-3.5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="text-xl p-2 bg-slate-200/80 rounded-lg text-slate-700 shrink-0">⏳</div>
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <span>⏳ IQAC AUDIT STATUS: PENDING (NOT YET APPROVED)</span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-slate-200 text-slate-700 border border-slate-300">
+                        Awaiting Audit
+                      </span>
+                    </h4>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1 font-medium">
+                    This faculty appraisal submission is currently pending quality audit review by the IQAC Cell.
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+      })()}
 
       {/* Section I Card */}
       <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
@@ -2522,19 +2583,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, syncHistoryFromCloud]);
 
-  const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Verified') => {
+  const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Approved') => {
     try {
       const cleanId = String(recordId || '').trim();
       let trimmedRemarks = '';
       if (customRemarks !== null) {
         trimmedRemarks = String(customRemarks).trim();
       } else {
-        const inputRemarks = window.prompt("✔ (Optional) Enter IQAC verification remarks or notes for this appraisal:");
+        const inputRemarks = window.prompt("✔ (Optional) Enter IQAC audit remarks or notes for this appraisal approval:");
         if (inputRemarks === null) return;
         trimmedRemarks = inputRemarks.trim();
       }
 
-      const targetStatus = customStatus || 'IQAC Verified';
+      const targetStatus = customStatus || 'IQAC Approved';
 
       // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
       setAppraisals(prev => prev.map(rec => {
@@ -2544,7 +2605,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return {
             ...rec,
             iqacStatus: targetStatus,
-            appraisalStatus: targetStatus === 'Needs Clarification' ? rec.appraisalStatus : 'IQAC Verified',
+            appraisalStatus: targetStatus === 'Needs Clarification' ? rec.appraisalStatus : 'IQAC Approved',
             ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
             iqacEvaluatedAt: new Date().toISOString()
           };
@@ -2560,7 +2621,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return {
             ...prev,
             iqacStatus: targetStatus,
-            appraisalStatus: targetStatus === 'Needs Clarification' ? prev.appraisalStatus : 'IQAC Verified',
+            appraisalStatus: targetStatus === 'Needs Clarification' ? prev.appraisalStatus : 'IQAC Approved',
             ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
             iqacEvaluatedAt: new Date().toISOString()
           };
@@ -4192,7 +4253,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     const formattedDate = row.submittedAt || row.createdAt
                       ? new Date(row.submittedAt || row.createdAt).toLocaleDateString('en-GB')
                       : '—';
-                    const isIqacVerified = (row.iqacStatus || '').toUpperCase().includes('IQAC') || (row.appraisalStatus || '').toUpperCase().includes('IQAC');
+                    const isIqacApproved = (row.iqacStatus || '').toUpperCase().includes('IQAC') || (row.iqacStatus || '').toUpperCase().includes('APPROVED') || (row.appraisalStatus || '').toUpperCase().includes('IQAC');
 
                     return (
                       <tr
@@ -4238,21 +4299,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   <span>⚠️</span> Needs Clarification
                                 </span>
                               );
-                            } else if (isRatified && isIqacVerified) {
+                            } else if (isRatified && isIqacApproved) {
                               return (
                                 <div className="flex flex-col gap-1 items-start">
                                   <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
                                     <span>🔒</span> Ratified
                                   </span>
                                   <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
-                                    <span>📊</span> IQAC Verified
+                                    <span>📊</span> IQAC Approved
                                   </span>
                                 </div>
                               );
-                            } else if (isIqacVerified) {
+                            } else if (isIqacApproved) {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
-                                  <span>📊</span> IQAC Verified
+                                  <span>📊</span> IQAC Approved
                                 </span>
                               );
                             } else if (isRatified) {
@@ -4302,15 +4363,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
                             {isIQAC && (
                               <>
-                                {!isIqacVerified && (
+                                {!isIqacApproved && (
                                   <button
                                     type="button"
-                                    onClick={() => handleIqacVerifySubmission(row._id ? String(row._id) : row.id, row.facultyEmail || row.email, row.timeline)}
+                                    onClick={() => handleIqacVerifySubmission(row._id ? String(row._id) : row.id, row.facultyEmail || row.email, row.timeline, null, 'IQAC Approved')}
                                     disabled={isSubmitting}
                                     className="text-[10.5px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 disabled:opacity-50"
-                                    title="Mark submission as IQAC Verified"
+                                    title="Approve faculty appraisal submission by IQAC Audit"
                                   >
-                                    <span>✔</span> Verify
+                                    <span>✔</span> Approve
                                   </button>
                                 )}
                                 <button
