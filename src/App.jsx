@@ -3948,6 +3948,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (isIQAC) {
       displayInboxRows = selectedInboxRows.filter((row) => {
         const totalScore = row.totalScore || 0;
+        const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
+        const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
+        
+        // IQAC WORKFLOW RULE: IQAC only reviews appraisals that have been approved by the HoD, or audited by IQAC, or ratified
+        const isHodApproved = apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED';
+        const isIqacAudited = iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING')) || iqStatus === 'NEEDS CLARIFICATION';
+        
+        if (!isHodApproved && !isIqacAudited) {
+          return false; // Hide Pending (unapproved by HoD) appraisals from IQAC perspective!
+        }
         
         if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
         if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
@@ -4287,7 +4297,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       : '—';
                     const iqSt = (row.iqacStatus || '').toUpperCase();
                     const apSt = (row.appraisalStatus || '').toUpperCase();
-                    const isIqacApproved = iqSt.includes('IQAC') || iqSt.includes('APPROVED') || iqSt.includes('VERIF') || apSt.includes('IQAC') || apSt.includes('APPROVED');
+                    const isIqacApproved = iqSt.includes('IQAC') || iqSt.includes('VERIF') || (iqSt.includes('APPROVED') && !iqSt.includes('PENDING')) || apSt.includes('IQAC');
 
                     return (
                       <tr

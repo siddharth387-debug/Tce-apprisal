@@ -1653,21 +1653,28 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
           ? Number(req.body.convertedScore)
           : targetRecord.convertedScore);
 
-    // Execute update using targetRecord._id
+    const updateFields = { 
+      appraisalStatus: appraisalStatus, 
+      hodRemarks: hodRemarks || "",
+      subsectionRemarks: typeof subsectionRemarks === 'object' && subsectionRemarks !== null ? subsectionRemarks : {},
+      hodSubsectionScores: typeof hodSubsectionScores === 'object' && hodSubsectionScores !== null ? hodSubsectionScores : {},
+      convertedScore: evaluatedConvertedScore,
+      updatedAt: new Date()
+    };
+
     await Appraisal.findByIdAndUpdate(
       targetRecord._id,
-      { 
-        $set: { 
-          appraisalStatus: appraisalStatus, 
-          hodRemarks: hodRemarks || "",
-          subsectionRemarks: typeof subsectionRemarks === 'object' && subsectionRemarks !== null ? subsectionRemarks : {},
-          hodSubsectionScores: typeof hodSubsectionScores === 'object' && hodSubsectionScores !== null ? hodSubsectionScores : {},
-          convertedScore: evaluatedConvertedScore,
-          updatedAt: new Date()
-        } 
-      },
+      { $set: updateFields },
       { new: true }
     );
+
+    const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
+    if (targetEmail) {
+      await Appraisal.updateMany(
+        { $or: [{ email: targetEmail }, { facultyEmail: targetEmail }] },
+        { $set: updateFields }
+      );
+    }
 
     console.log(`✅ Success: Status updated to [${appraisalStatus}] with Score [${evaluatedConvertedScore}] for ${targetRecord.email}`);
     return res.status(200).json({ success: true, message: "Evaluation status and scores recorded successfully." });
