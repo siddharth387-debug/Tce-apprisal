@@ -1431,26 +1431,9 @@ function LandingPage({ googleClientId, onLogin }) {
               </p>
             )}
 
-            {/* Onboarding & Directory Verification Trigger Button */}
-            <div className="mt-5 pt-4 border-t border-slate-200 text-center">
-              <button
-                type="button"
-                onClick={() => setIsRegModalOpen(true)}
-                className="text-xs font-bold text-[#4A1519] hover:text-[#3B1013] hover:underline flex items-center justify-center gap-1.5 mx-auto transition-all py-1 px-2 rounded-lg bg-[#4A1519]/5 border border-[#4A1519]/10"
-              >
-                <span>🎓</span>
-                <span>New Faculty or Verify Profile? Register / Lookup</span>
-              </button>
-            </div>
           </div>
         </div>
       </section>
-
-      {/* Registration & Roster Verification Modal */}
-      <FacultyRegistrationModal
-        isOpen={isRegModalOpen}
-        onClose={() => setIsRegModalOpen(false)}
-      />
     </div>
   );
 }
