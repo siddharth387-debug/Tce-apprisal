@@ -1594,29 +1594,32 @@ function findAppraisalRecordInDb(allDocs, targetId, email = '', timeline = '') {
     if (found) return found;
   }
 
-  // 2. Email + timeline match
-  if (cleanEmail) {
+  // 2. Exact Email + timeline match (if specific timeline given)
+  if (cleanEmail && cleanTimeline && cleanTimeline.toUpperCase() !== 'ALL') {
     const found = allDocs.find(doc => {
       const dbEmail = (doc.email || doc.facultyEmail || "").toLowerCase().trim();
       const dbTimeline = (doc.timeline || "").trim();
-      if (!dbEmail) return false;
-      if (cleanTimeline) {
-        return dbEmail === cleanEmail && dbTimeline === cleanTimeline;
-      }
+      return dbEmail === cleanEmail && dbTimeline === cleanTimeline;
+    });
+    if (found) return found;
+  }
+
+  // 3. Email-only match (most recent document for faculty)
+  if (cleanEmail) {
+    const found = allDocs.find(doc => {
+      const dbEmail = (doc.email || doc.facultyEmail || "").toLowerCase().trim();
       return dbEmail === cleanEmail;
     });
     if (found) return found;
   }
 
-  // 3. Fallback composite match (targetId contains dbEmail & dbTimeline)
+  // 4. Fallback composite match
   if (cleanId) {
     const found = allDocs.find(doc => {
       if (doc._id && doc._id.toString() === cleanId) return true;
       const dbEmail = (doc.email || doc.facultyEmail || "").toLowerCase().trim();
-      const dbTimeline = (doc.timeline || "").trim();
-      if (!dbEmail) return false; // PREVENT empty string substring match matching doc #0!
-      if (cleanTimeline && dbTimeline !== cleanTimeline) return false;
-      return cleanId.toLowerCase().includes(dbEmail) && (dbTimeline ? cleanId.includes(dbTimeline) : true);
+      if (!dbEmail) return false;
+      return cleanId.toLowerCase().includes(dbEmail);
     });
     if (found) return found;
   }
@@ -1707,12 +1710,10 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
     );
 
     const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
-    const targetTl = (targetRecord.timeline || timeline || '').trim();
-    if (targetEmail && targetTl) {
+    if (targetEmail) {
       await Appraisal.updateMany(
         {
-          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
-          timeline: targetTl
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }]
         },
         { $set: updateFields }
       );
@@ -1756,12 +1757,10 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
     );
 
     const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
-    const targetTl = (targetRecord.timeline || timeline || '').trim();
-    if (targetEmail && targetTl) {
+    if (targetEmail) {
       await Appraisal.updateMany(
         {
-          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
-          timeline: targetTl
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }]
         },
         { $set: updateFields }
       );

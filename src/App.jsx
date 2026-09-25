@@ -4285,7 +4285,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     const formattedDate = row.submittedAt || row.createdAt
                       ? new Date(row.submittedAt || row.createdAt).toLocaleDateString('en-GB')
                       : '—';
-                    const isIqacApproved = (row.iqacStatus || '').toUpperCase().includes('IQAC') || (row.iqacStatus || '').toUpperCase().includes('APPROVED') || (row.appraisalStatus || '').toUpperCase().includes('IQAC');
+                    const iqSt = (row.iqacStatus || '').toUpperCase();
+                    const apSt = (row.appraisalStatus || '').toUpperCase();
+                    const isIqacApproved = iqSt.includes('IQAC') || iqSt.includes('APPROVED') || iqSt.includes('VERIF') || apSt.includes('IQAC') || apSt.includes('APPROVED');
 
                     return (
                       <tr
@@ -4472,7 +4474,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     const localSubmissionDate = rawDate && !isNaN(new Date(rawDate).getTime())
                       ? new Date(rawDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
                       : '—';
-                    const isIqacVerifiedHistory = (row.iqacStatus || '').toUpperCase().includes('IQAC') || (row.appraisalStatus || '').toUpperCase().includes('IQAC');
+                    const iqStHist = (row.iqacStatus || '').toUpperCase();
+                    const apStHist = (row.appraisalStatus || '').toUpperCase();
+                    const isIqacVerifiedHistory = iqStHist.includes('IQAC') || iqStHist.includes('APPROVED') || iqStHist.includes('VERIF') || apStHist.includes('IQAC') || apStHist.includes('APPROVED');
 
                     return (
                       <tr key={row._id || row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition text-xs">
@@ -4652,7 +4656,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             onRemarksChange: setIqacRemarksInput,
             onVerify: (targetStatus) => handleIqacVerifySubmission(selectedAppraisal._id || selectedAppraisal.id, selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline, iqacRemarksInput, targetStatus),
             onToggleExclusion: () => handleIqacToggleExclusion(selectedAppraisal._id || selectedAppraisal.id, Boolean(selectedAppraisal.iqacExcluded), selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline),
-            isVerified: (selectedAppraisal.iqacStatus || '').toUpperCase().includes('IQAC') || (selectedAppraisal.appraisalStatus || '').toUpperCase().includes('IQAC'),
+            isVerified: (selectedAppraisal.iqacStatus || '').toUpperCase().includes('IQAC') || (selectedAppraisal.iqacStatus || '').toUpperCase().includes('APPROVED') || (selectedAppraisal.iqacStatus || '').toUpperCase().includes('VERIF') || (selectedAppraisal.appraisalStatus || '').toUpperCase().includes('IQAC') || (selectedAppraisal.appraisalStatus || '').toUpperCase().includes('APPROVED'),
             isExcluded: Boolean(selectedAppraisal.iqacExcluded)
           } : null}
         />
