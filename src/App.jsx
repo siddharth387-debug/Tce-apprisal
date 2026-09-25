@@ -2751,9 +2751,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   useEffect(() => {
     if (!hasHodPrivileges || !Array.isArray(appraisals)) return;
     const rebuilt = {};
+    const seenKeys = new Set();
     appraisals.forEach((record) => {
       const tl = record.timeline;
       if (!tl) return;
+      const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
+      const uniqueKey = `${recEmail}_${tl}`;
+      if (recEmail && seenKeys.has(uniqueKey)) return;
+      if (recEmail) seenKeys.add(uniqueKey);
+
       if (!rebuilt[tl]) rebuilt[tl] = [];
       rebuilt[tl].push({
         id: record._id || `${record.email}-${tl}`,

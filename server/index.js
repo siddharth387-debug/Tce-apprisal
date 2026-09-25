@@ -774,6 +774,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const targetDeptName = facultyRecord?.departmentName || departmentName || req.user?.departmentName || 'Computer Science and Engineering';
 
     const targetedFilter = { email: canonicalEmail, timeline: timeline.trim() };
+    const existingDoc = await Appraisal.findOne(targetedFilter);
 
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
     const replacementPayload = {
@@ -796,7 +797,14 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       section7Data: section7Data || {},
       section8Data: section8Data || {},
       section9Data: section9Data || {},
-      appraisalStatus: 'Pending', // Reset to Pending on each save
+      iqacStatus: existingDoc?.iqacStatus || 'Pending',
+      iqacAuditRemarks: existingDoc?.iqacAuditRemarks || '',
+      iqacExcluded: Boolean(existingDoc?.iqacExcluded),
+      iqacEvaluatedAt: existingDoc?.iqacEvaluatedAt || null,
+      principalApprovalStatus: existingDoc?.principalApprovalStatus || 'Pending',
+      principalRemarks: existingDoc?.principalRemarks || '',
+      principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
+      appraisalStatus: existingDoc?.iqacStatus === 'IQAC Approved' ? 'IQAC Approved' : (existingDoc?.appraisalStatus || 'Pending'),
     };
 
     const options = { upsert: true, new: true, runValidators: false, setDefaultsOnInsert: true };
@@ -1179,8 +1187,19 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
-    const records = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
-    console.log(`✅ Database retrieval sync complete. Total rows found: ${records.length} for filter:`, JSON.stringify(queryFilter));
+    const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
+    const seenMap = new Map();
+    const records = [];
+    for (const doc of rawRecords) {
+      const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
+      const tlKey = (doc.timeline || '').trim();
+      const compositeKey = `${emailKey}_${tlKey}`;
+      if (emailKey && !seenMap.has(compositeKey)) {
+        seenMap.set(compositeKey, true);
+        records.push(doc);
+      }
+    }
+    console.log(`✅ Database retrieval sync complete. Total rows returned: ${records.length} (deduplicated from ${rawRecords.length} raw docs) for filter:`, JSON.stringify(queryFilter));
     return res.status(200).json({ success: true, count: records.length, data: records });
 
   } catch (error) {
@@ -1687,6 +1706,18 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       { new: true }
     );
 
+    const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
+    const targetTl = (targetRecord.timeline || timeline || '').trim();
+    if (targetEmail && targetTl) {
+      await Appraisal.updateMany(
+        {
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
+          timeline: targetTl
+        },
+        { $set: updateFields }
+      );
+    }
+
     console.log(`✅ IQAC Verified: ID [${id}] updated to status [${newStatus}]`);
     return res.status(200).json({
       success: true,
@@ -1723,6 +1754,18 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
       { $set: updateFields },
       { new: true }
     );
+
+    const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
+    const targetTl = (targetRecord.timeline || timeline || '').trim();
+    if (targetEmail && targetTl) {
+      await Appraisal.updateMany(
+        {
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
+          timeline: targetTl
+        },
+        { $set: updateFields }
+      );
+    }
 
     return res.status(200).json({
       success: true,
