@@ -1389,7 +1389,7 @@ function LandingPage({ googleClientId, onLogin }) {
       </section>
 
       <section className="flex basis-full items-center justify-center bg-gradient-to-br from-[#F5F5F5] via-slate-100 to-[#EAE6E5] px-6 py-10 md:basis-2/5 md:px-8 lg:px-10">
-        <div className="w-full max-w-md rounded-2xl bg-white/85 backdrop-blur-md p-8 shadow-2xl shadow-black/10 border border-white/80 sm:p-10 hover:bg-white/95 hover:shadow-3xl transition-all duration-300">
+        <div className="w-full max-w-md rounded-2xl bg-white/85 backdrop-blur-md p-8 shadow-2xl shadow-black/10 border border-white/80 sm:p-10 hover:bg-white/95 hover:shadow-3xl animate-subtle-float glass-card-float">
           <div className="inline-flex rounded-full bg-[#4A1519]/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#4A1519]">
             Staff Sign-In
           </div>
@@ -1794,7 +1794,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     });
   };
   return (
-    <div className="mt-4 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-md p-4 shadow-md shadow-black/5 space-y-4 hover:border-[#4A1519]/20 transition-all duration-300">
+    <div className="mt-4 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-md p-4 shadow-md shadow-black/5 space-y-4 hover:border-[#4A1519]/20 glass-card-float">
       <div className="flex items-start justify-between border-b border-slate-100 pb-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-[#4A1519]">
@@ -3960,7 +3960,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm shadow-black/5 hover:bg-white/95 hover:border-[#4A1519]/20 hover:shadow-md transition-all duration-300">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm shadow-black/5 hover:bg-white/95 hover:border-[#4A1519]/20 glass-card-float">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-xl">
             <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
@@ -4701,7 +4701,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section I Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-md hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 transition-all duration-300">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === 'I' ? null : 'I')} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'I' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}

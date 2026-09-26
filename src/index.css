@@ -25,6 +25,29 @@ select {
   font: inherit;
 }
 
+/* 🔮 Subtle Floating & Glassmorphism Utilities */
+@keyframes subtleFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-subtle-float {
+  animation: subtleFloat 5s ease-in-out infinite;
+}
+
+.glass-card-float {
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-float:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.08), 0 10px 15px -5px rgba(74, 21, 25, 0.08);
+}
+
 @media print {
   /* Hide the entire interactive on-screen UI during print */
   .interactive-ui,
@@ -81,4 +104,3 @@ select {
     page-break-inside: avoid !important;
   }
 }
-
