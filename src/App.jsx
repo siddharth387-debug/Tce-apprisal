@@ -2012,7 +2012,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       })()}
 
       {/* Section I Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION I: Teaching &amp; Learning</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.total || 0} / 50</span>
@@ -2043,7 +2043,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section II Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION II: Research Publications</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section2Total || 0} / 55</span>
@@ -2067,7 +2067,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section III Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION III: Patents and Innovation</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section3Total || 0} / 15</span>
@@ -2082,7 +2082,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section IV Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION IV: Sponsored Research and Consultancy</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section4Total || 0} / 15</span>
@@ -2097,7 +2097,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section V Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION V: International Engagement & Rankings</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section5Total || 0} / 10</span>
@@ -2112,7 +2112,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section VI Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VI: Faculty Development & Professional Activities</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section6Total || 0} / 20</span>
@@ -2127,7 +2127,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section VII Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VII: Industry Interaction & Internship</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section7Total || 0} / 10</span>
@@ -2142,7 +2142,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section VIII Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VIII: Student Development Activities</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section8Total || 0} / 5</span>
@@ -2157,7 +2157,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       </div>
 
       {/* Section IX Card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION IX: Institutional Development</h4>
           <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section9Total || 0} / 20</span>
@@ -5039,7 +5039,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section II Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === 'II' ? null : 'II')} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'II' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
@@ -5277,7 +5277,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
         </div>
         {/* Section III Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === "III" ? null : "III")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "III" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -5348,7 +5348,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section IV Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === "IV" ? null : "IV")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IV" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -5386,7 +5386,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section V Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === "V" ? null : "V")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "V" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -5458,7 +5458,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       
         {/* Section VI Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === "VI" ? null : "VI")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VI" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -5540,7 +5540,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section VII Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === "VII" ? null : "VII")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -5600,7 +5600,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section VIII Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === "VIII" ? null : "VIII")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VIII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -5649,7 +5649,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section IX Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
           <div 
             onClick={() => setActiveSection(activeSection === "IX" ? null : "IX")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IX" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
