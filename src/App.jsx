@@ -1388,8 +1388,8 @@ function LandingPage({ googleClientId, onLogin }) {
         </div>
       </section>
 
-      <section className="flex basis-full items-center justify-center bg-[#F5F5F5] px-6 py-10 md:basis-2/5 md:px-8 lg:px-10">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl shadow-black/10 sm:p-10">
+      <section className="flex basis-full items-center justify-center bg-gradient-to-br from-[#F5F5F5] via-slate-100 to-[#EAE6E5] px-6 py-10 md:basis-2/5 md:px-8 lg:px-10">
+        <div className="w-full max-w-md rounded-2xl bg-white/85 backdrop-blur-md p-8 shadow-2xl shadow-black/10 border border-white/80 sm:p-10 hover:bg-white/95 hover:shadow-3xl transition-all duration-300">
           <div className="inline-flex rounded-full bg-[#4A1519]/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#4A1519]">
             Staff Sign-In
           </div>
@@ -1400,7 +1400,7 @@ function LandingPage({ googleClientId, onLogin }) {
             Authenticate with Google to continue into the appraisal workspace.
           </p>
 
-          <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6">
+          <div className="mt-8 rounded-2xl border border-slate-200/80 bg-white/60 backdrop-blur-sm px-4 py-6 shadow-xs hover:bg-white/80 transition-all duration-200">
             <div className="flex justify-center">
               {resolvedClientId ? (
                 <GoogleOAuthProvider clientId={resolvedClientId}>
@@ -4701,7 +4701,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section I Collapsible Card Container */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:shadow-md hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 transition-all duration-300">
           <div 
             onClick={() => setActiveSection(activeSection === 'I' ? null : 'I')} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'I' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
