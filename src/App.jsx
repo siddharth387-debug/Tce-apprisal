@@ -1794,7 +1794,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     });
   };
   return (
-    <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5 space-y-4">
+    <div className="mt-4 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-md p-4 shadow-md shadow-black/5 space-y-4 hover:border-[#4A1519]/20 transition-all duration-300">
       <div className="flex items-start justify-between border-b border-slate-100 pb-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-wider text-[#4A1519]">
@@ -3960,7 +3960,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5">
+      <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm shadow-black/5 hover:bg-white/95 hover:border-[#4A1519]/20 hover:shadow-md transition-all duration-300">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-xl">
             <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
@@ -4285,7 +4285,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     return (
                       <tr
                         key={row.id || row._id}
-                        className={`border-b border-slate-100 text-xs text-slate-700 hover:bg-slate-50 transition ${row.iqacExcluded ? 'bg-rose-50/40' : ''}`}
+                        className={`border-b border-slate-100/80 text-xs text-slate-700 hover:bg-[#4A1519]/5 hover:backdrop-blur-xs transition-all duration-200 ${row.iqacExcluded ? 'bg-rose-50/40' : ''}`}
                       >
                         <td className="py-2.5 px-3 font-semibold text-slate-900">
                           <div>{row.facultyName}</div>
@@ -5957,8 +5957,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     <>
       <div className="min-h-screen bg-[#F5F3F2] interactive-ui">
       <div className="w-full flex flex-col font-sans">
-        {/* Top Banner Row: Full-width White Background */}
-        <div className="w-full bg-white px-6 py-2 flex items-center justify-between border-b border-gray-200 select-none">
+        {/* Top Banner Row: Full-width Glass Background */}
+        <div className="sticky top-0 z-40 w-full bg-white/85 backdrop-blur-md px-6 py-2 flex items-center justify-between border-b border-slate-200/80 shadow-xs transition-all select-none">
           
           {/* Left Side: Uncompressed Logos */}
           <img
