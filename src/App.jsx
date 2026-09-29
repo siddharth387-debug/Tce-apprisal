@@ -4177,24 +4177,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Submissions</p>
-              <p className="text-2xl font-black text-slate-800 mt-1">{selectedInboxRows.length}</p>
+              <p className="text-2xl font-black text-slate-800 mt-1">{displayInboxRows.length}</p>
             </div>
             <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Approved / Ratified</p>
               <p className="text-2xl font-black text-emerald-800 mt-1">
-                {selectedInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
+                {displayInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
               </p>
             </div>
             <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Pending Review</p>
               <p className="text-2xl font-black text-amber-800 mt-1">
-                {selectedInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || !r.appraisalStatus).length}
+                {displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || !r.appraisalStatus).length}
               </p>
             </div>
             <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Fix Needed</p>
               <p className="text-2xl font-black text-rose-800 mt-1">
-                {selectedInboxRows.filter(r => ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes((r.appraisalStatus || '').toUpperCase())).length}
+                {displayInboxRows.filter(r => ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes((r.appraisalStatus || '').toUpperCase())).length}
               </p>
             </div>
           </div>
@@ -4229,7 +4229,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 {isPrincipal ? 'Institutional Executive Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : 'Department Faculty Appraisal Dashboard'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Showing {selectedInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
+                Showing {displayInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
                 {(isPrincipal || isRegistrar) && selectedDeptFilter !== 'ALL' ? ` [Filtered: Department of ${selectedDeptFilter}]` : ''}
               </p>
             </div>
