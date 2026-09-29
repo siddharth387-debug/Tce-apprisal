@@ -4289,7 +4289,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       >
                         <td className="py-2.5 px-3 font-semibold text-slate-900">
                           <div>{row.facultyName}</div>
-                          {(isPrincipal || isRegistrar || isIQAC) && row.iqacAuditRemarks && (
+                          {(isPrincipal || isRegistrar || isIQAC || isHod) && row.iqacAuditRemarks && (
                             <div className={`text-[10px] font-medium px-2 py-0.5 rounded mt-1 border max-w-xs ${row.iqacExcluded ? 'bg-rose-100/80 text-rose-900 border-rose-200' : 'bg-blue-50 text-blue-900 border-blue-200'}`}>
                               💬 <strong>IQAC Note:</strong> "{row.iqacAuditRemarks}"
                             </div>
@@ -4317,7 +4317,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           {(() => {
                             const activeStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
-                            const isElevatedView = isPrincipal || isRegistrar || isIQAC;
+                            const isElevatedView = isPrincipal || isRegistrar || isIQAC || isHod;
                             const isNeedsClarification = isElevatedView && (row.iqacStatus || '').toUpperCase() === 'NEEDS CLARIFICATION';
 
                             if (isNeedsClarification) {
