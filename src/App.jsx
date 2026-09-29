@@ -3928,22 +3928,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const iqacExcludedCount = selectedInboxRows.filter(r => r.iqacExcluded).length;
 
     let displayInboxRows = selectedInboxRows;
-    if (isIQAC) {
+    if (isIQAC || isHod) {
       displayInboxRows = selectedInboxRows.filter((row) => {
         const totalScore = row.totalScore || 0;
         const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
         const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
         
-        // IQAC WORKFLOW RULE: IQAC only reviews appraisals that have been approved by the HoD, or audited by IQAC, or ratified
-        const isHodApproved = apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED';
-        const isIqacAudited = iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING')) || iqStatus === 'NEEDS CLARIFICATION';
-        
-        if (!isHodApproved && !isIqacAudited) {
-          return false; // Hide Pending (unapproved by HoD) appraisals from IQAC perspective!
+        if (isIQAC) {
+          // IQAC WORKFLOW RULE: IQAC only reviews appraisals that have been approved by the HoD, or audited by IQAC, or ratified
+          const isHodApproved = apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED';
+          const isIqacAudited = iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING')) || iqStatus === 'NEEDS CLARIFICATION';
+          
+          if (!isHodApproved && !isIqacAudited) {
+            return false; // Hide Pending (unapproved by HoD) appraisals from IQAC perspective!
+          }
+          
+          if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
+          if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
         }
-        
-        if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
-        if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
         
         if (iqacScoreFilterMode === 'min') {
           return totalScore >= iqacTargetScoreFilter;
@@ -4040,8 +4042,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
 
-        {/* IQAC Score Range Filter & Soft Curation Toolbar */}
-        {isIQAC && (
+        {/* Score Range Filter & Measurement Scheme Toolbar (IQAC & HoD) */}
+        {(isIQAC || isHod) && (
           <div className="mt-4 p-4 bg-gradient-to-r from-blue-900/10 via-slate-50 to-blue-900/10 border border-blue-200 rounded-xl space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -4126,44 +4128,46 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
+              {isIQAC && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setIqacShowExcludedOnly(false)}
+                      className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      <span>📋</span> Active Audit List ({iqacActiveCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIqacShowExcludedOnly(true)}
+                      className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      <span>🚫</span> Excluded Archive ({iqacExcludedCount})
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setIqacShowExcludedOnly(false)}
-                    className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    onClick={() => {
+                      exportIqacRosterPDF({
+                        rows: displayInboxRows,
+                        timeline: selectedTimeline,
+                        departmentFilter: selectedDeptFilter,
+                        targetScore: iqacTargetScoreFilter,
+                        scoreFrom: iqacScoreFrom,
+                        scoreTo: iqacScoreTo,
+                        scoreFilterMode: iqacScoreFilterMode,
+                        showExcludedArchive: iqacShowExcludedOnly,
+                      });
+                    }}
+                    className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
+                    title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
                   >
-                    <span>📋</span> Active Audit List ({iqacActiveCount})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIqacShowExcludedOnly(true)}
-                    className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                  >
-                    <span>🚫</span> Excluded Archive ({iqacExcludedCount})
+                    <span>📄</span> Export Audit PDF
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    exportIqacRosterPDF({
-                      rows: displayInboxRows,
-                      timeline: selectedTimeline,
-                      departmentFilter: selectedDeptFilter,
-                      targetScore: iqacTargetScoreFilter,
-                      scoreFrom: iqacScoreFrom,
-                      scoreTo: iqacScoreTo,
-                      scoreFilterMode: iqacScoreFilterMode,
-                      showExcludedArchive: iqacShowExcludedOnly,
-                    });
-                  }}
-                  className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
-                  title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
-                >
-                  <span>📄</span> Export Audit PDF
-                </button>
-              </div>
+              )}
             </div>
           </div>
         )}
