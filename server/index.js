@@ -198,8 +198,8 @@ const AppraisalSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-// Prevent a faculty member from submitting twice for the same academic year.
-AppraisalSchema.index({ email: 1, timeline: 1 }, { unique: true });
+// Prevent a faculty member from submitting twice for the same academic year and department.
+AppraisalSchema.index({ email: 1, timeline: 1, department: 1 }, { unique: true });
 
 const Appraisal = mongoose.model('Appraisal', AppraisalSchema);
 
@@ -770,10 +770,14 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       ]
     });
     const canonicalEmail = facultyRecord?.personalEmail || facultyRecord?.email || req.user?.personalEmail || verifiedEmail;
-    const targetDept = facultyRecord?.department || department || req.user?.department || 'CSE';
-    const targetDeptName = facultyRecord?.departmentName || departmentName || req.user?.departmentName || 'Computer Science and Engineering';
+    const targetDept = (req.body?.department === 'ARCH' || department === 'ARCH')
+      ? 'ARCH'
+      : (facultyRecord?.department || department || req.user?.department || 'CSE');
+    const targetDeptName = targetDept === 'ARCH'
+      ? 'Department of Architecture (TSEDA)'
+      : (facultyRecord?.departmentName || departmentName || req.user?.departmentName || 'Computer Science and Engineering');
 
-    const targetedFilter = { email: canonicalEmail, timeline: timeline.trim() };
+    const targetedFilter = { email: canonicalEmail, timeline: timeline.trim(), department: targetDept };
     const existingDoc = await Appraisal.findOne(targetedFilter);
 
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
@@ -1193,7 +1197,8 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     for (const doc of rawRecords) {
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
       const tlKey = (doc.timeline || '').trim();
-      const compositeKey = `${emailKey}_${tlKey}`;
+      const deptKey = (doc.department || '').toUpperCase() === 'ARCH' ? '_ARCH' : '';
+      const compositeKey = `${emailKey}_${tlKey}${deptKey}`;
       if (emailKey && !seenMap.has(compositeKey)) {
         seenMap.set(compositeKey, true);
         records.push(doc);

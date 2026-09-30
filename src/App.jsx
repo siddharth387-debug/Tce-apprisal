@@ -2550,9 +2550,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const activeTimelineRecord = useMemo(() => {
     return appraisals.find((a) => {
       const match = isSameUser(a.email || a.facultyEmail, user);
-      return match && a.timeline === selectedTimeline;
+      if (!match || a.timeline !== selectedTimeline) return false;
+      if (isMasterUser) {
+        const recordDept = (a.department || '').toUpperCase();
+        if (masterAppraisalMode === 'ARCH') {
+          return recordDept === 'ARCH';
+        } else {
+          return recordDept !== 'ARCH';
+        }
+      }
+      return true;
     });
-  }, [appraisals, user, selectedTimeline, isSameUser]);
+  }, [appraisals, user, selectedTimeline, isSameUser, isMasterUser, masterAppraisalMode]);
 
   const isEditable = useMemo(() => {
     if (isReviewMode) return false;
@@ -2566,7 +2575,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     onWorkspaceSave?.(workspaceByTimeline);
   }, [workspaceByTimeline, onWorkspaceSave]);
 
-  const draftUserKey = (user?.personalEmail || user?.email || '').toLowerCase().trim();
+  const draftUserKey = useMemo(() => {
+    const baseKey = (user?.personalEmail || user?.email || '').toLowerCase().trim();
+    if (!baseKey) return '';
+    if (isMasterUser && masterAppraisalMode === 'ARCH') {
+      return `${baseKey}_arch`;
+    }
+    return baseKey;
+  }, [user, isMasterUser, masterAppraisalMode]);
 
   // Check for local draft when switching timeline years or logging back in; fallback to cloud database submission
   useEffect(() => {
@@ -2588,6 +2604,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       setWorkspaceByTimeline((prev) => ({
         ...prev,
         [selectedTimeline]: flattenAppraisalRecord(activeTimelineRecord),
+      }));
+    } else {
+      setWorkspaceByTimeline((prev) => ({
+        ...prev,
+        [selectedTimeline]: createEmptySectionState(),
       }));
     }
   }, [selectedTimeline, draftUserKey, activeTimelineRecord]);
@@ -3475,12 +3496,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const mySubmissions = useMemo(() => {
     if (!user) return [];
-    if (!isReviewMode) {
-      const filtered = appraisals.filter((row) => isSameUser(row.email || row.facultyEmail, user, row.facultyName || row.name));
-      return filtered.length > 0 ? filtered : appraisals;
+    let filtered = appraisals.filter((row) => isSameUser(row.email || row.facultyEmail, user, row.facultyName || row.name));
+    if (isMasterUser) {
+      if (masterAppraisalMode === 'ARCH') {
+        filtered = filtered.filter((row) => (row.department || '').toUpperCase() === 'ARCH');
+      } else {
+        filtered = filtered.filter((row) => (row.department || '').toUpperCase() !== 'ARCH');
+      }
     }
-    return appraisals.filter((row) => isSameUser(row.email || row.facultyEmail, user, row.facultyName || row.name));
-  }, [appraisals, user, isSameUser, isReviewMode]);
+    if (!isReviewMode) {
+      return filtered.length > 0 ? filtered : (isMasterUser ? [] : appraisals);
+    }
+    return filtered;
+  }, [appraisals, user, isSameUser, isReviewMode, isMasterUser, masterAppraisalMode]);
 
   const facultyHistoryRows = useMemo(() => {
     // Primary source: cloud-synced appraisals state. Merge in any active local
@@ -3488,6 +3516,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const dbByTimeline = {};
     appraisals.forEach((rec) => {
       if (isSameUser(rec.email || rec.facultyEmail, user) && rec.timeline) {
+        if (isMasterUser) {
+          const recDept = (rec.department || '').toUpperCase();
+          if (masterAppraisalMode === 'ARCH' && recDept !== 'ARCH') return;
+          if (masterAppraisalMode !== 'ARCH' && recDept === 'ARCH') return;
+        }
         dbByTimeline[rec.timeline] = rec;
       }
     });
@@ -3521,7 +3554,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           workspaceByTimeline[row.timeline] || createEmptySectionState()
         )
     );
-  }, [workspaceByTimeline, appraisals, user, isSameUser]);
+  }, [workspaceByTimeline, appraisals, user, isSameUser, isMasterUser, masterAppraisalMode]);
 
   React.useEffect(() => {
     setShowHodRemarks(false);
