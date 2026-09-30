@@ -4880,47 +4880,118 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           columns={valueAddedColumns}
         />
 
-        <DynamicArraySection
-          title="1.5 Innovative Methods"
-          subtitle="(Calculation Rubric: ≥3 methods = 5 marks | 2 methods = 4 marks | 1 method = 2 marks | Max 5 marks)"
-          rows={currentSectionData.innovativeMethods || []}
-          rowErrors={sectionValidation.rowErrors.innovativeMethods}
-          canAdd={canAddInnovativeMethods(currentSectionData.innovativeMethods || [])}
-          disabled={!isEditable}
-          onAdd={() =>
-            addArrayRow('innovativeMethods', {
-              courseCode: '',
-              method: '',
-              evidenceLink: '',
-            })
-          }
-          onChange={(rowId, field, value) =>
-            updateArrayRow('innovativeMethods', rowId, field, value)
-          }
-          onRemove={(rowId) => removeArrayRow('innovativeMethods', rowId)}
-          columns={innovativeMethodsColumns}
-        />
+        {isArch ? (
+          <>
+            <DynamicArraySection
+              title="1.5.1 Innovative Teaching Methods (Pedagogy & Fieldwork)"
+              subtitle="(Calculation Rubric: ≥3 methods = 5 marks | 2 methods = 4 marks | 1 method = 2 marks | Max 5 marks)"
+              rows={currentSectionData.innovativeMethods || []}
+              rowErrors={sectionValidation.rowErrors.innovativeMethods}
+              canAdd={canAddInnovativeMethods(currentSectionData.innovativeMethods || [])}
+              disabled={!isEditable}
+              onAdd={() =>
+                addArrayRow('innovativeMethods', {
+                  courseCode: '',
+                  method: '',
+                  evidenceLink: '',
+                })
+              }
+              onChange={(rowId, field, value) =>
+                updateArrayRow('innovativeMethods', rowId, field, value)
+              }
+              onRemove={(rowId) => removeArrayRow('innovativeMethods', rowId)}
+              columns={innovativeMethodsColumns}
+            />
 
-        <DynamicArraySection
-          title="1.6 Academic Collaborations"
-          subtitle="(Calculation Rubric: 4 marks per entry | Max 4 marks)"
-          rows={currentSectionData.academicCollaborations || []}
-          rowErrors={sectionValidation.rowErrors.academicCollaborations}
-          canAdd={canAddAcademicCollaborations(currentSectionData.academicCollaborations || [])}
-          disabled={!isEditable}
-          onAdd={() =>
-            addArrayRow('academicCollaborations', {
-              organization: '',
-              collaborationType: '',
-              evidenceLink: '',
-            })
-          }
-          onChange={(rowId, field, value) =>
-            updateArrayRow('academicCollaborations', rowId, field, value)
-          }
-          onRemove={(rowId) => removeArrayRow('academicCollaborations', rowId)}
-          columns={academicCollaborationsColumns}
-        />
+            <DynamicArraySection
+              title="1.5.2 Studio Based Teaching & Design Education"
+              subtitle="(Calculation Rubric: 2 marks per studio activity | Max 3 marks)"
+              rows={currentSectionData.studioPedagogy || []}
+              rowErrors={sectionValidation.rowErrors.studioPedagogy}
+              canAdd={canAddStudioPedagogy(currentSectionData.studioPedagogy || [])}
+              disabled={!isEditable}
+              onAdd={() =>
+                addArrayRow('studioPedagogy', {
+                  activityName: '',
+                  batchOrSem: '',
+                  outcomes: '',
+                  evidenceLink: '',
+                })
+              }
+              onChange={(rowId, field, value) =>
+                updateArrayRow('studioPedagogy', rowId, field, value)
+              }
+              onRemove={(rowId) => removeArrayRow('studioPedagogy', rowId)}
+              columns={studioPedagogyColumns}
+            />
+
+            <DynamicArraySection
+              title="1.6 Educational Tours & Case Study Visits"
+              subtitle="(Calculation Rubric: Educational Tour = 4 marks | Case Study Visit = 2 marks | Max 4 marks)"
+              rows={currentSectionData.educationalTours || []}
+              rowErrors={sectionValidation.rowErrors.educationalTours}
+              canAdd={canAddEducationalTours(currentSectionData.educationalTours || [])}
+              disabled={!isEditable}
+              onAdd={() =>
+                addArrayRow('educationalTours', {
+                  tourType: 'Educational Tour (4 marks)',
+                  place: '',
+                  batch: '',
+                  evidenceLink: '',
+                })
+              }
+              onChange={(rowId, field, value) =>
+                updateArrayRow('educationalTours', rowId, field, value)
+              }
+              onRemove={(rowId) => removeArrayRow('educationalTours', rowId)}
+              columns={educationalToursColumns}
+            />
+          </>
+        ) : (
+          <>
+            <DynamicArraySection
+              title="1.5 Innovative Methods"
+              subtitle="(Calculation Rubric: ≥3 methods = 5 marks | 2 methods = 4 marks | 1 method = 2 marks | Max 5 marks)"
+              rows={currentSectionData.innovativeMethods || []}
+              rowErrors={sectionValidation.rowErrors.innovativeMethods}
+              canAdd={canAddInnovativeMethods(currentSectionData.innovativeMethods || [])}
+              disabled={!isEditable}
+              onAdd={() =>
+                addArrayRow('innovativeMethods', {
+                  courseCode: '',
+                  method: '',
+                  evidenceLink: '',
+                })
+              }
+              onChange={(rowId, field, value) =>
+                updateArrayRow('innovativeMethods', rowId, field, value)
+              }
+              onRemove={(rowId) => removeArrayRow('innovativeMethods', rowId)}
+              columns={innovativeMethodsColumns}
+            />
+
+            <DynamicArraySection
+              title="1.6 Academic Collaborations"
+              subtitle="(Calculation Rubric: 4 marks per entry | Max 4 marks)"
+              rows={currentSectionData.academicCollaborations || []}
+              rowErrors={sectionValidation.rowErrors.academicCollaborations}
+              canAdd={canAddAcademicCollaborations(currentSectionData.academicCollaborations || [])}
+              disabled={!isEditable}
+              onAdd={() =>
+                addArrayRow('academicCollaborations', {
+                  organization: '',
+                  collaborationType: '',
+                  evidenceLink: '',
+                })
+              }
+              onChange={(rowId, field, value) =>
+                updateArrayRow('academicCollaborations', rowId, field, value)
+              }
+              onRemove={(rowId) => removeArrayRow('academicCollaborations', rowId)}
+              columns={academicCollaborationsColumns}
+            />
+          </>
+        )}
 
         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
           <div className="mb-3">
