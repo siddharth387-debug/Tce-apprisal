@@ -2453,6 +2453,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [isLeadershipModalOpen, setIsLeadershipModalOpen] = useState(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
+
+  const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu';
+  const [masterAppraisalMode, setMasterAppraisalMode] = useState('GENERAL'); // 'GENERAL' | 'ARCH'
+
+  const activeDept = isMasterUser
+    ? masterAppraisalMode
+    : ((selectedDeptFilter && selectedDeptFilter !== 'ALL' ? selectedDeptFilter : user.department) || '');
+
+  const isArch = (activeDept || '').toUpperCase() === 'ARCH';
   
   // IQAC Score Filtering & Soft Curation State
   const [iqacTargetScoreFilter, setIqacTargetScoreFilter] = useState(100);
@@ -3375,8 +3384,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   );
 
   const scores = useMemo(
-    () => computeSectionScores(currentSectionData, effectiveRole),
-    [currentSectionData, effectiveRole]
+    () => computeEffectiveScores(currentSectionData, activeTimelineRecord?.hodSubsectionScores || {}, activeDept),
+    [currentSectionData, activeTimelineRecord, activeDept]
   );
   const sectionValidation = useMemo(() => {
     const rowErrors = {
@@ -3573,6 +3582,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         valueAdded: cleanSectionArray(formData.valueAdded),
         resultAnalysis: cleanSectionArray(formData.resultAnalysis),
         innovativeMethods: cleanSectionArray(formData.innovativeMethods),
+        studioPedagogy: cleanSectionArray(formData.studioPedagogy),
+        educationalTours: cleanSectionArray(formData.educationalTours),
         academicCollaborations: cleanSectionArray(formData.academicCollaborations),
         certifications: cleanSectionArray(formData.certifications),
         studentFeedback: cleanSectionArray(formData.studentFeedback),
@@ -3586,6 +3597,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         bookPublications: cleanSectionArray(formData.bookPublications),
         conferencePapers: cleanSectionArray(formData.conferencePapers),
         researchCollaborations: cleanSectionArray(formData.researchCollaborations),
+        creativeScholarship: cleanSectionArray(formData.creativeScholarship),
         phdRegistered: cleanSectionArray(formData.phdRegistered),
         phdAwarded: cleanSectionArray(formData.phdAwarded),
       };
@@ -3596,6 +3608,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         transferOfTechnology: cleanSectionArray(formData.transferOfTechnology),
         prototypesDeveloped: cleanSectionArray(formData.prototypesDeveloped),
         hackathonPrizes: cleanSectionArray(formData.hackathonPrizes),
+        designPatents: cleanSectionArray(formData.designPatents),
       };
 
       const cleanedSection4Data = {
@@ -3609,6 +3622,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         foreignFaculty: cleanSectionArray(formData.foreignFaculty),
         reputationSurvey: cleanSectionArray(formData.reputationSurvey),
         nirfSurvey: cleanSectionArray(formData.nirfSurvey),
+        internationalDesignStudio: cleanSectionArray(formData.internationalDesignStudio),
       };
 
       const cleanedSection6Data = {
@@ -3631,6 +3645,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         projectPublications: cleanSectionArray(formData.projectPublications),
         hackathonMentoring: cleanSectionArray(formData.hackathonMentoring),
         startupSupport: cleanSectionArray(formData.startupSupport),
+        studentExhibitions: cleanSectionArray(formData.studentExhibitions),
       };
 
       const cleanedSection9Data = {
@@ -3639,7 +3654,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         adminResponsibilities: cleanSectionArray(formData.adminResponsibilities),
       };
 
-      const totalScoreToSubmit = scores.grandTotal || 0;
+      const totalScoreToSubmit = scores?.grandTotal || 0;
+      const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || 'CSE');
 
       const response = await axios.post(
         `${API_BASE_URL}/appraisals`,
@@ -3647,6 +3663,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           timeline: selectedTimeline,
           facultyName: user?.name || "Faculty Member",
           email: submissionEmail,
+          department: targetDeptToSubmit,
           convertedScore: totalScoreToSubmit,
           section1Data: cleanedSection1Data,
           section2Data: cleanedSection2Data,
@@ -3684,9 +3701,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       // Push this submission into the shared HOD inbox (persists across sign-outs).
       const inboxRecord = {
         id: `${submissionEmail}-${selectedTimeline}`,
-        facultyName: user.name,
+        facultyName: user?.name || "Faculty Member",
         facultyEmail: submissionEmail,
-        department: transaction?.department || user.department || 'CSE',
+        department: transaction?.department || targetDeptToSubmit,
         appraisalStatus: 'Pending',
         hodRemarks: '',
         section1Data: cleanedSection1Data,
@@ -6202,6 +6219,31 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <span>📋</span>
                   <span>Faculty</span>
                 </button>
+              </div>
+            )}
+
+            {/* Master Appraisal Template Mode Dropdown (Exclusive to siddharthk@student.tce.edu) */}
+            {isMasterUser && (
+              <div className="flex items-center bg-amber-100/90 p-1 rounded-xl border border-amber-300 shadow-sm">
+                <span className="text-[10px] font-black uppercase text-amber-950 px-2 flex items-center gap-1">
+                  <span>📐</span> Template Mode:
+                </span>
+                <select
+                  value={masterAppraisalMode}
+                  onChange={(e) => {
+                    const selectedMode = e.target.value;
+                    setMasterAppraisalMode(selectedMode);
+                    if (selectedMode === 'ARCH') {
+                      setSelectedDeptFilter('ARCH');
+                    } else {
+                      setSelectedDeptFilter('ALL');
+                    }
+                  }}
+                  className="h-7 rounded-lg border border-amber-400 bg-white px-2 text-[11px] font-bold text-[#4A1519] outline-none cursor-pointer focus:ring-1 focus:ring-[#4A1519]"
+                >
+                  <option value="GENERAL">General (Engineering)</option>
+                  <option value="ARCH">Architecture (TSEDA)</option>
+                </select>
               </div>
             )}
 
