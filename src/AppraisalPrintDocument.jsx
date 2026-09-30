@@ -1,5 +1,5 @@
 import React from 'react';
-import { computeEffectiveScores, SUBSECTION_MAX_MARKS } from './scoringEngine.js';
+import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH } from './scoringEngine.js';
 
 const formatExternalLink = (url) => {
   if (!url || typeof url !== 'string') return '';
@@ -41,14 +41,17 @@ export default function AppraisalPrintDocument({
 
   const subRemarks = record.subsectionRemarks || {};
   const hodScores = record.hodSubsectionScores || {};
+  const targetDept = user?.department || record?.department || sectionData?.department || '';
+  const isArch = (targetDept || '').toUpperCase() === 'ARCH';
   
   // Calculate effective scores (automated + HoD manual overrides)
-  const effectiveScoreObj = computeEffectiveScores(sectionData, hodScores);
+  const effectiveScoreObj = computeEffectiveScores(sectionData, hodScores, targetDept);
 
   const renderTable = (title, columns, rows, subKey) => {
     const validRows = (rows || []).filter(isRowValid);
     const hasRemark = Boolean(subKey && subRemarks[subKey]);
-    const maxMarks = subKey ? SUBSECTION_MAX_MARKS[subKey] : null;
+    const maxRubricMap = effectiveScoreObj.isArch ? SUBSECTION_MAX_MARKS_ARCH : SUBSECTION_MAX_MARKS;
+    const maxMarks = subKey ? maxRubricMap[subKey] : null;
     const autoMark = subKey ? effectiveScoreObj.autoMap[subKey] : null;
     const effMark = subKey ? effectiveScoreObj.effectiveMap[subKey] : null;
     const isOverridden = subKey && effMark !== null && autoMark !== null && effMark !== autoMark;

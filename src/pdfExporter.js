@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { computeEffectiveScores, SUBSECTION_MAX_MARKS } from './scoringEngine.js';
+import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH } from './scoringEngine.js';
 
 const formatExternalLink = (url) => {
   if (!url || typeof url !== 'string') return '';
@@ -40,7 +40,9 @@ export const exportAppraisalToPDF = ({
 
   const subRemarks = record.subsectionRemarks || {};
   const hodScores = record.hodSubsectionScores || {};
-  const effectiveScoreObj = computeEffectiveScores(sectionData, hodScores);
+  const targetDept = user?.department || record?.department || sectionData?.department || '';
+  const isArch = (targetDept || '').toUpperCase() === 'ARCH';
+  const effectiveScoreObj = computeEffectiveScores(sectionData, hodScores, targetDept);
 
   const submissionDate = record.submittedAt || record.createdAt
     ? new Date(record.submittedAt || record.createdAt).toLocaleDateString('en-GB', {
@@ -58,24 +60,32 @@ export const exportAppraisalToPDF = ({
 
   // ── 1. Institutional Header ───────────────────────────────────────────────
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(isArch ? 11 : 12);
   doc.setTextColor(74, 21, 25); // #4A1519
-  doc.text('THIAGARAJAR COLLEGE OF ENGINEERING, MADURAI - 625 015', pageWidth / 2, currentY, { align: 'center' });
+  const instTitle = isArch
+    ? 'THIAGARAJAR SCHOOL OF ARCHITECTURE (TSEDA), MADURAI'
+    : 'THIAGARAJAR COLLEGE OF ENGINEERING, MADURAI - 625 015';
+  doc.text(instTitle, pageWidth / 2, currentY, { align: 'center' });
   currentY += 4;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139); // slate-500
-  doc.text('(A Govt. Aided Autonomous Institution Affiliated to Anna University)', pageWidth / 2, currentY, { align: 'center' });
+  const subInstTitle = isArch
+    ? '(Thiagarajar College of Engineering Campus, Madurai - 625 015)'
+    : '(A Govt. Aided Autonomous Institution Affiliated to Anna University)';
+  doc.text(subInstTitle, pageWidth / 2, currentY, { align: 'center' });
   currentY += 4.5;
 
   // Header Pill Badge
   doc.setFillColor(74, 21, 25);
-  doc.roundedRect(pageWidth / 2 - 45, currentY - 3, 90, 5.5, 2, 2, 'F');
+  const pillText = isArch ? 'TSEDA ARCHITECTURE FACULTY APPRAISAL REPORT' : 'FACULTY PERFORMANCE APPRAISAL REPORT';
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
+  const badgeWidth = doc.getTextWidth(pillText) + 12;
+  doc.roundedRect(pageWidth / 2 - badgeWidth / 2, currentY - 3, badgeWidth, 5.5, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.text('FACULTY PERFORMANCE APPRAISAL REPORT', pageWidth / 2, currentY + 0.8, { align: 'center' });
+  doc.text(pillText, pageWidth / 2, currentY + 0.8, { align: 'center' });
   currentY += 7;
 
   // ── 2. Faculty Profile Box ────────────────────────────────────────────────
@@ -233,7 +243,8 @@ export const exportAppraisalToPDF = ({
   // ── Helper: Render Subsection Table with 1:1 Exact Styling and Clickable Links ─
   const renderSectionTable = (title, columns, rows, subKey) => {
     const validRows = (rows || []).filter(isRowValid);
-    const max = subKey ? SUBSECTION_MAX_MARKS[subKey] : null;
+    const maxRubricMap = effectiveScoreObj.isArch ? SUBSECTION_MAX_MARKS_ARCH : SUBSECTION_MAX_MARKS;
+    const max = subKey ? maxRubricMap[subKey] : null;
     const effMark = subKey ? effectiveScoreObj.effectiveMap[subKey] : null;
     const autoMark = subKey ? effectiveScoreObj.autoMap[subKey] : null;
     const isOverridden = subKey && effMark !== null && autoMark !== null && effMark !== autoMark;
@@ -376,8 +387,15 @@ export const exportAppraisalToPDF = ({
   renderSectionTable('1.2 Course File Compliance', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'compliance', label: 'Compliance' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.courseFiles, '1.2');
   renderSectionTable('1.3 Course Design', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'remarks', label: 'Details / Remarks' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coursesDesigned, '1.3');
   renderSectionTable('1.4 Value-Added Courses', [{ key: 'courseName', label: 'Course Name' }, { key: 'particulars', label: 'Particulars' }, { key: 'studentCount', label: 'Students Enrolled' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.valueAdded, '1.4');
-  renderSectionTable('1.5 Innovative Teaching Methods', [{ key: 'courseCode', label: 'Course Code' }, { key: 'method', label: 'Method Employed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.innovativeMethods, '1.5');
-  renderSectionTable('1.6 Academic Collaborations', [{ key: 'organization', label: 'Partner Organization' }, { key: 'collaborationType', label: 'Collaboration Nature' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.academicCollaborations, '1.6');
+  
+  if (isArch) {
+    renderSectionTable('1.5.1 Innovative Teaching Methods', [{ key: 'courseCode', label: 'Course Code' }, { key: 'method', label: 'Method Employed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.innovativeMethods, '1.5.1');
+    renderSectionTable('1.5.2 Studio Based Teaching & Design Education', [{ key: 'activityName', label: 'Studio Activity' }, { key: 'batchOrSem', label: 'Batch / Sem' }, { key: 'outcomes', label: 'Outcomes' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.studioPedagogy, '1.5.2');
+    renderSectionTable('1.6 Educational Tours & Case Study Visits', [{ key: 'tourType', label: 'Type' }, { key: 'place', label: 'Place / Tour' }, { key: 'batch', label: 'Batch / Duration' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.educationalTours || sectionData.academicCollaborations, '1.6');
+  } else {
+    renderSectionTable('1.5 Innovative Teaching Methods', [{ key: 'courseCode', label: 'Course Code' }, { key: 'method', label: 'Method Employed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.innovativeMethods, '1.5');
+    renderSectionTable('1.6 Academic Collaborations', [{ key: 'organization', label: 'Partner Organization' }, { key: 'collaborationType', label: 'Collaboration Nature' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.academicCollaborations, '1.6');
+  }
 
   // 1.7 Mentoring System Card
   if (sectionData.mentoring && (sectionData.mentoring.menteeCount || sectionData.mentoring.description)) {
@@ -492,7 +510,13 @@ export const exportAppraisalToPDF = ({
 
   renderSectionTable('2.4 Books / Book Chapters Published', [{ key: 'title', label: 'Title' }, { key: 'type', label: 'Type' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.bookPublications, '2.4');
   renderSectionTable('2.5 Conference Publications', [{ key: 'paperTitle', label: 'Paper Title' }, { key: 'proceedingName', label: 'Proceeding Name' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.conferencePapers, '2.5');
-  renderSectionTable('2.6 Research Collaborations', [{ key: 'title', label: 'Title' }, { key: 'partner', label: 'Partner' }, { key: 'type', label: 'Type' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.researchCollaborations, '2.6');
+  
+  if (isArch) {
+    renderSectionTable('2.6 Creative Scholarship & Professional Writing', [{ key: 'title', label: 'Title / Essay' }, { key: 'publisher', label: 'Magazine / Publisher' }, { key: 'category', label: 'Category' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.creativeScholarship || sectionData.researchCollaborations, '2.6');
+  } else {
+    renderSectionTable('2.6 Research Collaborations', [{ key: 'title', label: 'Title' }, { key: 'partner', label: 'Partner' }, { key: 'type', label: 'Type' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.researchCollaborations, '2.6');
+  }
+  
   renderSectionTable('2.7 PhD Scholars Guided (Registered)', [{ key: 'scholarName', label: 'Scholar Name' }, { key: 'researchArea', label: 'Research Area' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.phdRegistered, '2.7');
   renderSectionTable('2.8 PhD Scholars Guided (Degree Awarded)', [{ key: 'scholarName', label: 'Scholar Name' }, { key: 'researchArea', label: 'Research Area' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.phdAwarded, '2.8');
 
@@ -503,6 +527,9 @@ export const exportAppraisalToPDF = ({
   renderSectionTable('3.3 Transfer of Technology', [{ key: 'title', label: 'Technology Title' }, { key: 'industryPartner', altKey: 'partner', label: 'Partner' }, { key: 'amount', label: 'Amount (Rs.)' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.transferOfTechnology, '3.3');
   renderSectionTable('3.4 Prototypes / Products Developed', [{ key: 'title', label: 'Product Title' }, { key: 'studentsInvolved', altKey: 'students', label: 'Students' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.prototypesDeveloped, '3.4');
   renderSectionTable('3.5 Hackathon Mentoring & Prizes', [{ key: 'eventName', label: 'Event' }, { key: 'studentsMentored', altKey: 'students', label: 'Students' }, { key: 'prize', altKey: 'awardWon', label: 'Award' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.hackathonPrizes, '3.5');
+  if (isArch) {
+    renderSectionTable('3.6 Design Patents Granted', [{ key: 'refNumber', label: 'Design Patent No' }, { key: 'title', label: 'Design Title' }, { key: 'dateGranted', label: 'Date Granted' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.designPatents, '3.6');
+  }
 
   // ── Section IV: Sponsored Research & Consultancy ──────────────────────────
   renderSectionHeader('SECTION IV: Sponsored Research & Consultancy', effectiveScoreObj.section4Total, 15);
@@ -516,6 +543,9 @@ export const exportAppraisalToPDF = ({
   renderSectionTable('5.3 Foreign Faculty / Student Hosted', [{ key: 'name', label: 'Visitor Name' }, { key: 'institution', altKey: 'affiliation', label: 'Institution' }, { key: 'engagementType', altKey: 'topics', label: 'Topics / Nature' }, { key: 'period', label: 'Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.foreignFaculty, '5.3');
   renderSectionTable('5.4 QS / THE Reputation Survey Nominations', [{ key: 'surveyName', altKey: 'academicianDetails', label: 'Survey / Academician' }, { key: 'evidenceSubmitted', altKey: 'university', label: 'University / Details' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.reputationSurvey, '5.4');
   renderSectionTable('5.5 NIRF Survey Nominations', [{ key: 'nominationDetails', altKey: 'employerDetails', label: 'Employer / Nomination' }, { key: 'evidenceSubmitted', label: 'Details' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.nirfSurvey, '5.5');
+  if (isArch) {
+    renderSectionTable('5.6 International Design Studio / Collaborations', [{ key: 'institution', label: 'Partner Institution' }, { key: 'nature', label: 'Nature' }, { key: 'country', label: 'Country' }, { key: 'period', label: 'Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.internationalDesignStudio, '5.6');
+  }
 
   // ── Section VI: Faculty Development & Professional Activities ─────────────
   renderSectionHeader('SECTION VI: Faculty Development & Professional Activities', effectiveScoreObj.section6Total, 20);
@@ -538,6 +568,9 @@ export const exportAppraisalToPDF = ({
   renderSectionTable('8.1 Student Project Publications', [{ key: 'title', label: 'Paper Title' }, { key: 'students', altKey: 'studentNames', label: 'Students' }, { key: 'journalDetails', altKey: 'journalOrConference', label: 'Journal / Conf' }, { key: 'date', altKey: 'publicationDate', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.projectPublications, '8.1');
   renderSectionTable('8.2 Hackathon Mentoring', [{ key: 'eventName', altKey: 'teamName', label: 'Event / Team' }, { key: 'students', altKey: 'studentsMentored', label: 'Students' }, { key: 'outcome', altKey: 'awardWon', label: 'Award / Outcome' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.hackathonMentoring, '8.2');
   renderSectionTable('8.3 Startup & Incubation Support', [{ key: 'startupName', label: 'Startup' }, { key: 'role', altKey: 'studentNames', label: 'Role / Students' }, { key: 'duration', altKey: 'incubationCenter', label: 'Duration / Center' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.startupSupport, '8.3');
+  if (isArch) {
+    renderSectionTable('8.4 Student Exhibitions & Design Showcases', [{ key: 'title', label: 'Exhibition Title' }, { key: 'venue', label: 'Venue' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.studentExhibitions, '8.4');
+  }
 
   // ── Section IX: Institutional Development ─────────────────────────────────
   renderSectionHeader('SECTION IX: Institutional Development', effectiveScoreObj.section9Total, 20);

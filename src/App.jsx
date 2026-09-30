@@ -6,7 +6,7 @@ import tceLogo from './tce-logo.png';
 import AppraisalPrintDocument from './AppraisalPrintDocument.jsx';
 import { exportAppraisalToExcel } from './excelExporter.js';
 import { exportAppraisalToPDF, exportIqacRosterPDF } from './pdfExporter.js';
-import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SECTION_MAX_MARKS } from './scoringEngine.js';
+import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH, SECTION_MAX_MARKS } from './scoringEngine.js';
 import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
 import AnalyticsDashboard from './AnalyticsDashboard.jsx';
@@ -192,6 +192,13 @@ function createEmptySectionState() {
     deptActivities: [],
     collegeActivities: [],
     adminResponsibilities: [],
+    // Architecture Specific Subsections (TSEDA)
+    studioPedagogy: [],
+    educationalTours: [],
+    creativeScholarship: [],
+    designPatents: [],
+    internationalDesignStudio: [],
+    studentExhibitions: [],
   };
 }
 
@@ -676,6 +683,36 @@ function canAddNirfSurvey(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
   return !!(last.nominationDetails && last.evidenceSubmitted && last.evidenceLink);
+}
+function canAddStudioPedagogy(rows) {
+  if (rows.length === 0) return true;
+  const last = rows[rows.length - 1];
+  return !!(last.activityName && last.evidenceLink);
+}
+function canAddEducationalTours(rows) {
+  if (rows.length === 0) return true;
+  const last = rows[rows.length - 1];
+  return !!(last.place && last.evidenceLink);
+}
+function canAddCreativeScholarship(rows) {
+  if (rows.length === 0) return true;
+  const last = rows[rows.length - 1];
+  return !!(last.title && last.evidenceLink);
+}
+function canAddDesignPatents(rows) {
+  if (rows.length === 0) return true;
+  const last = rows[rows.length - 1];
+  return !!(last.refNumber && last.evidenceLink);
+}
+function canAddInternationalDesignStudio(rows) {
+  if (rows.length === 0) return true;
+  const last = rows[rows.length - 1];
+  return !!(last.institution && last.evidenceLink);
+}
+function canAddStudentExhibitions(rows) {
+  if (rows.length === 0) return true;
+  const last = rows[rows.length - 1];
+  return !!(last.title && last.evidenceLink);
 }
 
 function computeSectionScores(sectionData = {}, role) {
@@ -2800,6 +2837,43 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       options: SEMESTER_OPTIONS,
     },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+  ];
+  const studioPedagogyColumns = [
+    { name: 'activityName', label: 'Studio Activity / Project Name', placeholder: 'e.g. Design Studio VI / Architectural Heritage Documentation' },
+    { name: 'batchOrSem', label: 'Batch / Semester', placeholder: 'e.g. Sem V / 2023-27' },
+    { name: 'outcomes', label: 'Pedagogical Outcomes / Deliverables', placeholder: 'e.g. Scale Models, Measured Drawings, Site Analysis' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+  ];
+  const educationalToursColumns = [
+    { name: 'tourType', label: 'Type', type: 'select', options: ['Educational Tour (4 marks)', 'Case Study Visit (2 marks)'] },
+    { name: 'place', label: 'Location / Monuments Visited', placeholder: 'e.g. Hampi Heritage Survey' },
+    { name: 'batch', label: 'Batch / Semester', placeholder: 'e.g. Sem IV / 2023-27' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+  ];
+  const creativeScholarshipColumns = [
+    { name: 'title', label: 'Title of Essay / Article / Heritage Doc', placeholder: 'e.g. Urban Vernacular Architecture of Chettinad' },
+    { name: 'publisher', label: 'Design Magazine / Publisher', placeholder: 'e.g. Architecture+Design / Indian Architect' },
+    { name: 'category', label: 'Category', type: 'select', options: ['Design Magazine', 'Architectural Critique', 'Urban Commentary', 'Visual Essay', 'Heritage Documentation'] },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+  ];
+  const designPatentsColumns = [
+    { name: 'refNumber', label: 'Design Patent Application / Registration No', placeholder: 'e.g. 389201-001' },
+    { name: 'title', label: 'Design Title / Form', placeholder: 'e.g. Modular Climate-Responsive Louver System' },
+    { name: 'dateGranted', label: 'Date Granted', type: 'date' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+  ];
+  const internationalDesignStudioColumns = [
+    { name: 'institution', label: 'Partner Institution', placeholder: 'e.g. NUS Singapore / AA London' },
+    { name: 'nature', label: 'Nature of Joint Studio / Workshop', placeholder: 'e.g. Joint Tropical Design Studio' },
+    { name: 'country', label: 'Country', placeholder: 'e.g. Singapore' },
+    { name: 'period', label: 'Period / Dates', placeholder: 'e.g. Oct 2024 (2 Weeks)' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+  ];
+  const studentExhibitionsColumns = [
+    { name: 'title', label: 'Exhibition / Expo Title', placeholder: 'e.g. Annual Architecture Design Expo 2024' },
+    { name: 'venue', label: 'Venue / Platform', placeholder: 'e.g. TCE Open Gallery' },
+    { name: 'date', label: 'Date Conducted', type: 'date' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
   ];
   const courseFilesColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
