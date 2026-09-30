@@ -300,7 +300,7 @@ const TCE_DEPARTMENTS = [
 function getRoleFromEmail(email) {
   const userEmail = (email || '').toLowerCase().trim();
 
-  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu') {
+  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu' || userEmail === 'siddharth@student.tce.edu') {
     return 'Registrar';
   }
   if (userEmail === 'principal@tce.edu') {
@@ -2424,6 +2424,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isSuperAdmin = user.email === 'siddharthk@student.tce.edu' || 
+                       user.email === 'siddharth@student.tce.edu' ||
                        user.email === 'registrar@tce.edu' || 
                        user.email === 'principal@tce.edu' || 
                        user.email === 'iqac@tce.edu' ||
@@ -2454,7 +2455,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
 
-  const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu';
+  const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu';
   const [masterAppraisalMode, setMasterAppraisalMode] = useState('GENERAL'); // 'GENERAL' | 'ARCH'
 
   const activeDept = isMasterUser
@@ -2642,10 +2643,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   // Trigger the sync whenever the authenticated user session, effective role, or department filter changes.
   useEffect(() => {
     if (user) {
-      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? selectedDeptFilter : (user.department || 'ALL');
       syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     }
-  }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, syncHistoryFromCloud]);
+  }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, syncHistoryFromCloud]);
 
   const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Approved') => {
     try {
@@ -3345,7 +3346,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     let rows = appraisals;
 
     // Department filtering:
-    if (isPrincipal || isRegistrar || isIQAC) {
+    if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
       if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
         rows = rows.filter(r => (r.department || '').toUpperCase() === selectedDeptFilter.toUpperCase());
       }
@@ -3398,7 +3399,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         sectionData: flattenedData,
       };
     });
-  }, [appraisals, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, user.department, selectedTimeline, computeSectionScores]);
+  }, [appraisals, isPrincipal, isRegistrar, isIQAC, isMasterUser, selectedDeptFilter, effectiveRole, user.department, selectedTimeline, computeSectionScores]);
 
   const selectedInboxRecord = selectedInboxRows.find(
     (row) => row.id === selectedInboxRecordId
@@ -4117,7 +4118,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {(isPrincipal || isRegistrar || isIQAC) && (
+            {(isPrincipal || isRegistrar || isIQAC || isMasterUser) && (
               <label className="block">
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
                   Filter Department
@@ -4157,7 +4158,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {isReviewMode && (
               <button
                 type="button"
-                onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : user.department)}
+                onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? selectedDeptFilter : user.department)}
                 className="h-8 mt-4 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition"
               >
                 <span>🔄</span> Refresh

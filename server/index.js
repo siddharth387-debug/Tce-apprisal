@@ -639,7 +639,7 @@ app.post('/api/auth/google', async (request, response) => {
     let assignedDeptName = isGmailLogin ? 'Computer Applications' : 'Computer Science and Engineering';
     let assignedDesignation = 'Assistant Professor';
 
-    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu') {
+    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu') {
       assignedRole = 'Registrar';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
@@ -1129,6 +1129,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
                   masterRecord?.role === 'IQAC' ||
                   masterRecord?.role === 'Admin' ||
                   requestEmail === 'siddharthk@student.tce.edu' || 
+                  requestEmail === 'siddharth@student.tce.edu' ||
                   requestEmail === 'registrar@tce.edu' ||
                   requestEmail === 'principal@tce.edu' ||
                   requestEmail === 'iqac@tce.edu' ||
@@ -1143,6 +1144,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       const deptQuery = (req.query.department || '').toUpperCase().trim();
       const userDept = (tokenDept || masterRecord?.department || '').toUpperCase().trim();
       const isSuperAdminOrRegistrar = requestEmail === 'siddharthk@student.tce.edu' ||
+                                     requestEmail === 'siddharth@student.tce.edu' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
                                      requestEmail === 'iqac@tce.edu' ||
