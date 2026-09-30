@@ -4053,7 +4053,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const iqacExcludedCount = selectedInboxRows.filter(r => r.iqacExcluded).length;
 
     let displayInboxRows = selectedInboxRows;
-    if (isIQAC || isHod) {
+    if (isIQAC || isHod || isPrincipal || isRegistrar || isMasterUser) {
       displayInboxRows = selectedInboxRows.filter((row) => {
         const totalScore = row.totalScore || 0;
         const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
@@ -4167,8 +4167,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
 
-        {/* Score Range Filter & Measurement Scheme Toolbar (IQAC & HoD) */}
-        {(isIQAC || isHod) && (
+        {/* Score Range Filter & Measurement Scheme Toolbar (IQAC, HoD, Registrar & Leadership) */}
+        {(isIQAC || isHod || isPrincipal || isRegistrar || isMasterUser) && (
           <div className="mt-4 p-4 bg-gradient-to-r from-blue-900/10 via-slate-50 to-blue-900/10 border border-blue-200 rounded-xl space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
