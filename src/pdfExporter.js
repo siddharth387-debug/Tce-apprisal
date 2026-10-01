@@ -133,25 +133,33 @@ export const exportAppraisalToPDF = ({
   doc.setFont('helvetica', 'bold');
   doc.text('Appraisal Status:', boxX + boxWidth / 2 + 2, currentY + 14.5);
   const isRatified = statusStr === 'RATIFIED' || (record.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
+  const isApproved = statusStr === 'APPROVED';
   
   let badgeBg = [254, 243, 199];
   let badgeBorder = [252, 211, 77];
   let badgeText = [146, 64, 14];
-  let badgeLabel = statusStr;
+  let badgeLabel = 'PENDING HOD APPROVAL';
 
   if (isRatified) {
     badgeBg = [209, 250, 229];
     badgeBorder = [52, 211, 153];
     badgeText = [6, 95, 70];
     badgeLabel = 'RATIFIED & LOCKED';
-  } else if (statusStr === 'APPROVED') {
+  } else if (isApproved) {
     badgeBg = [220, 252, 231];
     badgeBorder = [134, 239, 172];
     badgeText = [22, 101, 52];
+    badgeLabel = 'APPROVED BY HOD';
   } else if (statusStr === 'FIX NEEDED' || statusStr === 'NOT APPROVED' || statusStr === 'REJECTED') {
     badgeBg = [255, 228, 230];
     badgeBorder = [253, 164, 175];
     badgeText = [159, 18, 57];
+    badgeLabel = 'NOT APPROVED';
+  } else {
+    badgeBg = [254, 243, 199];
+    badgeBorder = [252, 211, 77];
+    badgeText = [146, 64, 14];
+    badgeLabel = 'PENDING HOD APPROVAL';
   }
 
   doc.setFont('helvetica', 'bold');
@@ -631,11 +639,23 @@ export const exportAppraisalToPDF = ({
   doc.line(margin + colW + 5, sigY, margin + colW * 2 - 5, sigY);
   doc.line(margin + colW * 2 + 5, sigY, margin + colW * 3 - 5, sigY);
 
-  if (record.principalApprovalStatus === 'Ratified' || record.principalEndorsedAt) {
+  if (record.principalApprovalStatus === 'Ratified' || record.principalEndorsedAt || isRatified) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(6, 95, 70);
     doc.text('[Digitally Ratified & Sealed]', margin + colW * 2.5, sigY - 2, { align: 'center' });
+  }
+
+  if (isApproved || isRatified) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(22, 101, 52);
+    doc.text('[Approved by Head of Dept]', margin + colW * 1.5, sigY - 2, { align: 'center' });
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.setTextColor(146, 64, 14);
+    doc.text('[Pending HoD Approval]', margin + colW * 1.5, sigY - 2, { align: 'center' });
   }
 
   doc.setFont('helvetica', 'bold');

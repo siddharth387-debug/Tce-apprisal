@@ -197,7 +197,11 @@ export default function AppraisalPrintDocument({
             >
               {(record.appraisalStatus || '').toUpperCase() === 'RATIFIED' || (record.principalApprovalStatus || '').toUpperCase() === 'RATIFIED'
                 ? '🔒 Ratified & Locked'
-                : (record.appraisalStatus || 'Pending')}
+                : (record.appraisalStatus || '').toUpperCase() === 'APPROVED'
+                ? '✔ Approved by HoD'
+                : (record.appraisalStatus || '').toUpperCase() === 'FIX NEEDED' || (record.appraisalStatus || '').toUpperCase() === 'NOT APPROVED'
+                ? '✖ Not Approved'
+                : '⏳ Pending HoD Approval'}
             </span>
           </div>
         </div>
@@ -744,7 +748,17 @@ export default function AppraisalPrintDocument({
             <div className="text-[9px] text-slate-500 mt-0.5">Date: {submissionDate}</div>
           </div>
           <div>
-            <div className="h-10"></div>
+            <div className="h-10 flex flex-col items-center justify-end pb-1">
+              {(record.appraisalStatus || '').toUpperCase() === 'APPROVED' || (record.appraisalStatus || '').toUpperCase() === 'RATIFIED' || (record.principalApprovalStatus || '').toUpperCase() === 'RATIFIED' ? (
+                <span className="text-[9px] font-black uppercase text-green-800 bg-green-100 border border-green-300 px-2 py-0.5 rounded">
+                  ✔ Approved by HoD
+                </span>
+              ) : (
+                <span className="text-[9px] font-black uppercase text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded">
+                  ⏳ Pending HoD Approval
+                </span>
+              )}
+            </div>
             <div className="border-t border-slate-400 pt-1 font-bold text-slate-800">
               Signature of Head of Department
             </div>
