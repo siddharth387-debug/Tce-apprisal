@@ -2684,7 +2684,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [workspaceByTimeline, draftUserKey, selectedTimeline]);
 
-  // Debounced auto-sync draft to MongoDB Atlas cloud database (runs 3 seconds after user stops typing)
+  // Fully automated background cloud draft sync (runs 1.5s after user pauses typing, or immediately on tab switch / window close)
   useEffect(() => {
     if (!user || !selectedTimeline || isReviewMode) return;
     const currentData = workspaceByTimeline[selectedTimeline];
@@ -2692,9 +2692,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     const timer = setTimeout(() => {
       saveDraftToCloud(true);
-    }, 3000);
+    }, 1500);
 
-    return () => clearTimeout(timer);
+    const handleVisibilityOrUnload = () => {
+      saveDraftToCloud(true);
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityOrUnload);
+    window.addEventListener('pagehide', handleVisibilityOrUnload);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('visibilitychange', handleVisibilityOrUnload);
+      window.removeEventListener('pagehide', handleVisibilityOrUnload);
+    };
   }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, saveDraftToCloud]);
 
   // Watchdog: syncs appraisal records from MongoDB Atlas
@@ -4418,25 +4429,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   : 'No active submission for this academic year yet. Click Submit Form to edit your appraisal.'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {isEditable && (
-                <button
-                  type="button"
-                  onClick={() => saveDraftToCloud(false)}
-                  className="text-xs py-1.5 px-3 bg-white border border-[#4A1519] text-[#4A1519] rounded-md font-bold hover:bg-[#4A1519] hover:text-white transition shadow-sm cursor-pointer"
-                  title="Save in-progress draft to cloud database so you can log in on any device (e.g. home laptop) and continue"
-                >
-                  💾 Save Draft (Cloud)
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleProceedToSectionOne}
-                className="text-xs py-1.5 px-4 bg-[#4A1519] rounded-md font-bold text-white shadow-sm hover:bg-[#5a1c22] transition"
-              >
-                {activeTimelineRecord ? 'Edit / View Form' : 'Submit Form'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleProceedToSectionOne}
+              className="text-xs py-1.5 px-4 bg-[#4A1519] rounded-md font-bold text-white shadow-sm hover:bg-[#5a1c22] transition"
+            >
+              {activeTimelineRecord ? 'Edit / View Form' : 'Submit Form'}
+            </button>
           </div>
         )}
       </div>
@@ -6010,27 +6009,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <p className="mt-1 text-xs font-medium text-rose-600">{submitError}</p>
               ) : null}
             </div>
-            <div className="flex items-center gap-2">
-              {isEditable && (
-                <button
-                  type="button"
-                  onClick={() => saveDraftToCloud(false)}
-                  disabled={isSubmitting}
-                  className="inline-flex h-8 items-center justify-center rounded-md bg-white border border-[#4A1519] px-3 text-xs font-semibold text-[#4A1519] transition hover:bg-[#4A1519] hover:text-white cursor-pointer shadow-sm"
-                  title="Save in-progress draft to cloud database so you can log in on any device (e.g. home laptop) and continue"
-                >
-                  💾 Save Draft (Cloud)
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={handleSaveAndSubmit}
-                disabled={isSubmitting || !isEditable}
-                className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
-              >
-                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleSaveAndSubmit}
+              disabled={isSubmitting || !isEditable}
+              className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+            >
+              {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}
+            </button>
           </div>
         </div>
 
