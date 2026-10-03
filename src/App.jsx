@@ -349,7 +349,10 @@ function isValidCourseCode(value) {
 }
 
 function isValidEvidenceLink(value) {
-  return /^https?:\/\//i.test((value || '').trim());
+  if (!value || typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^https?:\/\//i.test(trimmed) || trimmed.includes('.') || trimmed.includes('/') || trimmed.length > 3;
 }
 
 function isNonEmpty(value) {
@@ -1150,7 +1153,7 @@ function DynamicArraySection({
     return 'Required field.';
   };
 
-  const addDisabled = canAdd === false || disabled;
+  const addDisabled = Boolean(disabled);
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
@@ -1168,7 +1171,7 @@ function DynamicArraySection({
           type="button"
           onClick={addDisabled ? undefined : onAdd}
           disabled={addDisabled}
-          title={addDisabled ? 'Complete the last row (all fields + valid evidence link) before adding a new entry.' : 'Add a new entry'}
+          title={addDisabled ? 'Form is locked' : 'Add a new entry'}
           className={`shrink-0 whitespace-nowrap inline-flex items-center justify-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg transition-all select-none ${
             addDisabled
               ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
@@ -2585,26 +2588,84 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     return baseKey;
   }, [user, isMasterUser, masterAppraisalMode]);
 
-  // Check for local draft when switching timeline years or logging back in; fallback to cloud database submission
+  // Helper to save in-progress draft directly to MongoDB Atlas cloud database (enabling cross-device sync from college PC to home laptop)
+  const saveDraftToCloud = useCallback(async (isAuto = false) => {
+    if (!user || !selectedTimeline) return;
+    const activeToken = getAuthToken() || user?.token;
+    if (!activeToken) return;
+
+    const currentDraft = workspaceByTimeline[selectedTimeline];
+    if (!currentDraft || !hasSectionEntries(currentDraft)) return;
+
+    try {
+      const submissionEmail = (user?.personalEmail || user?.email || '').toLowerCase().trim();
+      const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || 'CSE');
+      const effScores = computeEffectiveScores(currentDraft, activeTimelineRecord?.hodSubsectionScores || {}, activeDept);
+
+      await axios.post(
+        `${API_BASE_URL}/appraisals`,
+        {
+          timeline: selectedTimeline,
+          facultyName: user?.name || "Faculty Member",
+          email: submissionEmail,
+          department: targetDeptToSubmit,
+          convertedScore: effScores.grandTotal || 0,
+          appraisalStatus: activeTimelineRecord?.appraisalStatus || 'Draft',
+          section1Data: currentDraft,
+          section2Data: currentDraft,
+          section3Data: currentDraft,
+          section4Data: currentDraft,
+          section5Data: currentDraft,
+          section6Data: currentDraft,
+          section7Data: currentDraft,
+          section8Data: currentDraft,
+          section9Data: currentDraft,
+        },
+        {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${activeToken}` },
+        }
+      );
+      if (!isAuto) {
+        alert("☁️ Draft successfully saved to cloud database! You can now log in on any device (e.g. home laptop) and continue your work.");
+      }
+    } catch (err) {
+      console.error("Cloud draft sync failed:", err.message);
+    }
+  }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept]);
+
+  // Check for local or cloud draft when switching timeline years or logging back in across devices
   useEffect(() => {
     if (!selectedTimeline) return;
     const savedDraft = draftUserKey ? localStorage.getItem(`draft_${draftUserKey}_${selectedTimeline}`) : null;
+    let localData = null;
     if (savedDraft) {
       try {
-        const parsedDraft = JSON.parse(savedDraft);
-        setWorkspaceByTimeline((prev) => ({
-          ...prev,
-          [selectedTimeline]: parsedDraft,
-        }));
-        return;
+        localData = JSON.parse(savedDraft);
       } catch (error) {
         console.error("Failed to parse local draft:", error);
       }
     }
-    if (activeTimelineRecord) {
+
+    const cloudData = activeTimelineRecord ? flattenAppraisalRecord(activeTimelineRecord) : null;
+    const hasLocal = localData && hasSectionEntries(localData);
+    const hasCloud = cloudData && hasSectionEntries(cloudData);
+
+    if (hasCloud && !hasLocal) {
+      // Home laptop scenario: no local draft on home laptop, load cloud draft from MongoDB Atlas!
       setWorkspaceByTimeline((prev) => ({
         ...prev,
-        [selectedTimeline]: flattenAppraisalRecord(activeTimelineRecord),
+        [selectedTimeline]: cloudData,
+      }));
+    } else if (hasLocal) {
+      setWorkspaceByTimeline((prev) => ({
+        ...prev,
+        [selectedTimeline]: localData,
+      }));
+    } else if (hasCloud) {
+      setWorkspaceByTimeline((prev) => ({
+        ...prev,
+        [selectedTimeline]: cloudData,
       }));
     } else {
       setWorkspaceByTimeline((prev) => ({
@@ -2622,6 +2683,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(currentData));
     }
   }, [workspaceByTimeline, draftUserKey, selectedTimeline]);
+
+  // Debounced auto-sync draft to MongoDB Atlas cloud database (runs 3 seconds after user stops typing)
+  useEffect(() => {
+    if (!user || !selectedTimeline || isReviewMode) return;
+    const currentData = workspaceByTimeline[selectedTimeline];
+    if (!currentData || !hasSectionEntries(currentData)) return;
+
+    const timer = setTimeout(() => {
+      saveDraftToCloud(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, saveDraftToCloud]);
 
   // Watchdog: syncs appraisal records from MongoDB Atlas
   const syncHistoryFromCloud = useCallback(async (currentUser, roleOverride, deptOverride) => {
@@ -4344,13 +4418,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   : 'No active submission for this academic year yet. Click Submit Form to edit your appraisal.'}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleProceedToSectionOne}
-              className="text-xs py-1.5 px-4 bg-[#4A1519] rounded-md font-bold text-white shadow-sm hover:bg-[#5a1c22] transition"
-            >
-              {activeTimelineRecord ? 'Edit / View Form' : 'Submit Form'}
-            </button>
+            <div className="flex items-center gap-2">
+              {isEditable && (
+                <button
+                  type="button"
+                  onClick={() => saveDraftToCloud(false)}
+                  className="text-xs py-1.5 px-3 bg-white border border-[#4A1519] text-[#4A1519] rounded-md font-bold hover:bg-[#4A1519] hover:text-white transition shadow-sm cursor-pointer"
+                  title="Save in-progress draft to cloud database so you can log in on any device (e.g. home laptop) and continue"
+                >
+                  💾 Save Draft (Cloud)
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleProceedToSectionOne}
+                className="text-xs py-1.5 px-4 bg-[#4A1519] rounded-md font-bold text-white shadow-sm hover:bg-[#5a1c22] transition"
+              >
+                {activeTimelineRecord ? 'Edit / View Form' : 'Submit Form'}
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -5924,14 +6010,27 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <p className="mt-1 text-xs font-medium text-rose-600">{submitError}</p>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={handleSaveAndSubmit}
-              disabled={isSubmitting || !isEditable}
-              className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
-            >
-              {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}
-            </button>
+            <div className="flex items-center gap-2">
+              {isEditable && (
+                <button
+                  type="button"
+                  onClick={() => saveDraftToCloud(false)}
+                  disabled={isSubmitting}
+                  className="inline-flex h-8 items-center justify-center rounded-md bg-white border border-[#4A1519] px-3 text-xs font-semibold text-[#4A1519] transition hover:bg-[#4A1519] hover:text-white cursor-pointer shadow-sm"
+                  title="Save in-progress draft to cloud database so you can log in on any device (e.g. home laptop) and continue"
+                >
+                  💾 Save Draft (Cloud)
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleSaveAndSubmit}
+                disabled={isSubmitting || !isEditable}
+                className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              >
+                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}
+              </button>
+            </div>
           </div>
         </div>
 
