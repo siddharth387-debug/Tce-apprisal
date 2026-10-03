@@ -217,6 +217,44 @@ function extractStringId(input) {
   return String(input).trim();
 }
 
+const CRITERIA_SECTION_MAP = [
+  { key: '1.1', dataKey: 'coursesHandled', label: '1.1 Courses Handled', fields: ['courseCode', 'courseName', 'semester', 'studentsPassed', 'passPct', 'evidenceLink'] },
+  { key: '1.2', dataKey: 'courseFiles', label: '1.2 Course Files', fields: ['courseCode', 'courseName', 'evidenceLink'] },
+  { key: '1.3', dataKey: 'valueAdded', label: '1.3 Value Added / Add-on Courses', fields: ['courseName', 'durationHours', 'studentCount', 'evidenceLink'] },
+  { key: '1.4', dataKey: 'innovativeMethods', label: '1.4 Innovative Teaching Methods', fields: ['courseCode', 'courseName', 'methodology', 'description', 'evidenceLink'] },
+  { key: '1.5', dataKey: 'mentoring', label: '1.5 Mentoring & Student Guidance', fields: ['batch', 'menteeCount', 'description', 'evidenceLink'], isObject: true },
+  { key: '1.6', dataKey: 'certifications', label: '1.6 Professional Certifications', fields: ['courseName', 'offeredBy', 'duration', 'evidenceLink'] },
+  { key: '1.7', dataKey: 'studentFeedback', label: '1.7 Student Feedback', fields: ['courseCode', 'feedbackPct', 'evidenceLink'] },
+  { key: '1.8', dataKey: 'resultAnalysis', label: '1.8 Result Analysis', fields: ['courseCode', 'passPct', 'evidenceLink'] },
+  { key: '1.9', dataKey: 'coAttainment', label: '1.9 CO Attainment', fields: ['courseCode', 'coTargetMet', 'evidenceLink'] },
+  { key: '2.1', dataKey: 'journalPapers', label: '2.1 Journal Publications (SCI / Scopus)', fields: ['paperTitle', 'journalName', 'tier', 'doi', 'evidenceLink'] },
+  { key: '2.2', dataKey: 'citationsReceived', label: '2.2 Citations Received', fields: ['totalCount'], isObject: true },
+  { key: '2.3', dataKey: 'q1Citations', label: '2.3 Total Q1 Citations', fields: ['totalCount'], isObject: true },
+  { key: '2.4', dataKey: 'bookPublications', label: '2.4 Books & Book Chapters Published', fields: ['title', 'publisher', 'type', 'evidenceLink'] },
+  { key: '2.5', dataKey: 'conferencePapers', label: '2.5 Conference Publications', fields: ['paperTitle', 'proceedingName', 'evidenceLink'] },
+  { key: '2.6', dataKey: 'researchCollaborations', label: '2.6 Research Collaborations', fields: ['title', 'partner', 'type', 'evidenceLink'] },
+  { key: '2.7', dataKey: 'phdRegistered', label: '2.7 PhD Scholars Registered', fields: ['scholarName', 'researchArea', 'evidenceLink'] },
+  { key: '2.8', dataKey: 'phdAwarded', label: '2.8 PhD Scholars Awarded', fields: ['scholarName', 'researchArea', 'evidenceLink'] },
+  { key: '3.1', dataKey: 'patentsPublished', label: '3.1 Patents Published', fields: ['title', 'refNumber', 'evidenceLink'] },
+  { key: '3.2', dataKey: 'patentsGranted', label: '3.2 Patents Granted', fields: ['title', 'refNumber', 'evidenceLink'] },
+  { key: '3.3', dataKey: 'transferOfTechnology', label: '3.3 Transfer of Technology', fields: ['title', 'industryPartner', 'evidenceLink'] },
+  { key: '3.4', dataKey: 'prototypesDeveloped', label: '3.4 Prototypes Developed', fields: ['title', 'description', 'evidenceLink'] },
+  { key: '3.5', dataKey: 'hackathonPrizes', label: '3.5 Hackathons Mentoring & Prizes', fields: ['eventName', 'prize', 'evidenceLink'] },
+  { key: '4.1', dataKey: 'researchProjects', label: '4.1 Sponsored Research Projects', fields: ['projectName', 'fundingAgency', 'amount', 'evidenceLink'] },
+  { key: '4.2', dataKey: 'consultancyProjects', label: '4.2 Consultancy Projects', fields: ['projectName', 'clientName', 'amount', 'evidenceLink'] },
+  { key: '5.1', dataKey: 'internationalEngagement', label: '5.1 International Engagement', fields: ['university', 'description', 'evidenceLink'] },
+  { key: '5.2', dataKey: 'visitingPositions', label: '5.2 Adjunct / Visiting Positions', fields: ['institution', 'role', 'evidenceLink'] },
+  { key: '6.1', dataKey: 'fdpAttended', label: '6.1 FDP / Workshops Attended', fields: ['programTitle', 'organizer', 'duration', 'evidenceLink'] },
+  { key: '6.2', dataKey: 'programsOrganized', label: '6.2 Programs / FDPs Organized', fields: ['programTitle', 'role', 'duration', 'evidenceLink'] },
+  { key: '6.3', dataKey: 'resourcePerson', label: '6.3 Invited Talks / Resource Person', fields: ['talkTitle', 'eventHost', 'evidenceLink'] },
+  { key: '7.1', dataKey: 'partialDelivery', label: '7.1 Partial Delivery by Industry', fields: ['courseName', 'expertName', 'company', 'evidenceLink'] },
+  { key: '7.2', dataKey: 'industrialVisits', label: '7.2 Industrial Visits Organized', fields: ['companyName', 'batch', 'evidenceLink'] },
+  { key: '8.1', dataKey: 'projectPublications', label: '8.1 Student Project Publications', fields: ['projectTitle', 'studentNames', 'journalName', 'evidenceLink'] },
+  { key: '9.1', dataKey: 'deptActivities', label: '9.1 Department Level Activities', fields: ['description', 'type', 'role', 'approval', 'evidenceLink'] },
+  { key: '9.2', dataKey: 'collegeActivities', label: '9.2 College Level Activities', fields: ['description', 'category', 'role', 'approval', 'evidenceLink'] },
+  { key: '9.3', dataKey: 'adminResponsibilities', label: '9.3 Administrative Responsibilities', fields: ['role', 'evidenceLink'] },
+];
+
 function flattenAppraisalRecord(record) {
   if (!record) return createEmptySectionState();
   return {
@@ -2479,6 +2517,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   const [selectedTimeline, setSelectedTimeline] = useState(TIMELINES[0]);
   const [activeReviewTab, setActiveReviewTab] = useState('inbox');
+  const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
+  const [sectionAuditSearch, setSectionAuditSearch] = useState('');
   const [activeView, setActiveView] = useState('overview');
   const setView = (v) => setActiveView(v === 'dashboard' ? 'overview' : v);
   const [activeSection, setActiveSection] = useState('I'); // Tracks 'I' or 'II'
@@ -4470,6 +4510,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                 Analytics & Reports
               </button>
+              <button
+                onClick={() => setActiveReviewTab('section_audit')}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'section_audit' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                Section / Criteria Audit
+              </button>
             </div>
           </div>
           
@@ -4661,6 +4708,188 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           
           {activeReviewTab === 'analytics' && (
             <AnalyticsDashboard data={selectedInboxRows} computeScores={computeSectionScores} />
+          )}
+
+          {activeReviewTab === 'section_audit' && (
+            <div className="space-y-4">
+              {/* Controls bar */}
+              <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                  <label className="text-xs font-bold text-slate-700 whitespace-nowrap flex items-center gap-1.5">
+                    <span>📌</span> Select Section / Criteria:
+                  </label>
+                  <select
+                    value={sectionAuditKey}
+                    onChange={(e) => setSectionAuditKey(e.target.value)}
+                    className="h-9 px-3 text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A1519]/30 flex-1 max-w-md"
+                  >
+                    {CRITERIA_SECTION_MAP.map((item) => (
+                      <option key={item.key} value={item.key}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="🔍 Filter by faculty name or keyword..."
+                    value={sectionAuditSearch}
+                    onChange={(e) => setSectionAuditSearch(e.target.value)}
+                    className="h-9 px-3 text-xs text-slate-800 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#4A1519]/30 w-full sm:w-64"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const activeMeta = CRITERIA_SECTION_MAP.find(m => m.key === sectionAuditKey) || CRITERIA_SECTION_MAP[0];
+                      let csvRows = [['Faculty Name', 'Designation', 'Department', 'Academic Year', 'Section Entry Details', 'Evidence Link', 'Score']];
+                      
+                      displayInboxRows.forEach((row) => {
+                        const flattened = flattenAppraisalRecord(row);
+                        const rawData = flattened[activeMeta.dataKey];
+                        const entries = Array.isArray(rawData) ? rawData : (rawData && typeof rawData === 'object' ? [rawData] : []);
+                        
+                        entries.forEach((entry) => {
+                          if (!entry) return;
+                          const detailsStr = activeMeta.fields
+                            .filter(f => f !== 'evidenceLink' && entry[f])
+                            .map(f => `${f}: ${entry[f]}`)
+                            .join(' | ');
+                          if (!detailsStr && !entry.evidenceLink) return;
+                          
+                          csvRows.push([
+                            `"${row.facultyName || ''}"`,
+                            `"${row.designation || ''}"`,
+                            `"${row.department || ''}"`,
+                            `"${row.timeline || selectedTimeline}"`,
+                            `"${detailsStr.replace(/"/g, '""')}"`,
+                            `"${entry.evidenceLink || ''}"`,
+                            `"${row.convertedScore || 0} / 200"`
+                          ]);
+                        });
+                      });
+
+                      const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.map(e => e.join(',')).join('\n');
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement('a');
+                      link.setAttribute('href', encodedUri);
+                      link.setAttribute('download', `Section_${sectionAuditKey}_Audit_${selectedTimeline}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="h-9 px-3 text-xs font-semibold text-[#4A1519] bg-white border border-[#4A1519]/30 rounded-md shadow-sm hover:bg-[#4A1519]/5 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                  >
+                    <span>📥</span> Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Section Consolidated Table */}
+              {(() => {
+                const activeMeta = CRITERIA_SECTION_MAP.find(m => m.key === sectionAuditKey) || CRITERIA_SECTION_MAP[3]; // Default 1.4
+                
+                // Aggregate all entries for this section across all faculty rows in displayInboxRows
+                const compiledEntries = [];
+                displayInboxRows.forEach((row) => {
+                  const flattened = flattenAppraisalRecord(row);
+                  const rawData = flattened[activeMeta.dataKey];
+                  const entries = Array.isArray(rawData) ? rawData : (rawData && typeof rawData === 'object' ? [rawData] : []);
+                  
+                  entries.forEach((entry, index) => {
+                    if (!entry) return;
+                    
+                    // Check if entry has content
+                    const hasContent = activeMeta.fields.some(f => entry[f] && String(entry[f]).trim().length > 0);
+                    if (!hasContent) return;
+
+                    const matchSearch = !sectionAuditSearch || 
+                      (row.facultyName || '').toLowerCase().includes(sectionAuditSearch.toLowerCase()) ||
+                      (row.department || '').toLowerCase().includes(sectionAuditSearch.toLowerCase()) ||
+                      JSON.stringify(entry).toLowerCase().includes(sectionAuditSearch.toLowerCase());
+
+                    if (matchSearch) {
+                      compiledEntries.push({
+                        facultyRow: row,
+                        entry: entry,
+                        entryIndex: index + 1
+                      });
+                    }
+                  });
+                });
+
+                return (
+                  <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                    <div className="p-2.5 bg-slate-100 border-b border-slate-200 flex justify-between items-center text-xs font-bold text-slate-700">
+                      <span>{activeMeta.label} — Consolidated Faculty Audit ({compiledEntries.length} total entry/entries across {displayInboxRows.length} faculty)</span>
+                      <span className="text-slate-500 font-normal text-[11px]">Filtered for {selectedTimeline} ({selectedDeptFilter})</span>
+                    </div>
+
+                    <table className="min-w-full text-left bg-white">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+                          <th className="py-2.5 px-3">Faculty Member</th>
+                          <th className="py-2.5 px-3">Dept</th>
+                          <th className="py-2.5 px-3">Section {activeMeta.key} Entry Details</th>
+                          <th className="py-2.5 px-3 text-center">Supporting Proof</th>
+                          <th className="py-2.5 px-3 text-right">Appraisal Score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {compiledEntries.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="py-8 px-3 text-center text-xs text-slate-500 italic">
+                              No entries found for {activeMeta.label} across faculty submissions in {selectedTimeline}.
+                            </td>
+                          </tr>
+                        ) : (
+                          compiledEntries.map(({ facultyRow, entry }, idx) => (
+                            <tr key={`${facultyRow.id || facultyRow._id}-${idx}`} className="border-b border-slate-100 text-xs text-slate-700 hover:bg-[#4A1519]/5 transition">
+                              <td className="py-2.5 px-3 font-semibold text-slate-900 align-top">
+                                <div>{facultyRow.facultyName}</div>
+                                <div className="text-[10px] text-slate-500 font-normal">{facultyRow.designation || 'Assistant Professor'}</div>
+                              </td>
+                              <td className="py-2.5 px-3 align-top">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-[#4A1519] border border-slate-200">
+                                  {facultyRow.department || 'CSE'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 align-top">
+                                <div className="space-y-1">
+                                  {activeMeta.fields.filter(f => f !== 'evidenceLink' && entry[f]).map((field) => (
+                                    <div key={field} className="text-xs">
+                                      <span className="font-semibold text-slate-600 capitalize">{field.replace(/([A-Z])/g, ' $1')}: </span>
+                                      <span className="text-slate-800 font-medium">{String(entry[field])}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 align-top text-center">
+                                {entry.evidenceLink ? (
+                                  <a
+                                    href={entry.evidenceLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded hover:bg-blue-100 transition"
+                                  >
+                                    <span>🔗</span> View Proof
+                                  </a>
+                                ) : (
+                                  <span className="text-[11px] text-slate-400 italic">No link attached</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 align-top text-right font-bold text-[#4A1519]">
+                                {facultyRow.convertedScore || 0} / 200
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </div>
       ) : (
