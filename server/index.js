@@ -114,7 +114,7 @@ const AppraisalSchema = new mongoose.Schema({
   departmentName: { type: String, default: 'Computer Applications' },
   convertedScore: { type: Number, default: 0 },
   systemScore: { type: Number, default: 0 },
-  appraisalStatus: { type: String, default: 'Pending' },
+  appraisalStatus: { type: String, default: 'Draft' },
   hodRemarks: { type: String, default: '' },
   subsectionRemarks: { type: Object, default: {} },
   hodSubsectionScores: { type: Object, default: {} },
@@ -808,7 +808,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       principalApprovalStatus: existingDoc?.principalApprovalStatus || 'Pending',
       principalRemarks: existingDoc?.principalRemarks || '',
       principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
-      appraisalStatus: (existingDoc?.iqacStatus || '').toUpperCase().includes('IQAC') || (existingDoc?.iqacStatus || '').toUpperCase().includes('VERIF') ? 'IQAC Approved' : (existingDoc?.appraisalStatus || 'Pending'),
+      appraisalStatus: (existingDoc?.iqacStatus || '').toUpperCase().includes('IQAC') || (existingDoc?.iqacStatus || '').toUpperCase().includes('VERIF') ? 'IQAC Approved' : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft'),
     };
 
     const options = { upsert: true, new: true, runValidators: false, setDefaultsOnInsert: true };

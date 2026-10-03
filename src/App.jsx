@@ -2571,7 +2571,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (isReviewMode) return false;
     if (!activeTimelineRecord) return true;
     const status = (activeTimelineRecord.appraisalStatus || '').toUpperCase().trim();
-    return status === 'NOT APPROVED' || status === 'FIX NEEDED' || status === 'REJECTED' || !status;
+    return status === 'DRAFT' || status === 'NOT APPROVED' || status === 'FIX NEEDED' || status === 'REJECTED' || status === 'NOT SUBMITTED' || !status;
   }, [activeTimelineRecord, isReviewMode]);
 
   // Workspace persistence effect (existing).
