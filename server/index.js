@@ -581,6 +581,13 @@ async function handleFacultyWebhook(req, res) {
   }
 }
 
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'TCE Appraisal API is live' });
+});
+
 app.post('/api/v1/faculty/webhook', handleFacultyWebhook);
 app.post('/api/directory/webhook', handleFacultyWebhook);
 
