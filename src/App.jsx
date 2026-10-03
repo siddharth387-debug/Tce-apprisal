@@ -3326,7 +3326,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
   const adminResponsibilitiesColumns = [
-    { name: "role", label: "Administrative Position Held", type: "select", options: ["Registrar", "Dean", "CoE", "Head IQAC", "HoD"] },
+    { name: "role", label: "Administrative Position Held", type: "select", options: ["Registrar", "Dean", "CoE", "Head IQAC", "HoD", "Warden", "Deputy Warden"] },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
   ];
 
@@ -5983,7 +5983,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="9.3 Administrative Responsibilities"
-                subtitle="(Calculation Rubric: Registrar / Deans / CoE / Head IQAC / HoDs = 20 | Max 20 marks)"
+                subtitle="(Calculation Rubric: Registrar / Deans / CoE / Head IQAC / HoDs / Warden / Deputy Warden = 20 | Max 20 marks)"
                 rows={currentSectionData.adminResponsibilities || []}
                 canAdd={canAddAdminResponsibilities(currentSectionData.adminResponsibilities || [])}
                 disabled={!isEditable}
