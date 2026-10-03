@@ -891,10 +891,11 @@ function computeSectionScores(sectionData = {}, role) {
   // 2.1 Journal Papers: Map row.tier. Q1=6, Q2=4, Q3=2 marks per entry. Clamped to Max 15.
   const sub2_1 = Math.min(
     (safeData.journalPapers || []).reduce((sum, row) => {
-      if (!isNonEmpty(row.paperTitle) || !isNonEmpty(row.journalName)) return sum;
-      if (row.tier === 'Q1') return sum + 6;
-      if (row.tier === 'Q2') return sum + 4;
-      if (row.tier === 'Q3') return sum + 2;
+      if (!isNonEmpty(row.paperTitle) && !isNonEmpty(row.journalName)) return sum;
+      const t = String(row.tier || row.quartile || '').toUpperCase().trim();
+      if (t.includes('Q1')) return sum + 6;
+      if (t.includes('Q2')) return sum + 4;
+      if (t.includes('Q3')) return sum + 2;
       return sum;
     }, 0),
     15

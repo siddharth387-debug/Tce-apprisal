@@ -127,10 +127,11 @@ export function computeAutomatedScores(sectionData = {}) {
   // Section 2
   const s2_1 = Math.min(
     (safeData.journalPapers || []).reduce((sum, r) => {
-      if (!isFilled(r.paperTitle) || !isFilled(r.journalName)) return sum;
-      if (r.tier === 'Q1') return sum + 6;
-      if (r.tier === 'Q2') return sum + 4;
-      if (r.tier === 'Q3') return sum + 2;
+      if (!isFilled(r.paperTitle) && !isFilled(r.journalName)) return sum;
+      const t = String(r.tier || r.quartile || '').toUpperCase().trim();
+      if (t.includes('Q1')) return sum + 6;
+      if (t.includes('Q2')) return sum + 4;
+      if (t.includes('Q3')) return sum + 2;
       return sum;
     }, 0),
     15
@@ -434,9 +435,10 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   const s2_1 = Math.min(
     (safeData.journalPapers || []).reduce((sum, r) => {
       if (!isFilled(r.paperTitle) && !isFilled(r.journalName)) return sum;
-      if (r.quartile === 'Q1' || r.tier === 'Q1') return sum + 6;
-      if (r.quartile === 'Q2' || r.tier === 'Q2') return sum + 4;
-      if (r.quartile === 'Q3' || r.tier === 'Q3') return sum + 2;
+      const t = String(r.tier || r.quartile || '').toUpperCase().trim();
+      if (t.includes('Q1')) return sum + 6;
+      if (t.includes('Q2')) return sum + 4;
+      if (t.includes('Q3')) return sum + 2;
       return sum;
     }, 0),
     15
