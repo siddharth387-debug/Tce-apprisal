@@ -2614,6 +2614,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [selectedTimeline, draftUserKey, activeTimelineRecord]);
 
+  // Auto-save local draft to localStorage whenever workspace data for current timeline changes
+  useEffect(() => {
+    if (!draftUserKey || !selectedTimeline) return;
+    const currentData = workspaceByTimeline[selectedTimeline];
+    if (currentData && hasSectionEntries(currentData)) {
+      localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(currentData));
+    }
+  }, [workspaceByTimeline, draftUserKey, selectedTimeline]);
+
   // Watchdog: syncs appraisal records from MongoDB Atlas
   const syncHistoryFromCloud = useCallback(async (currentUser, roleOverride, deptOverride) => {
     if (!currentUser || !currentUser.email) return;
@@ -5310,7 +5319,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               ? { ...prev.citationsReceived, totalCount: val }
                               : { totalCount: val }
                           };
-                          localStorage.setItem(`draft_${user.email}_${selectedTimeline}`, JSON.stringify(next));
+                          if (draftUserKey && selectedTimeline) {
+                            localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(next));
+                          }
                           return next;
                         });
                       }}
@@ -5358,7 +5369,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               ? { ...prev.q1Citations, totalCount: val }
                               : { totalCount: val }
                           };
-                          localStorage.setItem(`draft_${user.email}_${selectedTimeline}`, JSON.stringify(next));
+                          if (draftUserKey && selectedTimeline) {
+                            localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(next));
+                          }
                           return next;
                         });
                       }}
