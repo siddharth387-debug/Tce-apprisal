@@ -3003,44 +3003,44 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       type: 'select',
       options: SEMESTER_OPTIONS,
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const studioPedagogyColumns = [
-    { name: 'activityName', label: 'Studio Activity / Project Name', placeholder: 'e.g. Design Studio VI / Architectural Heritage Documentation' },
-    { name: 'batchOrSem', label: 'Batch / Semester', placeholder: 'e.g. Sem V / 2023-27' },
-    { name: 'outcomes', label: 'Pedagogical Outcomes / Deliverables', placeholder: 'e.g. Scale Models, Measured Drawings, Site Analysis' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+    { name: 'activityName', label: 'Studio Activity / Project Name', placeholder: 'Enter Studio Activity / Project Name' },
+    { name: 'batchOrSem', label: 'Batch / Semester', placeholder: 'Enter Batch / Semester' },
+    { name: 'outcomes', label: 'Pedagogical Outcomes / Deliverables', placeholder: 'Enter Pedagogical Outcomes / Deliverables' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const educationalToursColumns = [
     { name: 'tourType', label: 'Type', type: 'select', options: ['Educational Tour (4 marks)', 'Case Study Visit (2 marks)'] },
-    { name: 'place', label: 'Location / Monuments Visited', placeholder: 'e.g. Hampi Heritage Survey' },
-    { name: 'batch', label: 'Batch / Semester', placeholder: 'e.g. Sem IV / 2023-27' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+    { name: 'place', label: 'Location / Monuments Visited', placeholder: 'Enter Location / Monuments Visited' },
+    { name: 'batch', label: 'Batch / Semester', placeholder: 'Enter Batch / Semester' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const creativeScholarshipColumns = [
-    { name: 'title', label: 'Title of Essay / Article / Heritage Doc', placeholder: 'e.g. Urban Vernacular Architecture of Chettinad' },
-    { name: 'publisher', label: 'Design Magazine / Publisher', placeholder: 'e.g. Architecture+Design / Indian Architect' },
+    { name: 'title', label: 'Title of Essay / Article / Heritage Doc', placeholder: 'Enter Title of Essay, Article, or Heritage Documentation' },
+    { name: 'publisher', label: 'Design Magazine / Publisher', placeholder: 'Enter Design Magazine / Publisher Name' },
     { name: 'category', label: 'Category', type: 'select', options: ['Design Magazine', 'Architectural Critique', 'Urban Commentary', 'Visual Essay', 'Heritage Documentation'] },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const designPatentsColumns = [
-    { name: 'refNumber', label: 'Design Patent Application / Registration No', placeholder: 'e.g. 389201-001' },
-    { name: 'title', label: 'Design Title / Form', placeholder: 'e.g. Modular Climate-Responsive Louver System' },
+    { name: 'refNumber', label: 'Design Patent Application / Registration No', placeholder: 'Enter Design Patent Application / Registration Number' },
+    { name: 'title', label: 'Design Title / Form', placeholder: 'Enter Design Title / Form' },
     { name: 'dateGranted', label: 'Date Granted', type: 'date' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const internationalDesignStudioColumns = [
-    { name: 'institution', label: 'Partner Institution', placeholder: 'e.g. NUS Singapore / AA London' },
-    { name: 'nature', label: 'Nature of Joint Studio / Workshop', placeholder: 'e.g. Joint Tropical Design Studio' },
-    { name: 'country', label: 'Country', placeholder: 'e.g. Singapore' },
-    { name: 'period', label: 'Period / Dates', placeholder: 'e.g. Oct 2024 (2 Weeks)' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+    { name: 'institution', label: 'Partner Institution', placeholder: 'Enter Partner Institution Name' },
+    { name: 'nature', label: 'Nature of Joint Studio / Workshop', placeholder: 'Enter Nature of Joint Studio / Workshop' },
+    { name: 'country', label: 'Country', placeholder: 'Enter Country Name' },
+    { name: 'period', label: 'Period / Dates', placeholder: 'Enter Period / Dates' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const studentExhibitionsColumns = [
-    { name: 'title', label: 'Exhibition / Expo Title', placeholder: 'e.g. Annual Architecture Design Expo 2024' },
-    { name: 'venue', label: 'Venue / Platform', placeholder: 'e.g. TCE Open Gallery' },
+    { name: 'title', label: 'Exhibition / Expo Title', placeholder: 'Enter Exhibition / Expo Title' },
+    { name: 'venue', label: 'Venue / Platform', placeholder: 'Enter Venue / Platform Name' },
     { name: 'date', label: 'Date Conducted', type: 'date' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/..' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const courseFilesColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
@@ -3055,7 +3055,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       type: 'select',
       options: ['Full', 'Partial', 'No'],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const coAttainmentColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
@@ -3068,9 +3068,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       name: 'attainmentPct',
       label: 'CO Attainment % (Single Number 0 - 100)',
       type: 'number',
-      placeholder: 'e.g. 85.5',
+      placeholder: 'Enter Attainment Percentage',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const coursesDesignedColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
@@ -3082,9 +3082,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     {
       name: 'remarks',
       label: 'Remarks',
-      placeholder: 'Reframed for CBCS curriculum',
+      placeholder: 'Enter Course Design / Syllabus Details',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const valueAddedColumns = [
     {
@@ -3095,15 +3095,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     {
       name: 'particulars',
       label: 'Particulars',
-      placeholder: '30-hour hands-on program',
+      placeholder: 'Enter Course Particulars / Scope',
     },
     {
       name: 'studentCount',
       label: 'Student Count',
       type: 'number',
-      placeholder: '62',
+      placeholder: 'Enter Student Count',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const resultAnalysisColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
@@ -3116,18 +3116,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       name: 'passPercentage',
       label: 'Pass %',
       type: 'number',
-      placeholder: '95',
+      placeholder: 'Enter Pass Percentage',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const innovativeMethodsColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
     {
       name: 'method',
       label: 'Method',
-      placeholder: 'Flipped classroom with peer critique',
+      placeholder: 'Enter Innovative Teaching Methodology Details',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const certificationsColumns = [
     {
@@ -3144,9 +3144,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     {
       name: 'certType',
       label: 'Certification Type',
-      placeholder: 'e.g. Elite + Silver / Professional Certificate',
+      placeholder: 'Enter Certification Type / Level',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const academicCollaborationsColumns = [
     { name: 'organization', label: 'Organization / Partner Institution', placeholder: 'Enter Organization / Institution' },
@@ -3156,19 +3156,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       type: 'select',
       options: ACADEMIC_COLLABORATION_TYPES,
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const studentFeedbackColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
-    { name: 'feedbackPct', label: 'Feedback %', type: 'number', placeholder: 'e.g. 92' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "https://drive.google.com/.." },
+    { name: 'feedbackPct', label: 'Feedback %', type: 'number', placeholder: 'Enter Feedback Percentage' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const journalPapersColumns = [
     { name: 'paperTitle', label: 'Paper Title', placeholder: 'Enter Paper Title' },
     { name: 'journalName', label: 'Journal Name', placeholder: 'Enter Journal Name' },
-    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'e.g. 10.1016/j.jss.2025.101' },
-    { name: 'publisher', label: 'Publisher', placeholder: 'e.g. Elsevier / IEEE / Springer' },
-    { name: 'volumeIssue', label: 'Vol, Issue & Page Nos.', placeholder: 'e.g. Vol 15, Issue 2, pp. 45-52' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
+    { name: 'publisher', label: 'Publisher', placeholder: 'Enter Publisher Name' },
+    { name: 'volumeIssue', label: 'Vol, Issue & Page Nos.', placeholder: 'Enter Vol, Issue & Page Nos.' },
     { name: 'pubDate', label: 'Publication Date', type: 'date' },
     {
       name: 'tier',
@@ -3180,13 +3180,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { value: 'Q3', label: 'Q3 Tier (2 marks)' },
       ],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/...' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const bookPublicationsColumns = [
-    { name: 'title', label: 'Book / Chapter Title', placeholder: 'Enter Title' },
-    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'e.g. 10.1007/978-3-030...' },
-    { name: 'publisher', label: 'Publisher', placeholder: 'e.g. Springer / CRC Press' },
-    { name: 'isbnIssn', label: 'ISBN / ISSN No.', placeholder: 'e.g. 978-3-16-148410-0' },
+    { name: 'title', label: 'Book / Chapter Title', placeholder: 'Enter Book / Chapter Title' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
+    { name: 'publisher', label: 'Publisher', placeholder: 'Enter Publisher Name' },
+    { name: 'isbnIssn', label: 'ISBN / ISSN No.', placeholder: 'Enter ISBN / ISSN No.' },
     { name: 'pubDate', label: 'Publication Date', type: 'date' },
     {
       name: 'type',
@@ -3198,18 +3198,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { value: 'Editor', label: 'Editor (2 marks)' },
       ],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/...' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const conferencePapersColumns = [
     { name: 'paperTitle', label: 'Conference Paper Title', placeholder: 'Enter Paper Title' },
     { name: 'proceedingName', label: 'Proceeding Name', placeholder: 'Enter Proceeding Name' },
-    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'e.g. 10.1109/ICAI.2025.101' },
-    { name: 'publisher', label: 'Publisher / Organizer', placeholder: 'e.g. IEEE Xplore / ACM' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
+    { name: 'publisher', label: 'Publisher / Organizer', placeholder: 'Enter Publisher / Organizer Name' },
     { name: 'pubDate', label: 'Conference Date', type: 'date' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/...' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const researchCollaborationsColumns = [
-    { name: 'title', label: 'Paper / Project Title', placeholder: 'Enter Title' },
+    { name: 'title', label: 'Paper / Project Title', placeholder: 'Enter Paper / Project Title' },
     { name: 'partner', label: 'Partner Inst. / Expert', placeholder: 'Enter Partner Institution or Expert' },
     {
       name: 'type',
@@ -3221,26 +3221,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { value: 'Industry', label: 'Industry (2 marks)' },
       ],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'https://drive.google.com/...' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const phdRegisteredColumns = [
     { name: 'scholarName', label: 'Scholar Name', placeholder: 'Enter Scholar Name' },
     { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Enter Research Area / Title' },
-    { name: 'evidenceLink', label: 'Notification / Evidence Link', type: 'url', placeholder: 'https://drive.google.com/...' },
+    { name: 'evidenceLink', label: 'Notification / Evidence Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   
   
   const fdpAttendedColumns = [
-    { name: "programName", label: "Name of Program", type: "text", placeholder: "e.g. FDP on AI & Data Analytics" },
-    { name: "organizer", label: "Organizer", type: "text", placeholder: "e.g. TCE / NPTEL / AICTE" },
-    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "e.g. 5" },
+    { name: "programName", label: "Name of Program", type: "text", placeholder: "Enter Name of Program" },
+    { name: "organizer", label: "Organizer", type: "text", placeholder: "Enter Organizer / Institution Name" },
+    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "Enter Duration in Days" },
     { name: "dateRange", label: "Start Date", type: "date" },
     { name: "endDate", label: "End Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const programsOrganizedColumns = [
-    { name: "programName", label: "Name of Program", type: "text", placeholder: "e.g. Workshop / FDP on Cloud Computing" },
-    { name: "days", label: "Number of Days", type: "number", placeholder: "e.g. 5" },
+    { name: "programName", label: "Name of Program", type: "text", placeholder: "Enter Name of Program" },
+    { name: "days", label: "Number of Days", type: "number", placeholder: "Enter Number of Days" },
     { name: "dateRange", label: "Start Date", type: "date" },
     { name: "endDate", label: "End Date", type: "date" },
     {
@@ -3259,99 +3259,99 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         "Co-Organizer"
       ]
     },
-    { name: "participants", label: "Number of Participants (Internal, External)", type: "text", placeholder: "e.g. 50 (30 Internal, 20 External)" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "participants", label: "Number of Participants (Internal, External)", type: "text", placeholder: "Enter Number of Participants" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const resourcePersonColumns = [
-    { name: "eventName", label: "Event Name", type: "text", placeholder: "e.g. International Conference on AI" },
+    { name: "eventName", label: "Event Name", type: "text", placeholder: "Enter Event Name" },
     { name: "level", label: "International / National", type: "select", options: ["International", "National"] },
-    { name: "topic", label: "Topic", type: "text", placeholder: "e.g. Keynote on Cloud Computing" },
-    { name: "venue", label: "Venue / Host Institution", type: "text", placeholder: "e.g. IIT Madras / Online (Zoom)" },
+    { name: "topic", label: "Topic", type: "text", placeholder: "Enter Talk / Session Topic" },
+    { name: "venue", label: "Venue / Host Institution", type: "text", placeholder: "Enter Venue / Host Institution" },
     { name: "date", label: "Date of Session", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const professionalMembershipColumns = [
-    { name: "societyName", label: "Name of Society", type: "text", placeholder: "e.g. IEEE" },
-    { name: "membershipType", label: "Membership Type", type: "text", placeholder: "e.g. Life Member" },
+    { name: "societyName", label: "Name of Society", type: "text", placeholder: "Enter Name of Professional Society" },
+    { name: "membershipType", label: "Membership Type", type: "text", placeholder: "Enter Membership Type" },
     { name: "status", label: "Status (Active/Inactive)", type: "select", options: ["Active", "Inactive"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const editorialBoardColumns = [
-    { name: "bodyName", label: "Name of Body", type: "text", placeholder: "e.g. Springer Editorial Board" },
-    { name: "position", label: "Position Held", type: "text", placeholder: "e.g. Associate Editor" },
+    { name: "bodyName", label: "Name of Body", type: "text", placeholder: "Enter Name of Journal / Editorial Body" },
+    { name: "position", label: "Position Held", type: "text", placeholder: "Enter Position Held" },
     { name: "period", label: "Period", type: "select", options: ACADEMIC_PERIOD_OPTIONS },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const moocDevelopedColumns = [
-    { name: "courseName", label: "Course Code & Name", type: "text", placeholder: "e.g. 21CS401 - Machine Learning Essentials (TCE MOOC)" },
-    { name: "courseId", label: "Course ID / MOOC Portal ID", type: "text", placeholder: "e.g. MOOC-21CS401 / NPTEL-CS102" },
-    { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "e.g. 8 Weeks (or 3 Credits)" },
-    { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "e.g. 4 Modules / 2 Co-Faculty" },
-    { name: "takersCount", label: "Number of Learners / Takers (Internal, External)", type: "text", placeholder: "e.g. 150 Learners (100 Internal, 50 External)" },
-    { name: "evidenceLink", label: "Proof / Evidence Link (Syllabus, Video or Platform URL)", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "courseName", label: "Course Code & Name", type: "text", placeholder: "Enter Course Code & Name" },
+    { name: "courseId", label: "Course ID / MOOC Portal ID", type: "text", placeholder: "Enter Course ID / MOOC Portal ID" },
+    { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "Enter Duration in Weeks or Credits" },
+    { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "Enter Number of Modules / Co-Faculty" },
+    { name: "takersCount", label: "Number of Learners / Takers (Internal, External)", type: "text", placeholder: "Enter Number of Learners / Takers" },
+    { name: "evidenceLink", label: "Proof / Evidence Link (Syllabus, Video or Platform URL)", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
 
   const partialDeliveryColumns = [
-    { name: "courseDetails", label: "Course Code & Course Name", type: "text", placeholder: "e.g. 21CS401 - Database Systems" },
+    { name: "courseDetails", label: "Course Code & Course Name", type: "text", placeholder: "Enter Course Code & Course Name" },
     { name: "mode", label: "Online/Offline", type: "select", options: ["Online", "Offline"] },
-    { name: "industryName", label: "Name of the Industry", type: "text", placeholder: "e.g. Microsoft" },
-    { name: "expertDetails", label: "Name of the Expert & Designation", type: "text", placeholder: "e.g. Mr. Alok, Lead Engineer" },
-    { name: "duration", label: "Duration (Hours)", type: "number", placeholder: "e.g. 6" },
+    { name: "industryName", label: "Name of the Industry", type: "text", placeholder: "Enter Name of the Industry" },
+    { name: "expertDetails", label: "Name of the Expert & Designation", type: "text", placeholder: "Enter Name of the Expert & Designation" },
+    { name: "duration", label: "Duration (Hours)", type: "number", placeholder: "Enter Duration in Hours" },
     { name: "date", label: "Lecture Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const industrialVisitsColumns = [
-    { name: "visitDetails", label: "Visit Details", type: "text", placeholder: "e.g. Visit to ISRO" },
-    { name: "industry", label: "Industry", type: "text", placeholder: "e.g. ISRO Madurai" },
-    { name: "studentsCount", label: "No. of Students", type: "number", placeholder: "e.g. 60" },
+    { name: "visitDetails", label: "Visit Details", type: "text", placeholder: "Enter Industrial Visit Details" },
+    { name: "industry", label: "Industry", type: "text", placeholder: "Enter Industry / Organization Name" },
+    { name: "studentsCount", label: "No. of Students", type: "number", placeholder: "Enter Number of Students" },
     { name: "date", label: "Visit Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const facultyInternshipsColumns = [
-    { name: "industryName", label: "Industry Name", type: "text", placeholder: "e.g. Infosys Labs" },
-    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "e.g. 10" },
-    { name: "purpose", label: "Purpose", type: "text", placeholder: "e.g. Training on Cloud Native Dev" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "industryName", label: "Industry Name", type: "text", placeholder: "Enter Industry Name" },
+    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "Enter Duration in Days" },
+    { name: "purpose", label: "Purpose", type: "text", placeholder: "Enter Internship Purpose / Scope" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const employerEngagementColumns = [
-    { name: "activityName", label: "Activity Name", type: "text", placeholder: "e.g. Board of Studies Meeting" },
-    { name: "involvedParty", label: "Alumni / Employer Involved", type: "text", placeholder: "e.g. Zoho Corp Recruiters" },
+    { name: "activityName", label: "Activity Name", type: "text", placeholder: "Enter Activity Name" },
+    { name: "involvedParty", label: "Alumni / Employer Involved", type: "text", placeholder: "Enter Alumni / Employer Involved" },
     { name: "date", label: "Engagement Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
 
   const projectPublicationsColumns = [
-    { name: "title", label: "Publication Title", type: "text", placeholder: "e.g. Smart Irrigation System using IoT" },
-    { name: "students", label: "Student Name(s)", type: "text", placeholder: "e.g. Alice, Bob" },
-    { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "e.g. IEEE Access..." },
-    { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "e.g. 10.1109/ACCESS.2025..." },
-    { name: "publisher", label: "Publisher", placeholder: "e.g. IEEE / Elsevier" },
+    { name: "title", label: "Publication Title", type: "text", placeholder: "Enter Publication Title" },
+    { name: "students", label: "Student Name(s)", type: "text", placeholder: "Enter Student Name(s)" },
+    { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "Enter Journal / Conference Details" },
+    { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "Enter DOI (Digital Object Identifier)" },
+    { name: "publisher", label: "Publisher", placeholder: "Enter Publisher Name" },
     { name: "date", label: "Date of Publication", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const hackathonMentoringColumns = [
-    { name: "eventName", label: "Hackathon / Event Name", type: "text", placeholder: "e.g. Smart India Hackathon" },
-    { name: "students", label: "Students Mentored", type: "text", placeholder: "e.g. Team ByteMasters" },
-    { name: "outcome", label: "Outcome", type: "text", placeholder: "e.g. First Prize Winner" },
+    { name: "eventName", label: "Hackathon / Event Name", type: "text", placeholder: "Enter Hackathon / Event Name" },
+    { name: "students", label: "Students Mentored", type: "text", placeholder: "Enter Students Mentored" },
+    { name: "outcome", label: "Outcome", type: "text", placeholder: "Enter Outcome / Award Details" },
     { name: "dateRange", label: "Event Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const startupSupportColumns = [
-    { name: "startupName", label: "Activity / Startup Name", type: "text", placeholder: "e.g. AgriTech Solutions" },
-    { name: "role", label: "Role", type: "text", placeholder: "e.g. Faculty Mentor" },
+    { name: "startupName", label: "Activity / Startup Name", type: "text", placeholder: "Enter Activity / Startup Name" },
+    { name: "role", label: "Role", type: "text", placeholder: "Enter Faculty Role" },
     { name: "duration", label: "Duration", type: "select", options: STARTUP_DURATION_OPTIONS },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
 
   const deptActivitiesColumns = [
-    { name: "description", label: "Activity Description", type: "text", placeholder: "e.g. NBA Document Coordinator" },
+    { name: "description", label: "Activity Description", type: "text", placeholder: "Enter Department Activity Description" },
     { name: "type", label: "Activity Type", type: "select", options: ["DLCs and File Maintenance", "Dept. Activity & File Maintenance"] },
     { name: "role", label: "Role (Major/Supporting)", type: "select", options: ["Major", "Supporting"] },
     { name: "approval", label: "HoD Approval", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const collegeActivitiesColumns = [
-    { name: "description", label: "Activity Description", type: "text", placeholder: "e.g. College Day Event Organizer" },
+    { name: "description", label: "Activity Description", type: "text", placeholder: "Enter College Activity Description" },
     { 
       name: "category", 
       label: "Activity Category", 
@@ -3365,114 +3365,114 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     { name: "role", label: "Role (Major/Supporting)", type: "select", options: ["Major", "Supporting"] },
     { name: "approval", label: "Section Head Approval", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const adminResponsibilitiesColumns = [
     { name: "role", label: "Administrative Position Held", type: "select", options: ["Registrar", "Dean", "CoE", "Head IQAC", "HoD", "Warden", "Deputy Warden"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
 
   const patentsPublishedColumns = [
-    { name: "refNumber", label: "Patent Ref / Application Number", type: "text", placeholder: "e.g. 2024103..." },
+    { name: "refNumber", label: "Patent Ref / Application Number", type: "text", placeholder: "Enter Patent Ref / Application Number" },
     {
       name: "patentType",
       label: "Patent Category",
       type: "select",
       options: ["Design Patent", "Utility / Invention Patent", "Process Patent", "Software Patent / Copyright"]
     },
-    { name: "title", label: "Title", type: "text", placeholder: "e.g. A novel AI system..." },
-    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "e.g. Dr. John Doe" },
+    { name: "title", label: "Title", type: "text", placeholder: "Enter Patent Title" },
+    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Enter Name of Inventors" },
     { name: "datePublished", label: "Date Published", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const patentsGrantedColumns = [
-    { name: "refNumber", label: "Patent Grant / Registration Number", type: "text", placeholder: "e.g. US109..." },
+    { name: "refNumber", label: "Patent Grant / Registration Number", type: "text", placeholder: "Enter Patent Grant / Registration Number" },
     {
       name: "patentType",
       label: "Patent Category",
       type: "select",
       options: ["Design Patent", "Utility / Invention Patent", "Process Patent", "Software Patent / Copyright"]
     },
-    { name: "title", label: "Title", type: "text", placeholder: "e.g. A novel AI system..." },
-    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "e.g. Dr. John Doe" },
+    { name: "title", label: "Title", type: "text", placeholder: "Enter Patent Title" },
+    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Enter Name of Inventors" },
     { name: "dateGranted", label: "Date Granted", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const transferOfTechnologyColumns = [
-    { name: "title", label: "Title", type: "text", placeholder: "e.g. Advanced Routing..." },
-    { name: "industryPartner", label: "Industry Partner", type: "text", placeholder: "e.g. Acme Corp" },
-    { name: "amount", label: "Amount (Rs.)", type: "number", placeholder: "e.g. 500000" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "title", label: "Title", type: "text", placeholder: "Enter Technology Transfer Title" },
+    { name: "industryPartner", label: "Industry Partner", type: "text", placeholder: "Enter Industry Partner Name" },
+    { name: "amount", label: "Amount (Rs.)", type: "number", placeholder: "Enter Amount in INR" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const prototypesDevelopedColumns = [
-    { name: "title", label: "Title of Product", type: "text", placeholder: "e.g. Smart Helmet" },
-    { name: "studentsInvolved", label: "Students Involved", type: "text", placeholder: "e.g. Alice, Bob" },
+    { name: "title", label: "Title of Product", type: "text", placeholder: "Enter Title of Prototype / Product" },
+    { name: "studentsInvolved", label: "Students Involved", type: "text", placeholder: "Enter Student Name(s) Involved" },
     { name: "date", label: "Development Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const hackathonPrizesColumns = [
-    { name: "eventName", label: "Hackathon/Event Name", type: "text", placeholder: "e.g. SIH 2024" },
-    { name: "studentsMentored", label: "Students Mentored", type: "text", placeholder: "e.g. Team Alpha" },
-    { name: "prize", label: "Prize / Achievement", type: "text", placeholder: "e.g. 1st Place" },
+    { name: "eventName", label: "Hackathon/Event Name", type: "text", placeholder: "Enter Hackathon / Event Name" },
+    { name: "studentsMentored", label: "Students Mentored", type: "text", placeholder: "Enter Students Mentored" },
+    { name: "prize", label: "Prize / Achievement", type: "text", placeholder: "Enter Prize / Achievement" },
     { name: "date", label: "Award Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   
   const researchProjectsColumns = [
-    { name: "projectName", label: "Project Name", type: "text", placeholder: "e.g. IoT Framework..." },
-    { name: "fundingAgency", label: "Funding Agency", type: "text", placeholder: "e.g. DST" },
+    { name: "projectName", label: "Project Name", type: "text", placeholder: "Enter Project Name" },
+    { name: "fundingAgency", label: "Funding Agency", type: "text", placeholder: "Enter Funding Agency Name" },
     { name: "period", label: "Period", type: "select", options: ACADEMIC_PERIOD_OPTIONS },
-    { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", placeholder: "e.g. 2000000" },
+    { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", placeholder: "Enter Sanctioned Amount in INR" },
     { name: "role", label: "Role", type: "select", options: ["PI", "Co-PI"] },
     { name: "status", label: "Project Status", type: "select", options: ["Ongoing", "Completed"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const consultancyProjectsColumns = [
-    { name: "title", label: "Title of Consultancy Project", type: "text", placeholder: "e.g. DB Optimization..." },
-    { name: "clientDetails", label: "Client Details", type: "text", placeholder: "e.g. Zeta Inc" },
+    { name: "title", label: "Title of Consultancy Project", type: "text", placeholder: "Enter Title of Consultancy Project" },
+    { name: "clientDetails", label: "Client Details", type: "text", placeholder: "Enter Client Details / Organization" },
     { name: "period", label: "Period", type: "select", options: ACADEMIC_PERIOD_OPTIONS },
-    { name: "amount", label: "Amount Generated (Rs.)", type: "number", placeholder: "e.g. 500000" },
-    { name: "facultyInvolved", label: "Names of Faculty Involved", type: "text", placeholder: "e.g. Dr. Jane" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "amount", label: "Amount Generated (Rs.)", type: "number", placeholder: "Enter Amount Generated in INR" },
+    { name: "facultyInvolved", label: "Names of Faculty Involved", type: "text", placeholder: "Enter Names of Faculty Involved" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
 
   const internationalEngagementColumns = [
-    { name: "institution", label: "Partner Institution", type: "text", placeholder: "e.g. MIT" },
-    { name: "country", label: "Country", type: "text", placeholder: "e.g. USA" },
-    { name: "nature", label: "Nature of Collaboration", type: "text", placeholder: "e.g. Joint Research" },
-    { name: "status", label: "Status", type: "text", placeholder: "e.g. Active" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "institution", label: "Partner Institution", type: "text", placeholder: "Enter Partner Institution Name" },
+    { name: "country", label: "Country", type: "text", placeholder: "Enter Country Name" },
+    { name: "nature", label: "Nature of Collaboration", type: "text", placeholder: "Enter Nature of Collaboration" },
+    { name: "status", label: "Status", type: "text", placeholder: "Enter Collaboration Status" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const visitingPositionsColumns = [
-    { name: "institution", label: "Institution", type: "text", placeholder: "e.g. Stanford University" },
-    { name: "country", label: "Country", type: "text", placeholder: "e.g. USA" },
-    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "e.g. 30" },
+    { name: "institution", label: "Institution", type: "text", placeholder: "Enter Institution Name" },
+    { name: "country", label: "Country", type: "text", placeholder: "Enter Country Name" },
+    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "Enter Duration in Days" },
     { name: "period", label: "Period / Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const foreignFacultyColumns = [
-    { name: "name", label: "Name", type: "text", placeholder: "e.g. Dr. Smith" },
-    { name: "institution", label: "Institution / Country", type: "text", placeholder: "e.g. Oxford, UK" },
-    { name: "engagementType", label: "Engagement Type", type: "text", placeholder: "e.g. Guest Lecture" },
+    { name: "name", label: "Name", type: "text", placeholder: "Enter Foreign Faculty Name" },
+    { name: "institution", label: "Institution / Country", type: "text", placeholder: "Enter Institution & Country" },
+    { name: "engagementType", label: "Engagement Type", type: "text", placeholder: "Enter Engagement Type" },
     { name: "period", label: "Period / Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const reputationSurveyColumns = [
-    { name: "surveyName", label: "Survey Name", type: "text", placeholder: "e.g. QS World University Rankings" },
-    { name: "contributionDetails", label: "Contribution Details", type: "text", placeholder: "e.g. Submitted academic details" },
+    { name: "surveyName", label: "Survey Name", type: "text", placeholder: "Enter Survey Name" },
+    { name: "contributionDetails", label: "Contribution Details", type: "text", placeholder: "Enter Contribution Details" },
     { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const nirfSurveyColumns = [
-    { name: "nominationDetails", label: "Nomination Details", type: "text", placeholder: "e.g. Submitted faculty details" },
+    { name: "nominationDetails", label: "Nomination Details", type: "text", placeholder: "Enter Nomination Details" },
     { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "https://drive.google.com/.." }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
 
   const phdAwardedColumns = [
     { name: 'scholarName', label: 'Scholar Name', placeholder: 'Enter Scholar Name' },
     { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Enter Research Area / Title' },
-    { name: 'evidenceLink', label: 'Notification / Evidence Link', type: 'url', placeholder: 'https://drive.google.com/...' },
+    { name: 'evidenceLink', label: 'Notification / Evidence Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const timelineApprovalStatus = currentSectionData.appraisalStatus || 'Not Approved';
   const timelineHodRemarks = currentSectionData.hodRemarks || 'No HoD remarks available.';
@@ -5440,7 +5440,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 updateMentoringField('description', event.target.value)
               }
               readOnly={!isEditable || user.role === 'HOD'}
-              placeholder="Enter Description"
+              placeholder="Enter Mentoring Description"
               className={`mt-1 w-full rounded-md border ${
                 sectionValidation.mentoringErrors.description
                   ? 'border-red-400'
@@ -5460,7 +5460,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 updateMentoringField('evidenceLink', event.target.value)
               }
               readOnly={!isEditable || user.role === 'HOD'}
-              placeholder="Mentoring Supporting Document Link (Google Drive / OneDrive)"
+              placeholder="Enter Supporting Document Link"
               className={`mt-1 w-full rounded-md border ${
                 sectionValidation.mentoringErrors.evidenceLink
                   ? 'border-red-400'
@@ -5626,7 +5626,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      placeholder="e.g. 35"
+                      placeholder="Enter Total Citations Count"
                       value={currentSectionData.citationsReceived?.totalCount || ''}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, ''); // Allow only numbers
@@ -5676,7 +5676,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
-                      placeholder="e.g. 18"
+                      placeholder="Enter Q1 Citations Count"
                       value={currentSectionData.q1Citations?.totalCount || ''}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, ''); // Allow only numbers

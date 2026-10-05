@@ -161,7 +161,7 @@ export default function FacultyRegistrationModal({ isOpen, onClose }) {
               <form onSubmit={handleLookup} className="flex gap-2">
                 <input
                   type="email"
-                  placeholder="e.g. shalinie@tce.edu or hodcse@tce.edu"
+                  placeholder="Enter Faculty or HoD Email Address"
                   value={lookupEmail}
                   onChange={(e) => setLookupEmail(e.target.value)}
                   className="flex-1 px-3.5 py-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] shadow-sm text-gray-900"
@@ -262,7 +262,7 @@ export default function FacultyRegistrationModal({ isOpen, onClose }) {
                   <label className="block text-xs font-bold text-gray-700 mb-1">Full Name (with title):</label>
                   <input
                     type="text"
-                    placeholder="e.g. Dr. K. Ramesh"
+                    placeholder="Enter Full Name"
                     value={regForm.name}
                     onChange={(e) => setRegForm({ ...regForm, name: e.target.value })}
                     required
@@ -274,7 +274,7 @@ export default function FacultyRegistrationModal({ isOpen, onClose }) {
                   <label className="block text-xs font-bold text-gray-700 mb-1">Official TCE Email / Google Email:</label>
                   <input
                     type="email"
-                    placeholder="e.g. kramesh@tce.edu"
+                    placeholder="Enter Official TCE or Google Email"
                     value={regForm.email}
                     onChange={(e) => setRegForm({ ...regForm, email: e.target.value })}
                     required
@@ -318,7 +318,7 @@ export default function FacultyRegistrationModal({ isOpen, onClose }) {
                   <label className="block text-xs font-bold text-gray-700 mb-1">Staff ID / Employee Code (optional):</label>
                   <input
                     type="text"
-                    placeholder="e.g. TCE-CS-104"
+                    placeholder="Enter Staff ID / Employee Code"
                     value={regForm.staffId}
                     onChange={(e) => setRegForm({ ...regForm, staffId: e.target.value })}
                     className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] shadow-sm text-gray-900"
