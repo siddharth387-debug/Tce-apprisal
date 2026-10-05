@@ -4279,7 +4279,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-end gap-3">
             {(isPrincipal || isRegistrar || isIQAC || isMasterUser) && (
               <label className="block">
                 <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
@@ -4312,7 +4312,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <button
                 type="button"
                 onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? selectedDeptFilter : user.department)}
-                className="h-8 mt-4 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition"
+                className="h-8 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition"
               >
                 <span>🔄</span> Refresh
               </button>
