@@ -21,8 +21,24 @@ const port = Number(process.env.PORT || 5000);
 const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const jwtSecret = process.env.JWT_SECRET;
-const mongoUri = process.env.MONGO_URI;
-const timelines = ['2025-2026', '2026-2027', '2027-2028'];
+// Dynamically generate academic timelines up to 2100 (e.g. 2020-2021 through 2099-2100)
+const generateTimelines = (startYear = 2020, endYear = 2100) => {
+  const list = [];
+  for (let y = startYear; y < endYear; y++) {
+    list.push(`${y}-${y + 1}`);
+  }
+  return list;
+};
+const timelines = generateTimelines(2020, 2100);
+
+const isValidAcademicTimeline = (tl) => {
+  if (!tl || typeof tl !== 'string') return false;
+  const match = tl.trim().match(/^(\d{4})-(\d{4})$/);
+  if (!match) return false;
+  const start = parseInt(match[1], 10);
+  const end = parseInt(match[2], 10);
+  return end === start + 1 && start >= 2000 && start <= 2100;
+};
 const mentoringBatchOptions = [
   '2021 - 2025', '2022 - 2026', '2023 - 2027', '2024 - 2028', '2025 - 2029',
   '2023 - 2025', '2024 - 2026', '2025 - 2027', '2026 - 2028',
@@ -757,7 +773,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     // the client-supplied body field to prevent email spoofing.
     const verifiedEmail = req.user.email.toLowerCase().trim();
 
-    if (!timeline || typeof timeline !== 'string' || !timelines.includes(timeline.trim())) {
+    if (!timeline || !isValidAcademicTimeline(timeline)) {
       console.log('❌ REJECTED: Timeline missing or invalid:', timeline);
       return res.status(400).json({ success: false, message: 'Email and Timeline fields are strictly required.' });
     }

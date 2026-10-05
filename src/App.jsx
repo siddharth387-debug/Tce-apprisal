@@ -32,7 +32,22 @@ const STATS = [
   { value: '350+', label: 'Faculty' },
 ];
 
-const TIMELINES = ['2025-2026', '2026-2027', '2027-2028'];
+export const getCurrentAcademicYear = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-indexed (Jan = 1, June = 6)
+  return month >= 6 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+};
+
+export const generateTimelines = (startYear = 2020, endYear = 2100) => {
+  const list = [];
+  for (let y = startYear; y < endYear; y++) {
+    list.push(`${y}-${y + 1}`);
+  }
+  return list;
+};
+
+const TIMELINES = generateTimelines(2020, 2100);
 const MENTORING_BATCH_GROUPS = [
   {
     label: '4-Year UG Programs (B.E. / B.Tech)',
@@ -304,10 +319,10 @@ function hasSectionEntries(sectionData) {
 }
 
 function buildTimelineState() {
-  return TIMELINES.reduce((accumulator, timeline) => {
-    accumulator[timeline] = createEmptySectionState();
-    return accumulator;
-  }, {});
+  const current = getCurrentAcademicYear();
+  return {
+    [current]: createEmptySectionState(),
+  };
 }
 
 // HOD inbox starts completely empty â€” populated only by real faculty submissions.
@@ -2516,7 +2531,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   
-  const [selectedTimeline, setSelectedTimeline] = useState(TIMELINES[0]);
+  const [selectedTimeline, setSelectedTimeline] = useState(() => {
+    const cur = getCurrentAcademicYear();
+    return TIMELINES.includes(cur) ? cur : TIMELINES[0];
+  });
   const [activeReviewTab, setActiveReviewTab] = useState('inbox');
   const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
   const [sectionAuditSearch, setSectionAuditSearch] = useState('');
@@ -3661,8 +3679,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         dbByTimeline[rec.timeline] = rec;
       }
     });
+    const candidateTimelines = Array.from(new Set([
+      ...Object.keys(dbByTimeline),
+      ...Object.keys(workspaceByTimeline),
+      ...TIMELINES
+    ])).filter((t) => typeof t === 'string' && /^\d{4}-\d{4}$/.test(t.trim())).sort();
 
-    return TIMELINES.map((timeline) => {
+    return candidateTimelines.map((timeline) => {
       const dbRecord = dbByTimeline[timeline];
       const localSection =
         workspaceByTimeline[timeline] || createEmptySectionState();
