@@ -10,6 +10,7 @@ import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH
 import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
 import AnalyticsDashboard from './AnalyticsDashboard.jsx';
+import AcademicTimelinePicker from './AcademicTimelinePicker.jsx';
 
 // ── Module-level constants ────────────────────────────────────────────────────
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
@@ -4298,23 +4299,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </label>
             )}
 
-            <label className="block">
-              <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                Timeline
-              </span>
-              <select
-                value={selectedTimeline}
-                onChange={(event) => setSelectedTimeline(event.target.value)}
-                className="h-8 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519]"
-              >
-                {isReviewMode && <option value="All">All Timelines / Submissions</option>}
-                {TIMELINES.map((timeline) => (
-                  <option key={timeline} value={timeline}>
-                    {timeline}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <AcademicTimelinePicker
+              value={selectedTimeline}
+              onChange={setSelectedTimeline}
+              isReviewMode={isReviewMode}
+              currentAcademicYear={getCurrentAcademicYear()}
+              minYear={2000}
+              maxYear={2100}
+            />
 
             {isReviewMode && (
               <button

@@ -37,7 +37,7 @@ const isValidAcademicTimeline = (tl) => {
   if (!match) return false;
   const start = parseInt(match[1], 10);
   const end = parseInt(match[2], 10);
-  return end === start + 1 && start >= 2000 && start <= 2100;
+  return end > start && end <= start + 15 && start >= 2000 && start <= 2100;
 };
 const mentoringBatchOptions = [
   '2021 - 2025', '2022 - 2026', '2023 - 2027', '2024 - 2028', '2025 - 2029',
