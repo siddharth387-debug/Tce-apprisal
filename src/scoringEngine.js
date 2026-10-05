@@ -70,7 +70,7 @@ export function computeAutomatedScores(sectionData = {}) {
 
   const s1_2 = Math.min(
     (safeData.courseFiles || []).reduce((sum, r) => {
-      if (!isFilled(r.courseCode) || !isFilled(r.compliance)) return sum;
+      if (!isFilled(r.courseCode) || !isFilled(r.compliance) || !isFilled(r.evidenceLink)) return sum;
       return sum + (r.compliance === 'Full' ? 5 : r.compliance === 'Partial' ? 3 : 0);
     }, 0),
     5
@@ -347,7 +347,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   const s1_2 = Math.min(
     (safeData.courseFiles || []).reduce((sum, r) => {
-      if (!isFilled(r.courseCode) || !isFilled(r.compliance)) return sum;
+      if (!isFilled(r.courseCode) || !isFilled(r.compliance) || !isFilled(r.evidenceLink)) return sum;
       return sum + (r.compliance === 'Full' || r.completed === 'Yes' ? 5 : 3);
     }, 0),
     5
@@ -749,5 +749,61 @@ export function computeEffectiveScores(sectionData = {}, hodSubsectionScores = {
     studentFeedback: effectiveMap['1.9'],
     resultAnalysis: effectiveMap['1.10'],
     coAttainment: effectiveMap['1.11'],
+
+    sub1_1: effectiveMap['1.1'] || 0,
+    sub1_2: effectiveMap['1.2'] || 0,
+    sub1_3: effectiveMap['1.3'] || 0,
+    sub1_4: effectiveMap['1.4'] || 0,
+    sub1_5: effectiveMap['1.5'] || effectiveMap['1.5.1'] || 0,
+    sub1_6: effectiveMap['1.6'] || 0,
+    sub1_7: effectiveMap['1.7'] || 0,
+    sub1_8: effectiveMap['1.8'] || 0,
+    sub1_9: effectiveMap['1.9'] || 0,
+    sub1_10: effectiveMap['1.10'] || 0,
+    sub1_11: effectiveMap['1.11'] || 0,
+
+    sub2_1: effectiveMap['2.1'] || 0,
+    sub2_2: effectiveMap['2.2'] || 0,
+    sub2_3: effectiveMap['2.3'] || 0,
+    sub2_4: effectiveMap['2.4'] || 0,
+    sub2_5: effectiveMap['2.5'] || 0,
+    sub2_6: effectiveMap['2.6'] || 0,
+    sub2_7: effectiveMap['2.7'] || 0,
+    sub2_8: effectiveMap['2.8'] || 0,
+
+    sub3_1: effectiveMap['3.1'] || 0,
+    sub3_2: effectiveMap['3.2'] || 0,
+    sub3_3: effectiveMap['3.3'] || 0,
+    sub3_4: effectiveMap['3.4'] || 0,
+    sub3_5: effectiveMap['3.5'] || 0,
+
+    sub4_1: effectiveMap['4.1'] || 0,
+    sub4_2: effectiveMap['4.2'] || 0,
+
+    sub5_1: effectiveMap['5.1'] || 0,
+    sub5_2: effectiveMap['5.2'] || 0,
+    sub5_3: effectiveMap['5.3'] || 0,
+    sub5_4: effectiveMap['5.4'] || 0,
+    sub5_5: effectiveMap['5.5'] || 0,
+
+    sub6_1: effectiveMap['6.1'] || 0,
+    sub6_2: effectiveMap['6.2'] || 0,
+    sub6_3: effectiveMap['6.3'] || 0,
+    sub6_4: effectiveMap['6.4'] || 0,
+    sub6_5: effectiveMap['6.5'] || 0,
+    sub6_6: effectiveMap['6.6'] || 0,
+
+    sub7_1: effectiveMap['7.1'] || 0,
+    sub7_2: effectiveMap['7.2'] || 0,
+    sub7_3: effectiveMap['7.3'] || 0,
+    sub7_4: effectiveMap['7.4'] || 0,
+
+    sub8_1: effectiveMap['8.1'] || 0,
+    sub8_2: effectiveMap['8.2'] || 0,
+    sub8_3: effectiveMap['8.3'] || 0,
+
+    sub9_1: effectiveMap['9.1'] || 0,
+    sub9_2: effectiveMap['9.2'] || 0,
+    sub9_3: effectiveMap['9.3'] || 0,
   };
 }

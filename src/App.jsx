@@ -72,7 +72,7 @@ const ACADEMIC_COLLABORATION_TYPES = [
   'Faculty Exchange Program',
   'Student Exchange Program',
   'Joint Course Design / Curriculum Development',
-  'Guest / Adjunct Faculty Engagement',
+  'Joint/Adjunct Faculty Engagement',
   'Joint Conference / Seminar / Workshop',
   'Institutional MoU Activity',
   'Other Academic Collaboration',
@@ -1318,6 +1318,7 @@ function DynamicArraySection({
                       <>
                         <input
                           type={column.type || 'text'}
+                          {...(column.type === 'date' ? { min: '1990-01-01', max: '2035-12-31' } : {})}
                           value={row[column.name]}
                           onChange={(event) =>
                             onChange(row.id, column.name, event.target.value)
@@ -3283,7 +3284,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const moocDevelopedColumns = [
     { name: "courseName", label: "Course Code & Name", type: "text", placeholder: "e.g. 21CS401 - Machine Learning Essentials (TCE MOOC)" },
-    { name: "courseId", label: "Course ID / Faculty Staff ID / Roll No", type: "text", placeholder: "e.g. Staff ID: MCA105 / Roll No: 21CS001" },
+    { name: "courseId", label: "Course ID / MOOC Portal ID", type: "text", placeholder: "e.g. MOOC-21CS401 / NPTEL-CS102" },
     { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "e.g. 8 Weeks (or 3 Credits)" },
     { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "e.g. 4 Modules / 2 Co-Faculty" },
     { name: "takersCount", label: "Number of Learners / Takers (Internal, External)", type: "text", placeholder: "e.g. 150 Learners (100 Internal, 50 External)" },
