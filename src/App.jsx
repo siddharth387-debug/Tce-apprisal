@@ -1379,6 +1379,17 @@ function DynamicArraySection({
                             }
                             disabled={disabled}
                             placeholder={column.placeholder || column.label}
+                            list={
+                              column.name === 'courseCode'
+                                ? 'autofill-course-codes'
+                                : column.name === 'courseName'
+                                  ? 'autofill-course-names'
+                                  : ['institution', 'partner', 'industry', 'industryName', 'venue'].includes(column.name)
+                                    ? 'autofill-institutions'
+                                    : ['journalName', 'bodyName', 'proceedingName', 'societyName'].includes(column.name)
+                                      ? 'autofill-journals'
+                                      : undefined
+                            }
                             className={`w-full rounded-md border ${
                               rowErrors?.[row.id]?.[column.name] ||
                               (column.name === 'courseCode' &&
@@ -3077,6 +3088,53 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const currentSectionData =
     workspaceByTimeline[selectedTimeline] || createEmptySectionState();
+
+  const autoFillLists = useMemo(() => {
+    const codeSet = new Set();
+    const nameSet = new Set();
+    const instSet = new Set();
+    const journalSet = new Set();
+
+    const addVal = (setObj, val) => {
+      if (val && typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed.length > 0) setObj.add(trimmed);
+      }
+    };
+
+    if (currentSectionData && typeof currentSectionData === 'object') {
+      Object.values(currentSectionData).forEach((sectionItem) => {
+        if (Array.isArray(sectionItem)) {
+          sectionItem.forEach((row) => {
+            if (row && typeof row === 'object') {
+              addVal(codeSet, row.courseCode);
+              if (row.courseDetails) {
+                const codeMatch = String(row.courseDetails).match(/^([A-Z0-9]{5,7})/i);
+                if (codeMatch) addVal(codeSet, codeMatch[1].toUpperCase());
+              }
+              addVal(nameSet, row.courseName);
+              addVal(instSet, row.institution);
+              addVal(instSet, row.partner);
+              addVal(instSet, row.industry);
+              addVal(instSet, row.industryName);
+              addVal(instSet, row.venue);
+              addVal(journalSet, row.journalName);
+              addVal(journalSet, row.bodyName);
+              addVal(journalSet, row.proceedingName);
+              addVal(journalSet, row.societyName);
+            }
+          });
+        }
+      });
+    }
+
+    return {
+      courseCodes: Array.from(codeSet),
+      courseNames: Array.from(nameSet),
+      institutions: Array.from(instSet),
+      journals: Array.from(journalSet),
+    };
+  }, [currentSectionData]);
   const coursesHandledColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
     {
@@ -5249,6 +5307,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </span>
           </div>
         </div>
+
+        {/* Cross-Section Dynamic Auto-Suggest Datalists */}
+        <datalist id="autofill-course-codes">
+          {(autoFillLists.courseCodes || []).map((val) => (
+            <option key={val} value={val} />
+          ))}
+        </datalist>
+        <datalist id="autofill-course-names">
+          {(autoFillLists.courseNames || []).map((val) => (
+            <option key={val} value={val} />
+          ))}
+        </datalist>
+        <datalist id="autofill-institutions">
+          {(autoFillLists.institutions || []).map((val) => (
+            <option key={val} value={val} />
+          ))}
+        </datalist>
+        <datalist id="autofill-journals">
+          {(autoFillLists.journals || []).map((val) => (
+            <option key={val} value={val} />
+          ))}
+        </datalist>
 
         {/* Section I Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'I' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
