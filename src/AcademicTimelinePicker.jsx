@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 
 /**
  * AcademicTimelinePicker
@@ -182,7 +182,7 @@ export default function AcademicTimelinePicker({
 
       {/* Decade Calendar Grid Popover */}
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-1.5 w-80 sm:w-96 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xl shadow-black/15 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute left-0 sm:left-auto sm:right-0 z-50 mt-1.5 w-80 sm:w-96 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xl shadow-black/15 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100">
           {/* Review Mode: All Submissions Option */}
           {isReviewMode && (
             <div className="mb-2.5 pb-2.5 border-b border-slate-100">

@@ -34,8 +34,11 @@ const STATS = [
 ];
 
 export const getCurrentAcademicYear = () => {
+  // Institutional active evaluation cycle at TCE is 2025-2026
+  // For years past 2026, rolls automatically based on June cutoff
   const now = new Date();
   const year = now.getFullYear();
+  if (year <= 2026) return '2025-2026';
   const month = now.getMonth() + 1; // 1-indexed (Jan = 1, June = 6)
   return month >= 6 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
@@ -94,26 +97,26 @@ const ACADEMIC_COLLABORATION_TYPES = [
   'Other Academic Collaboration',
 ];
 
-const ACADEMIC_PERIOD_OPTIONS = [
-  '2021 - 2022',
-  '2022 - 2023',
-  '2023 - 2024',
-  '2024 - 2025',
-  '2025 - 2026',
-  '2026 - 2027',
-  '2027 - 2028',
-  '2028 - 2029',
-  '2022 - 2024',
-  '2023 - 2025',
-  '2024 - 2026',
-  '2025 - 2027',
-  '2026 - 2028',
-  '2022 - 2025',
-  '2023 - 2026',
-  '2024 - 2027',
-  '2025 - 2028',
-  '2026 - 2029',
-];
+const ACADEMIC_PERIOD_OPTIONS = (() => {
+  const options = [];
+  // 1-year academic periods from 2020 to 2100 (e.g., 2025 - 2026)
+  for (let y = 2020; y <= 2099; y++) {
+    options.push(`${y} - ${y + 1}`);
+  }
+  // 2-year periods (e.g., 2024 - 2026)
+  for (let y = 2020; y <= 2098; y++) {
+    options.push(`${y} - ${y + 2}`);
+  }
+  // 3-year project periods (e.g., 2023 - 2026)
+  for (let y = 2020; y <= 2097; y++) {
+    options.push(`${y} - ${y + 3}`);
+  }
+  // 5-year CAS / NAAC periods (e.g., 2020 - 2025)
+  for (let y = 2020; y <= 2095; y++) {
+    options.push(`${y} - ${y + 5}`);
+  }
+  return options;
+})();
 
 const STARTUP_DURATION_OPTIONS = [
   '1 Month',
@@ -1192,6 +1195,8 @@ function DynamicArraySection({
   canAdd,
   disabled = false,
   hodRemark,
+  subScore,
+  maxScore,
 }) {
   const safeRows = rows || [];
   const safeColumns = columns || [];
@@ -1214,9 +1219,16 @@ function DynamicArraySection({
     <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
       <div className="mb-3 flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0 pr-2">
-          <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-            {title}
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
+              {title}
+            </p>
+            {maxScore !== undefined && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#4A1519]/10 text-[#4A1519] border border-[#4A1519]/20 shadow-xs">
+                Subtotal: {subScore ?? 0} / {maxScore}
+              </span>
+            )}
+          </div>
           <span className="text-[11px] text-gray-500 font-medium mt-0.5 block tracking-wide italic normal-case">
             {subtitle}
           </span>
@@ -1261,6 +1273,11 @@ function DynamicArraySection({
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-semibold text-slate-700">
                   Entry {index + 1}
+                  {row.tier ? ` • ${row.tier} (${row.tier === 'Q1' ? '6 marks' : row.tier === 'Q2' ? '4 marks' : '2 marks'})` : ''}
+                  {row.type && ['Book (Author)', 'Chapter', 'Editor'].includes(row.type) ? ` • ${row.type} (${row.type === 'Book (Author)' ? '5 marks' : '2 marks'})` : ''}
+                  {title && title.includes('2.5') && isNonEmpty(row.paperTitle) ? ' • 1 mark' : ''}
+                  {title && title.includes('2.7') && isNonEmpty(row.scholarName) ? ' • 1 mark' : ''}
+                  {title && title.includes('2.8') && isNonEmpty(row.scholarName) ? ' • 3 marks' : ''}
                 </span>
                 <button
                   type="button"
@@ -1834,6 +1851,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const renderSubTableGroup = (groups) => {
     return groups.map(({ label, rows, fields }) => {
       const subKey = label.split(' ')[0];
+      const hasRowMarks = ['2.1', '2.4', '2.5', '2.7', '2.8'].includes(subKey);
       return (
         <div key={label} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 mb-2">
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
@@ -1851,11 +1869,29 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                         {field === 'evidenceLink' ? 'Evidence' : field}
                       </th>
                     ))}
+                    {hasRowMarks && (
+                      <th className="py-1 px-2 text-[10px] uppercase tracking-wider text-slate-400 font-semibold text-right">
+                        Item Marks
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row, idx) => {
                     const incomplete = isRowIncomplete(row, fields);
+                    const rowMarks = (() => {
+                      if (subKey === '2.1') {
+                        const t = String(row.tier || '').toUpperCase();
+                        return t === 'Q1' ? '6 marks' : t === 'Q2' ? '4 marks' : t === 'Q3' ? '2 marks' : '—';
+                      }
+                      if (subKey === '2.4') {
+                        return row.type === 'Book (Author)' ? '5 marks' : '2 marks';
+                      }
+                      if (subKey === '2.5') return '1 mark';
+                      if (subKey === '2.7') return '1 mark';
+                      if (subKey === '2.8') return '3 marks';
+                      return null;
+                    })();
                     return (
                       <tr 
                         key={row.id || idx} 
@@ -1872,11 +1908,20 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                               >
                                 Link ↗
                               </a>
+                            ) : field === 'tier' ? (
+                              <span className="font-bold text-[#4A1519]">{row[field] || '—'}</span>
                             ) : (
                               row[field] || <span className="text-amber-600 font-medium italic">Missing</span>
                             )}
                           </td>
                         ))}
+                        {hasRowMarks && (
+                          <td className="py-1 px-2 text-[11px] font-bold text-[#4A1519] text-right whitespace-nowrap">
+                            <span className="px-1.5 py-0.5 rounded bg-[#4A1519]/10 border border-[#4A1519]/20 font-extrabold text-[10.5px]">
+                              {rowMarks}
+                            </span>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1893,9 +1938,16 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     <div className="mt-4 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-md p-4 shadow-md shadow-black/5 space-y-4 hover:border-[#4A1519]/20 glass-card-float">
       <div className="flex items-start justify-between border-b border-slate-100 pb-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-[#4A1519]">
-            Submission Detail View
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#4A1519]">
+              Submission Detail View
+            </p>
+            {appraisal.timeline && (
+              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-black bg-[#4A1519] text-white shadow-xs">
+                📅 {appraisal.timeline}
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-sm font-bold text-slate-800">
             {facultyName} <span className="text-xs font-normal text-slate-500">({facultyEmail})</span>
           </p>
@@ -5136,9 +5188,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           {/* Title row + export buttons */}
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                Section I
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                  Self-Appraisal Form
+                </p>
+                <span className="px-2 py-0.5 rounded-full text-xs font-black bg-[#4A1519] text-white shadow-xs">
+                  Academic Year: {selectedTimeline}
+                </span>
+              </div>
               <h2 className="mt-1 text-lg font-semibold text-slate-900">
                 Teaching &amp; Learning
               </h2>
@@ -5187,6 +5244,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.1 Courses Handled"
           subtitle="(Calculation Rubric: 1 course = 3 marks | 2 courses = 6 marks | 3+ courses = 8 marks max)"
+          subScore={scores.sub1_1 || 0}
+          maxScore={8}
           rows={currentSectionData.coursesHandled || []}
           rowErrors={sectionValidation.rowErrors.coursesHandled}
           canAdd={canAddCoursesHandled(currentSectionData.coursesHandled || [])}
@@ -5210,6 +5269,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.2 Course File"
           subtitle="(Calculation Rubric: Full compliance = 5 marks | Partial compliance = 3 marks | Max 5 marks)"
+          subScore={scores.sub1_2 || 0}
+          maxScore={5}
           rows={currentSectionData.courseFiles || []}
           rowErrors={sectionValidation.rowErrors.courseFiles}
           canAdd={canAddCourseFiles(currentSectionData.courseFiles || [])}
@@ -5232,6 +5293,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.3 Course Design"
           subtitle="(Calculation Rubric: 2 marks per entry | Max 5 marks)"
+          subScore={scores.sub1_3 || 0}
+          maxScore={5}
           rows={currentSectionData.coursesDesigned || []}
           rowErrors={sectionValidation.rowErrors.coursesDesigned}
           canAdd={canAddCoursesDesigned(currentSectionData.coursesDesigned || [])}
@@ -5254,6 +5317,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.4 Value-Added"
           subtitle="(Calculation Rubric: 2 marks per entry | Max 4 marks)"
+          subScore={scores.sub1_4 || 0}
+          maxScore={4}
           rows={currentSectionData.valueAdded || []}
           rowErrors={sectionValidation.rowErrors.valueAdded}
           canAdd={canAddValueAdded(currentSectionData.valueAdded || [])}
@@ -5278,6 +5343,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <DynamicArraySection
               title="1.5.1 Innovative Teaching Methods (Pedagogy & Fieldwork)"
               subtitle="(Calculation Rubric: ≥3 methods = 5 marks | 2 methods = 4 marks | 1 method = 2 marks | Max 5 marks)"
+              subScore={scores.sub1_5 || 0}
+              maxScore={5}
               rows={currentSectionData.innovativeMethods || []}
               rowErrors={sectionValidation.rowErrors.innovativeMethods}
               canAdd={canAddInnovativeMethods(currentSectionData.innovativeMethods || [])}
@@ -5299,6 +5366,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <DynamicArraySection
               title="1.5.2 Studio Based Teaching & Design Education"
               subtitle="(Calculation Rubric: 2 marks per studio activity | Max 3 marks)"
+              subScore={scores.sub1_5_2 || 0}
+              maxScore={3}
               rows={currentSectionData.studioPedagogy || []}
               rowErrors={sectionValidation.rowErrors.studioPedagogy}
               canAdd={canAddStudioPedagogy(currentSectionData.studioPedagogy || [])}
@@ -5321,6 +5390,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <DynamicArraySection
               title="1.6 Educational Tours & Case Study Visits"
               subtitle="(Calculation Rubric: Educational Tour = 4 marks | Case Study Visit = 2 marks | Max 4 marks)"
+              subScore={scores.sub1_6 || 0}
+              maxScore={4}
               rows={currentSectionData.educationalTours || []}
               rowErrors={sectionValidation.rowErrors.educationalTours}
               canAdd={canAddEducationalTours(currentSectionData.educationalTours || [])}
@@ -5345,6 +5416,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <DynamicArraySection
               title="1.5 Innovative Methods"
               subtitle="(Calculation Rubric: ≥3 methods = 5 marks | 2 methods = 4 marks | 1 method = 2 marks | Max 5 marks)"
+              subScore={scores.sub1_5 || 0}
+              maxScore={5}
               rows={currentSectionData.innovativeMethods || []}
               rowErrors={sectionValidation.rowErrors.innovativeMethods}
               canAdd={canAddInnovativeMethods(currentSectionData.innovativeMethods || [])}
@@ -5366,6 +5439,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <DynamicArraySection
               title="1.6 Academic Collaborations"
               subtitle="(Calculation Rubric: 4 marks per entry | Max 4 marks)"
+              subScore={scores.sub1_6 || 0}
+              maxScore={4}
               rows={currentSectionData.academicCollaborations || []}
               rowErrors={sectionValidation.rowErrors.academicCollaborations}
               canAdd={canAddAcademicCollaborations(currentSectionData.academicCollaborations || [])}
@@ -5387,13 +5462,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         )}
 
         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
-          <div className="mb-3">
-            <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-              1.7 Mentoring System
-            </p>
-            <span className="text-[11px] text-gray-500 font-medium mt-0.5 block tracking-wide italic normal-case">
-              (Calculation Rubric: Mentee Count &gt; 0 with complete mentoring details = 2 marks | Else = 0 marks)
-            </span>
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                  1.7 Mentoring System
+                </p>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#4A1519]/10 text-[#4A1519] border border-[#4A1519]/20 shadow-xs">
+                  Subtotal: {scores.sub1_7 || 0} / 2
+                </span>
+              </div>
+              <span className="text-[11px] text-gray-500 font-medium mt-0.5 block tracking-wide italic normal-case">
+                (Calculation Rubric: Mentee Count &gt; 0 with complete mentoring details = 2 marks | Else = 0 marks)
+              </span>
+            </div>
           </div>
 
           <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
@@ -5492,6 +5574,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.8 NPTEL Certifications"
           subtitle="(Calculation Rubric: 2 marks per NPTEL/SWAYAM certification completed | Max 4 marks)"
+          subScore={scores.sub1_8 || 0}
+          maxScore={4}
           rows={currentSectionData.certifications || []}
           rowErrors={sectionValidation.rowErrors.certifications}
           canAdd={canAddCertifications(currentSectionData.certifications || [])}
@@ -5514,6 +5598,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.9 Student Feedback"
           subtitle="(Calculation Rubric: >90% = 4 marks | 80-90% = 3 marks | 75-80% = 1 mark | Max 4 marks)"
+          subScore={scores.sub1_9 || 0}
+          maxScore={4}
           rows={currentSectionData.studentFeedback || []}
           rowErrors={sectionValidation.rowErrors.studentFeedback}
           canAdd={canAddStudentFeedback(currentSectionData.studentFeedback || [])}
@@ -5535,6 +5621,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.10 Result Analysis"
           subtitle="(Calculation Rubric: ≥90% = 5 marks | 80-89% = 4 marks | 70-79% = 3 marks | 60-69% = 2 marks | <60% = 1 mark | Max 5 marks)"
+          subScore={scores.sub1_10 || 0}
+          maxScore={5}
           rows={currentSectionData.resultAnalysis || []}
           rowErrors={sectionValidation.rowErrors.resultAnalysis}
           canAdd={canAddResultAnalysis(currentSectionData.resultAnalysis || [])}
@@ -5557,6 +5645,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DynamicArraySection
           title="1.11 CO Attainment %"
           subtitle="(Calculation Rubric: ≥70% = 4 marks | 60-69% = 3 marks | 50-59% = 2 marks | Max 4 marks)"
+          subScore={scores.sub1_11 || 0}
+          maxScore={4}
           rows={currentSectionData.coAttainment || []}
           rowErrors={sectionValidation.rowErrors.coAttainment}
           canAdd={canAddCoAttainment(currentSectionData.coAttainment || [])}
@@ -5597,6 +5687,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="2.1 Journal Publications (SCI / Scopus Indexed)"
                 subtitle="(Calculation Rubric: Q1 = 6 marks | Q2 = 4 marks | Q3 = 2 marks | Max 15 marks | Note: Give the first page as proof)"
+                subScore={scores.sub2_1 || 0}
+                maxScore={15}
                 rows={currentSectionData.journalPapers || []}
                 canAdd={canAddJournalPapers(currentSectionData.journalPapers || [])}
                 disabled={!isEditable}
@@ -5719,6 +5811,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="2.4 Books / Book Chapters Published"
                 subtitle="(Calculation Rubric: Book (Author) = 5 marks | Chapter/Editor = 2 marks | Max 5 marks)"
+                subScore={scores.sub2_4 || 0}
+                maxScore={5}
                 rows={currentSectionData.bookPublications || []}
                 canAdd={canAddBookPublications(currentSectionData.bookPublications || [])}
                 disabled={!isEditable}
@@ -5740,6 +5834,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="2.5 Conference Publications (Scopus / Web of Science)"
                 subtitle="(Calculation Rubric: 1 mark per paper entry | Max 4 marks)"
+                subScore={scores.sub2_5 || 0}
+                maxScore={4}
                 rows={currentSectionData.conferencePapers || []}
                 canAdd={canAddConferencePapers(currentSectionData.conferencePapers || [])}
                 disabled={!isEditable}
@@ -5761,6 +5857,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="2.6 Research Collaborations & Projects"
                 subtitle="(Calculation Rubric: International = 3 marks | National/Industry = 2 marks | Max 5 marks)"
+                subScore={scores.sub2_6 || 0}
+                maxScore={5}
                 rows={currentSectionData.researchCollaborations || []}
                 canAdd={canAddResearchCollaborations(currentSectionData.researchCollaborations || [])}
                 disabled={!isEditable}
@@ -5783,6 +5881,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="2.7 PhD Scholars Guided (Registered)"
                 subtitle="(Calculation Rubric: 1 mark per active registered scholar entry | Max 5 marks)"
+                subScore={scores.sub2_7 || 0}
+                maxScore={5}
                 rows={currentSectionData.phdRegistered || []}
                 canAdd={canAddPhdRegistered(currentSectionData.phdRegistered || [])}
                 disabled={!isEditable}
@@ -5804,6 +5904,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="2.8 PhD Scholars Guided (Degree Awarded)"
                 subtitle="(Calculation Rubric: 3 marks per awarded scholar entry | Max 6 marks)"
+                subScore={scores.sub2_8 || 0}
+                maxScore={6}
                 rows={currentSectionData.phdAwarded || []}
                 canAdd={canAddPhdAwarded(currentSectionData.phdAwarded || [])}
                 disabled={!isEditable}
@@ -5838,6 +5940,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.1 Number of Patents Published"
                 subtitle="(Calculation Rubric: 1 mark per patent | Max 2 marks)"
+                subScore={scores.sub3_1 || 0}
+                maxScore={2}
                 rows={currentSectionData.patentsPublished || []}
                 canAdd={canAddPatentsPublished(currentSectionData.patentsPublished || [])}
                 disabled={!isEditable}
@@ -5849,6 +5953,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.2 Number of Patents Granted"
                 subtitle="(Calculation Rubric: 3 marks per patent | Max 6 marks)"
+                subScore={scores.sub3_2 || 0}
+                maxScore={6}
                 rows={currentSectionData.patentsGranted || []}
                 canAdd={canAddPatentsGranted(currentSectionData.patentsGranted || [])}
                 disabled={!isEditable}
@@ -5860,6 +5966,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.3 Number of Transfer of Technology"
                 subtitle="(Calculation Rubric: 3 marks per ToT | Max 3 marks)"
+                subScore={scores.sub3_3 || 0}
+                maxScore={3}
                 rows={currentSectionData.transferOfTechnology || []}
                 canAdd={canAddTransferOfTechnology(currentSectionData.transferOfTechnology || [])}
                 disabled={!isEditable}
@@ -5871,6 +5979,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.4 Number of Prototype / Product Developed (with Students)"
                 subtitle="(Calculation Rubric: 1 mark per product | Max 2 marks)"
+                subScore={scores.sub3_4 || 0}
+                maxScore={2}
                 rows={currentSectionData.prototypesDeveloped || []}
                 canAdd={canAddPrototypesDeveloped(currentSectionData.prototypesDeveloped || [])}
                 disabled={!isEditable}
@@ -5882,6 +5992,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.5 Hackathon Mentoring & Prizes (with Students)"
                 subtitle="(Calculation Rubric: 2 marks per prize | Max 2 marks)"
+                subScore={scores.sub3_5 || 0}
+                maxScore={2}
                 rows={currentSectionData.hackathonPrizes || []}
                 canAdd={canAddHackathonPrizes(currentSectionData.hackathonPrizes || [])}
                 disabled={!isEditable}
@@ -5909,6 +6021,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="4.1 Sponsored Research Project - PI / Co-PI"
                 subtitle="(Calculation Rubric: Sanctioned Amount >= ₹1 Lakh = 5 marks; < ₹1 Lakh = 3 marks | Max 8 marks | Note: Sanction letter to be uploaded)"
+                subScore={scores.sub4_1 || 0}
+                maxScore={8}
                 rows={currentSectionData.researchProjects || []}
                 canAdd={canAddResearchProjects(currentSectionData.researchProjects || [])}
                 disabled={!isEditable}
@@ -5920,6 +6034,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="4.2 Consultancy Projects"
                 subtitle="(Calculation Rubric: Consultancy Amount >= ₹50,000 = 3 marks; < ₹50,000 = 2 marks | Max 7 marks)"
+                subScore={scores.sub4_2 || 0}
+                maxScore={7}
                 rows={currentSectionData.consultancyProjects || []}
                 canAdd={canAddConsultancyProjects(currentSectionData.consultancyProjects || [])}
                 disabled={!isEditable}
@@ -5947,6 +6063,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="5.1 International Engagement / MoU"
                 subtitle="(Calculation Rubric: 1 mark per engagement | Max 2 marks)"
+                subScore={scores.sub5_1 || 0}
+                maxScore={2}
                 rows={currentSectionData.internationalEngagement || []}
                 canAdd={canAddInternationalEngagement(currentSectionData.internationalEngagement || [])}
                 disabled={!isEditable}
@@ -5958,6 +6076,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="5.2 Visiting / Adjunct Position Abroad"
                 subtitle="(Calculation Rubric: Based on duration threshold | Max 4 marks)"
+                subScore={scores.sub5_2 || 0}
+                maxScore={4}
                 rows={currentSectionData.visitingPositions || []}
                 canAdd={canAddVisitingPositions(currentSectionData.visitingPositions || [])}
                 disabled={!isEditable}
@@ -5969,6 +6089,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="5.3 Foreign Faculty / Student Hosted or Engaged"
                 subtitle="(Calculation Rubric: 1 mark per engagement | Max 2 marks)"
+                subScore={scores.sub5_3 || 0}
+                maxScore={2}
                 rows={currentSectionData.foreignFaculty || []}
                 canAdd={canAddForeignFaculty(currentSectionData.foreignFaculty || [])}
                 disabled={!isEditable}
@@ -5980,6 +6102,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="5.4 QS / THE Reputation Survey Nominations Contribution"
                 subtitle="(Calculation Rubric: 1 mark if submitted | Max 1 mark)"
+                subScore={scores.sub5_4 || 0}
+                maxScore={1}
                 rows={currentSectionData.reputationSurvey || []}
                 canAdd={canAddReputationSurvey(currentSectionData.reputationSurvey || [])}
                 disabled={!isEditable}
@@ -5991,6 +6115,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="5.5 NIRF Survey Nomination"
                 subtitle="(Calculation Rubric: 1 mark if submitted | Max 1 mark)"
+                subScore={scores.sub5_5 || 0}
+                maxScore={1}
                 rows={currentSectionData.nirfSurvey || []}
                 canAdd={canAddNirfSurvey(currentSectionData.nirfSurvey || [])}
                 disabled={!isEditable}
@@ -6019,6 +6145,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="6.1 FDP / STTP Attended (5 days and above)"
                 subtitle="(Calculation Rubric: Per program = 2 marks | Max 3 marks)"
+                subScore={scores.sub6_1 || 0}
+                maxScore={3}
                 rows={currentSectionData.fdpAttended || []}
                 canAdd={canAddFdpAttended(currentSectionData.fdpAttended || [])}
                 disabled={!isEditable}
@@ -6030,6 +6158,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="6.2 Programs (FDP/STTP/Workshops/others) Organized"
                 subtitle="(Calculation Rubric: Per program (>= 5 days) = 2; (2-4 days) = 1 | Max 4 marks)"
+                subScore={scores.sub6_2 || 0}
+                maxScore={4}
                 rows={currentSectionData.programsOrganized || []}
                 canAdd={canAddProgramsOrganized(currentSectionData.programsOrganized || [])}
                 disabled={!isEditable}
@@ -6041,6 +6171,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="6.3 Resource Person / Keynote Speaker"
                 subtitle="(Calculation Rubric: International = 2; National = 1 | Max 4 marks)"
+                subScore={scores.sub6_3 || 0}
+                maxScore={4}
                 rows={currentSectionData.resourcePerson || []}
                 canAdd={canAddResourcePerson(currentSectionData.resourcePerson || [])}
                 disabled={!isEditable}
@@ -6052,6 +6184,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="6.4 Professional Society Membership"
                 subtitle="(Calculation Rubric: Active member = 1 | Max 1 mark)"
+                subScore={scores.sub6_4 || 0}
+                maxScore={1}
                 rows={currentSectionData.professionalMembership || []}
                 canAdd={canAddProfessionalMembership(currentSectionData.professionalMembership || [])}
                 disabled={!isEditable}
@@ -6063,6 +6197,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="6.5 Designation in Professional Body / Editorial Board"
                 subtitle="(Calculation Rubric: Holds position = 2 | Max 2 marks)"
+                subScore={scores.sub6_5 || 0}
+                maxScore={2}
                 rows={currentSectionData.editorialBoard || []}
                 canAdd={canAddEditorialBoard(currentSectionData.editorialBoard || [])}
                 disabled={!isEditable}
@@ -6074,6 +6210,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="6.6 MOOCs Content Developed (TCE MOOC)"
                 subtitle="(Calculation Rubric: Per course = 3 | Max 6 marks)"
+                subScore={scores.sub6_6 || 0}
+                maxScore={6}
                 rows={currentSectionData.moocDeveloped || []}
                 canAdd={canAddMoocDeveloped(currentSectionData.moocDeveloped || [])}
                 disabled={!isEditable}
@@ -6101,6 +6239,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="7.1 Partial delivery of regular courses by industry experts"
                 subtitle="(Calculation Rubric: >=6 hrs = 3; 3 hrs = 2; 1-2 hrs = 1 | Max 4 marks)"
+                subScore={scores.sub7_1 || 0}
+                maxScore={4}
                 rows={currentSectionData.partialDelivery || []}
                 canAdd={canAddPartialDelivery(currentSectionData.partialDelivery || [])}
                 disabled={!isEditable}
@@ -6112,6 +6252,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="7.2 Accompanying Industrial Visit"
                 subtitle="(Calculation Rubric: Per visit = 1 | Max 2 marks)"
+                subScore={scores.sub7_2 || 0}
+                maxScore={2}
                 rows={currentSectionData.industrialVisits || []}
                 canAdd={canAddIndustrialVisits(currentSectionData.industrialVisits || [])}
                 disabled={!isEditable}
@@ -6123,6 +6265,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="7.3 Faculty Internship in Industries"
                 subtitle="(Calculation Rubric: >=10 days = 3; 5-7 days = 2; 2-4 days = 1 | Max 3 marks)"
+                subScore={scores.sub7_3 || 0}
+                maxScore={3}
                 rows={currentSectionData.facultyInternships || []}
                 canAdd={canAddFacultyInternships(currentSectionData.facultyInternships || [])}
                 disabled={!isEditable}
@@ -6134,6 +6278,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="7.4 Employer / Alumni Engagement Activity"
                 subtitle="(Calculation Rubric: Per activity = 1 | Max 1 mark)"
+                subScore={scores.sub7_4 || 0}
+                maxScore={1}
                 rows={currentSectionData.employerEngagement || []}
                 canAdd={canAddEmployerEngagement(currentSectionData.employerEngagement || [])}
                 disabled={!isEditable}
@@ -6161,6 +6307,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)"
                 subtitle="(Calculation Rubric: Per publication = 2 | Max 2 marks)"
+                subScore={scores.sub8_1 || 0}
+                maxScore={2}
                 rows={currentSectionData.projectPublications || []}
                 canAdd={canAddProjectPublications(currentSectionData.projectPublications || [])}
                 disabled={!isEditable}
@@ -6172,6 +6320,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="8.2 Hackathon / Competition Mentoring"
                 subtitle="(Calculation Rubric: Per event = 1 | Max 2 marks)"
+                subScore={scores.sub8_2 || 0}
+                maxScore={2}
                 rows={currentSectionData.hackathonMentoring || []}
                 canAdd={canAddHackathonMentoring(currentSectionData.hackathonMentoring || [])}
                 disabled={!isEditable}
@@ -6183,6 +6333,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="8.3 Startup / Incubation Support / Tech-Club"
                 subtitle="(Calculation Rubric: Active mentoring = 1 | Max 1 mark)"
+                subScore={scores.sub8_3 || 0}
+                maxScore={1}
                 rows={currentSectionData.startupSupport || []}
                 canAdd={canAddStartupSupport(currentSectionData.startupSupport || [])}
                 disabled={!isEditable}
@@ -6210,6 +6362,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="9.1 Department Level Activities"
                 subtitle="(Calculation Rubric: DLCs and File Maintenance = 5; Dept. Activity & File Maintenance = 2 per Activity | Max 10 marks)"
+                subScore={scores.sub9_1 || 0}
+                maxScore={10}
                 rows={currentSectionData.deptActivities || []}
                 canAdd={canAddDeptActivities(currentSectionData.deptActivities || [])}
                 disabled={!isEditable}
@@ -6221,6 +6375,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="9.2 College Level Activities"
                 subtitle="(Calculation Rubric: Committee Member = 3; Internal Review Committee = 5; CLCs/Warden = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
+                subScore={scores.sub9_2 || 0}
+                maxScore={10}
                 rows={currentSectionData.collegeActivities || []}
                 canAdd={canAddCollegeActivities(currentSectionData.collegeActivities || [])}
                 disabled={!isEditable}
@@ -6232,6 +6388,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="9.3 Administrative Responsibilities"
                 subtitle="(Calculation Rubric: Registrar / Deans / CoE / Head IQAC / HoDs / Warden / Deputy Warden = 20 | Max 20 marks)"
+                subScore={scores.sub9_3 || 0}
+                maxScore={20}
                 rows={currentSectionData.adminResponsibilities || []}
                 canAdd={canAddAdminResponsibilities(currentSectionData.adminResponsibilities || [])}
                 disabled={!isEditable}
