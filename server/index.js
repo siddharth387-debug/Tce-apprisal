@@ -21,6 +21,7 @@ const port = Number(process.env.PORT || 5000);
 const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const jwtSecret = process.env.JWT_SECRET;
+const mongoUri = process.env.MONGO_URI;
 // Dynamically generate academic timelines up to 2100 (e.g. 2020-2021 through 2099-2100)
 const generateTimelines = (startYear = 2020, endYear = 2100) => {
   const list = [];
