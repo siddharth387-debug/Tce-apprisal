@@ -5251,7 +5251,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section I Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'I' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === 'I' ? null : 'I')} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'I' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
@@ -5693,7 +5693,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section II Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'II' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === 'II' ? null : 'II')} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'II' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
@@ -5947,7 +5947,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
         </div>
         {/* Section III Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "III" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "III" ? null : "III")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "III" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6028,7 +6028,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section IV Collapsible Card Container */}
-        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IV" ? 'overflow-visible' : 'overflow-hidden'} mb-4 glass-card-float`}>
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IV" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "IV" ? null : "IV")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IV" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6070,7 +6070,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section V Collapsible Card Container */}
-        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "V" ? 'overflow-visible' : 'overflow-hidden'} mb-4 glass-card-float`}>
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "V" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "V" ? null : "V")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "V" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6152,7 +6152,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       
         {/* Section VI Collapsible Card Container */}
-        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VI" ? 'overflow-visible' : 'overflow-hidden'} mb-4 glass-card-float`}>
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VI" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "VI" ? null : "VI")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VI" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6246,7 +6246,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section VII Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "VII" ? null : "VII")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6314,7 +6314,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section VIII Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VIII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "VIII" ? null : "VIII")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VIII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6369,7 +6369,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section IX Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IX" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "IX" ? null : "IX")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IX" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * AcademicTimelinePicker
@@ -6,6 +7,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
  * Supports standard annual cycles (e.g., 2025-2026), multi-year project/promotion blocks (e.g., 2020-2025),
  * and "All Timelines" for reviewers (HOD / IQAC / Principal).
  * Usable both as a top-level appraisal timeline picker and inline within dynamic table rows.
+ * Renders via React Portal with position:fixed and z-[99999] so it is NEVER submerged under other cards or sections.
  */
 export default function AcademicTimelinePicker({
   value = '',
@@ -21,7 +23,9 @@ export default function AcademicTimelinePicker({
   disabled = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef(null);
+  const triggerRef = useRef(null);
+  const popoverRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, openUpwards: false });
 
   // Extract starting year from value to determine the initial decade
   const initialYear = useMemo(() => {
@@ -41,6 +45,37 @@ export default function AcademicTimelinePicker({
   const [customStart, setCustomStart] = useState(() => initialYear);
   const [customEnd, setCustomEnd] = useState(() => initialYear + 3);
   const [customError, setCustomError] = useState('');
+
+  // Position calculation for portal floating
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const popoverWidth = Math.min(360, window.innerWidth - 24);
+    const popoverHeight = 350; // generous height estimate for decade grid
+
+    // Detect if there's enough space below in viewport
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUpwards = spaceBelow < 320 && spaceAbove > spaceBelow;
+
+    let top = openUpwards ? rect.top - popoverHeight - 6 : rect.bottom + 6;
+    if (top < 10) top = 10;
+    if (top + popoverHeight > window.innerHeight) {
+      top = Math.max(10, window.innerHeight - popoverHeight - 10);
+    }
+
+    let left = isCompact ? rect.left : (rect.right - popoverWidth);
+    if (left + popoverWidth > window.innerWidth - 12) {
+      left = window.innerWidth - popoverWidth - 12;
+    }
+    if (left < 12) left = 12;
+
+    setCoords({
+      top: Math.round(top),
+      left: Math.round(left),
+      openUpwards,
+    });
+  }, [isCompact]);
 
   // Sync decade when value changes externally
   useEffect(() => {
@@ -62,10 +97,30 @@ export default function AcademicTimelinePicker({
     }
   }, [value]);
 
+  // Keep floating popover positioned on scroll or resize
+  useEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+    const handleScrollOrResize = () => {
+      updatePosition();
+    };
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    return () => {
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+    };
+  }, [isOpen, updatePosition]);
+
   // Close popup on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
+      if (
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target)
+      ) {
         setIsOpen(false);
         setShowCustomRange(false);
         setCustomError('');
@@ -162,10 +217,18 @@ export default function AcademicTimelinePicker({
     setIsOpen(false);
   };
 
+  const handleToggle = () => {
+    if (disabled) return;
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen(!isOpen);
+  };
+
   const isCurrentActive = Boolean(value) && value === currentAcademicYear;
 
   return (
-    <div className={`relative ${isCompact ? 'w-full' : 'inline-block'} text-left`} ref={containerRef}>
+    <div className={`relative ${isCompact ? 'w-full' : 'inline-block'} text-left`}>
       {/* Label above trigger (optional for compact inline table fields) */}
       {!hideLabel && (
         <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
@@ -175,9 +238,10 @@ export default function AcademicTimelinePicker({
 
       {/* Trigger Button */}
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={
           isCompact
             ? `w-full h-7 py-0.5 px-2 flex items-center justify-between gap-1.5 rounded-md border text-xs shadow-xs transition-all outline-none ${
@@ -240,176 +304,184 @@ export default function AcademicTimelinePicker({
         </div>
       </button>
 
-      {/* Decade Calendar Grid Popover */}
-      {isOpen && (
-        <div
-          className={`absolute ${
-            isCompact ? 'left-0 sm:left-auto sm:right-0 md:left-0' : 'left-0 sm:left-auto sm:right-0'
-          } z-50 mt-1.5 w-80 sm:w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xl shadow-black/15 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100`}
-        >
-          {/* Review Mode: All Submissions Option */}
-          {isReviewMode && (
-            <div className="mb-2.5 pb-2.5 border-b border-slate-100">
-              <button
-                type="button"
-                onClick={() => handleSelectYear('All')}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                  value === 'All'
-                    ? 'bg-[#4A1519] text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <span>🏛️</span> All Timelines / Submissions
-                </span>
-                {value === 'All' && <span className="text-[10px] uppercase font-bold">Selected</span>}
-              </button>
-            </div>
-          )}
-
-          {/* Decade Header Navigator */}
-          <div className="flex items-center justify-between mb-3 px-1">
-            <button
-              type="button"
-              onClick={handlePrevDecade}
-              disabled={decadeStart - 10 < minYear}
-              className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
-              title="Previous Decade"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-slate-800 tracking-wide">
-                Decade {decadeStart} – {decadeEnd}
-              </span>
-              <button
-                type="button"
-                onClick={handleJumpToCurrent}
-                className="text-[10px] font-semibold text-[#4A1519] hover:underline px-1.5 py-0.5 rounded bg-[#4A1519]/5"
-                title="Jump to current active year"
-              >
-                Today
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleNextDecade}
-              disabled={decadeStart + 10 >= maxYear}
-              className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
-              title="Next Decade"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Decade Years Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-            {decadeYears.map((tl) => {
-              const isSelected = value === tl;
-              const isCurrent = tl === currentAcademicYear;
-              return (
+      {/* Floating Decade Calendar Grid via React Portal */}
+      {isOpen &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            style={{
+              position: 'fixed',
+              top: `${coords.top}px`,
+              left: `${coords.left}px`,
+              zIndex: 99999,
+              width: 'min(360px, calc(100vw - 24px))',
+            }}
+            className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xl shadow-black/25 ring-1 ring-black/10 animate-in fade-in zoom-in-95 duration-100"
+          >
+            {/* Review Mode: All Submissions Option */}
+            {isReviewMode && (
+              <div className="mb-2.5 pb-2.5 border-b border-slate-100">
                 <button
-                  key={tl}
                   type="button"
-                  onClick={() => handleSelectYear(tl)}
-                  className={`relative flex flex-col items-center justify-center p-2 rounded-lg border text-xs font-semibold transition-all ${
-                    isSelected
-                      ? 'border-[#4A1519] bg-[#4A1519] text-white shadow-sm ring-2 ring-[#4A1519]/30'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-[#4A1519]/40 hover:bg-[#4A1519]/5'
+                  onClick={() => handleSelectYear('All')}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                    value === 'All'
+                      ? 'bg-[#4A1519] text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
-                  <span className="font-bold">{tl}</span>
-                  {isCurrent && (
-                    <span
-                      className={`text-[9px] font-medium tracking-tight mt-0.5 ${
-                        isSelected ? 'text-amber-200' : 'text-emerald-700 font-bold'
-                      }`}
-                    >
-                      ● Current
-                    </span>
-                  )}
+                  <span className="flex items-center gap-1.5">
+                    <span>🏛️</span> All Timelines / Submissions
+                  </span>
+                  {value === 'All' && <span className="text-[10px] uppercase font-bold">Selected</span>}
                 </button>
-              );
-            })}
-          </div>
+              </div>
+            )}
 
-          {/* Custom Range Drawer (for Multi-Year CAS / Promotion Reviews / Projects) */}
-          <div className="mt-3 pt-2.5 border-t border-slate-100">
-            {!showCustomRange ? (
+            {/* Decade Header Navigator */}
+            <div className="flex items-center justify-between mb-3 px-1">
               <button
                 type="button"
-                onClick={() => setShowCustomRange(true)}
-                className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#4A1519] py-1 transition"
+                onClick={handlePrevDecade}
+                disabled={decadeStart - 10 < minYear}
+                className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                title="Previous Decade"
               >
-                <span>➕</span> Custom Multi-Year Range (CAS / Projects)
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
-            ) : (
-              <form onSubmit={handleApplyCustomRange} className="space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-700">Custom Multi-Year Period</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCustomRange(false);
-                      setCustomError('');
-                    }}
-                    className="text-slate-400 hover:text-slate-600 text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">Start Year</label>
-                    <input
-                      type="number"
-                      min={minYear}
-                      max={maxYear - 1}
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
-                    />
-                  </div>
-                  <span className="text-slate-400 mt-3 font-bold">—</span>
-                  <div className="flex-1">
-                    <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">End Year</label>
-                    <input
-                      type="number"
-                      min={minYear + 1}
-                      max={maxYear}
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
-                    />
-                  </div>
-                  <div className="pt-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-slate-800 tracking-wide">
+                  Decade {decadeStart} – {decadeEnd}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleJumpToCurrent}
+                  className="text-[10px] font-semibold text-[#4A1519] hover:underline px-1.5 py-0.5 rounded bg-[#4A1519]/5"
+                  title="Jump to current active year"
+                >
+                  Today
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleNextDecade}
+                disabled={decadeStart + 10 >= maxYear}
+                className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                title="Next Decade"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Decade Years Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {decadeYears.map((tl) => {
+                const isSelected = value === tl;
+                const isCurrent = tl === currentAcademicYear;
+                return (
+                  <button
+                    key={tl}
+                    type="button"
+                    onClick={() => handleSelectYear(tl)}
+                    className={`relative flex flex-col items-center justify-center p-2 rounded-lg border text-xs font-semibold transition-all ${
+                      isSelected
+                        ? 'border-[#4A1519] bg-[#4A1519] text-white shadow-sm ring-2 ring-[#4A1519]/30'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-[#4A1519]/40 hover:bg-[#4A1519]/5'
+                    }`}
+                  >
+                    <span className="font-bold">{tl}</span>
+                    {isCurrent && (
+                      <span
+                        className={`text-[9px] font-medium tracking-tight mt-0.5 ${
+                          isSelected ? 'text-amber-200' : 'text-emerald-700 font-bold'
+                        }`}
+                      >
+                        ● Current
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Range Drawer (for Multi-Year CAS / Promotion Reviews / Projects) */}
+            <div className="mt-3 pt-2.5 border-t border-slate-100">
+              {!showCustomRange ? (
+                <button
+                  type="button"
+                  onClick={() => setShowCustomRange(true)}
+                  className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#4A1519] py-1 transition"
+                >
+                  <span>➕</span> Custom Multi-Year Range (CAS / Projects)
+                </button>
+              ) : (
+                <form onSubmit={handleApplyCustomRange} className="space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-700">Custom Multi-Year Period</span>
                     <button
-                      type="submit"
-                      className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-xs font-bold rounded shadow-sm transition"
+                      type="button"
+                      onClick={() => {
+                        setShowCustomRange(false);
+                        setCustomError('');
+                      }}
+                      className="text-slate-400 hover:text-slate-600 text-xs"
                     >
-                      Apply
+                      ✕
                     </button>
                   </div>
-                </div>
 
-                {customError && (
-                  <p className="text-[10.5px] font-medium text-red-600">{customError}</p>
-                )}
-                <p className="text-[9.5px] text-slate-500 leading-tight">
-                  Example: 2021 to 2024 for multi-year sponsored project or committee tenure.
-                </p>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">Start Year</label>
+                      <input
+                        type="number"
+                        min={minYear}
+                        max={maxYear - 1}
+                        value={customStart}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
+                      />
+                    </div>
+                    <span className="text-slate-400 mt-3 font-bold">—</span>
+                    <div className="flex-1">
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">End Year</label>
+                      <input
+                        type="number"
+                        min={minYear + 1}
+                        max={maxYear}
+                        value={customEnd}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
+                      />
+                    </div>
+                    <div className="pt-3">
+                      <button
+                        type="submit"
+                        className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-xs font-bold rounded shadow-sm transition"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+
+                  {customError && (
+                    <p className="text-[10.5px] font-medium text-red-600">{customError}</p>
+                  )}
+                  <p className="text-[9.5px] text-slate-500 leading-tight">
+                    Example: 2021 to 2024 for multi-year sponsored project or committee tenure.
+                  </p>
+                </form>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
