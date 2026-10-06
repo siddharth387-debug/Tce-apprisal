@@ -3,16 +3,22 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 /**
  * AcademicTimelinePicker
  * An interactive, decade-based calendar grid picker for academic appraisal periods.
- * Supports standard annual cycles (e.g., 2025-2026), multi-year promotion blocks (e.g., 2020-2025),
+ * Supports standard annual cycles (e.g., 2025-2026), multi-year project/promotion blocks (e.g., 2020-2025),
  * and "All Timelines" for reviewers (HOD / IQAC / Principal).
+ * Usable both as a top-level appraisal timeline picker and inline within dynamic table rows.
  */
 export default function AcademicTimelinePicker({
-  value = '2025-2026',
+  value = '',
   onChange,
   isReviewMode = false,
   currentAcademicYear = '2025-2026',
   minYear = 2000,
   maxYear = 2100,
+  hideLabel = false,
+  isCompact = false,
+  placeholder = 'Select Period',
+  allowClear = false,
+  disabled = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef(null);
@@ -20,7 +26,7 @@ export default function AcademicTimelinePicker({
   // Extract starting year from value to determine the initial decade
   const initialYear = useMemo(() => {
     if (value && value !== 'All') {
-      const match = value.match(/^(\d{4})/);
+      const match = String(value).match(/^(\d{4})/);
       if (match) return parseInt(match[1], 10);
     }
     const currentMatch = (currentAcademicYear || '').match(/^(\d{4})/);
@@ -39,9 +45,19 @@ export default function AcademicTimelinePicker({
   // Sync decade when value changes externally
   useEffect(() => {
     if (value && value !== 'All') {
-      const match = value.match(/^(\d{4})/);
+      const match = String(value).match(/^(\d{4})/);
       if (match) {
-        setDecadeStart(Math.floor(parseInt(match[1], 10) / 10) * 10);
+        const parsed = parseInt(match[1], 10);
+        if (!isNaN(parsed)) {
+          setDecadeStart(Math.floor(parsed / 10) * 10);
+          setCustomStart(parsed);
+          const endMatch = String(value).match(/-(\d{4})$/);
+          if (endMatch) {
+            setCustomEnd(parseInt(endMatch[1], 10));
+          } else {
+            setCustomEnd(parsed + 1);
+          }
+        }
       }
     }
   }, [value]);
@@ -67,6 +83,7 @@ export default function AcademicTimelinePicker({
       if (e.key === 'Escape') {
         setIsOpen(false);
         setShowCustomRange(false);
+        setCustomError('');
       }
     };
     if (isOpen) {
@@ -128,8 +145,8 @@ export default function AcademicTimelinePicker({
       setCustomError('End year must be after start year.');
       return;
     }
-    if (end - s > 15) {
-      setCustomError('Assessment period cannot exceed 15 years.');
+    if (end - s > 25) {
+      setCustomError('Period range cannot exceed 25 years.');
       return;
     }
     const rangeTimeline = `${s}-${end}`;
@@ -139,50 +156,97 @@ export default function AcademicTimelinePicker({
     setCustomError('');
   };
 
-  const isCurrentActive = value === currentAcademicYear;
+  const handleClear = (e) => {
+    e.stopPropagation();
+    onChange?.('');
+    setIsOpen(false);
+  };
+
+  const isCurrentActive = Boolean(value) && value === currentAcademicYear;
 
   return (
-    <div className="relative inline-block text-left" ref={containerRef}>
-      {/* Label above trigger */}
-      <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-        Academic Period
-      </span>
+    <div className={`relative ${isCompact ? 'w-full' : 'inline-block'} text-left`} ref={containerRef}>
+      {/* Label above trigger (optional for compact inline table fields) */}
+      {!hideLabel && (
+        <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
+          Academic Period
+        </span>
+      )}
 
       {/* Trigger Button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`h-8 inline-flex items-center gap-2 rounded-md border px-2.5 text-xs font-semibold shadow-sm transition-all outline-none ${
-          isOpen
-            ? 'border-[#4A1519] ring-2 ring-[#4A1519]/20 bg-slate-50 text-[#4A1519]'
-            : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400'
-        }`}
-        title="Click to select evaluation period or decade"
+        disabled={disabled}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={
+          isCompact
+            ? `w-full h-7 py-0.5 px-2 flex items-center justify-between gap-1.5 rounded-md border text-xs shadow-xs transition-all outline-none ${
+                disabled
+                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                  : isOpen
+                  ? 'border-[#4A1519] ring-2 ring-[#4A1519]/20 bg-white text-[#4A1519]'
+                  : 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50 hover:border-slate-300'
+              }`
+            : `h-8 inline-flex items-center gap-2 rounded-md border px-2.5 text-xs font-semibold shadow-sm transition-all outline-none ${
+                disabled
+                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                  : isOpen
+                  ? 'border-[#4A1519] ring-2 ring-[#4A1519]/20 bg-slate-50 text-[#4A1519]'
+                  : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400'
+              }`
+        }
+        title={disabled ? 'Disabled' : 'Click to select evaluation period or decade'}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
       >
-        <span className="text-sm">📅</span>
-        <span className="font-bold text-slate-900">
-          {value === 'All' ? 'All Timelines / Submissions' : value}
-        </span>
-        {isCurrentActive && value !== 'All' && (
-          <span className="hidden sm:inline-block rounded-full bg-emerald-100 px-1.5 py-0.2 text-[9.5px] font-bold text-emerald-800">
-            Active
-          </span>
-        )}
-        <svg
-          className={`h-3.5 w-3.5 text-slate-400 transition-transform ${isOpen ? 'rotate-180 text-[#4A1519]' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-        </svg>
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          <span className="text-xs shrink-0 select-none">📅</span>
+          {value ? (
+            <span className="font-semibold text-slate-900 truncate">
+              {value === 'All' ? 'All Timelines / Submissions' : value}
+            </span>
+          ) : (
+            <span className="text-slate-400 text-[11px] truncate">
+              {placeholder}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {allowClear && Boolean(value) && !disabled && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={handleClear}
+              className="text-slate-400 hover:text-slate-700 p-0.5 rounded-full hover:bg-slate-100 text-[10px] leading-none select-none transition"
+              title="Clear period"
+            >
+              ✕
+            </span>
+          )}
+          {!isCompact && isCurrentActive && value !== 'All' && (
+            <span className="hidden sm:inline-block rounded-full bg-emerald-100 px-1.5 py-0.2 text-[9.5px] font-bold text-emerald-800">
+              Active
+            </span>
+          )}
+          <svg
+            className={`h-3 w-3 text-slate-400 transition-transform ${isOpen ? 'rotate-180 text-[#4A1519]' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </button>
 
       {/* Decade Calendar Grid Popover */}
       {isOpen && (
-        <div className="absolute left-0 sm:left-auto sm:right-0 z-50 mt-1.5 w-80 sm:w-96 rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xl shadow-black/15 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100">
+        <div
+          className={`absolute ${
+            isCompact ? 'left-0 sm:left-auto sm:right-0 md:left-0' : 'left-0 sm:left-auto sm:right-0'
+          } z-50 mt-1.5 w-80 sm:w-96 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xl shadow-black/15 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-100`}
+        >
           {/* Review Mode: All Submissions Option */}
           {isReviewMode && (
             <div className="mb-2.5 pb-2.5 border-b border-slate-100">
@@ -275,7 +339,7 @@ export default function AcademicTimelinePicker({
             })}
           </div>
 
-          {/* Custom Range Drawer (for Multi-Year CAS / Promotion Reviews) */}
+          {/* Custom Range Drawer (for Multi-Year CAS / Promotion Reviews / Projects) */}
           <div className="mt-3 pt-2.5 border-t border-slate-100">
             {!showCustomRange ? (
               <button
@@ -283,7 +347,7 @@ export default function AcademicTimelinePicker({
                 onClick={() => setShowCustomRange(true)}
                 className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#4A1519] py-1 transition"
               >
-                <span>➕</span> Custom Multi-Year Range (CAS / NAAC)
+                <span>➕</span> Custom Multi-Year Range (CAS / Projects)
               </button>
             ) : (
               <form onSubmit={handleApplyCustomRange} className="space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
@@ -339,7 +403,7 @@ export default function AcademicTimelinePicker({
                   <p className="text-[10.5px] font-medium text-red-600">{customError}</p>
                 )}
                 <p className="text-[9.5px] text-slate-500 leading-tight">
-                  Example: 2020 to 2025 for 5-year Career Advancement Scheme (CAS) appraisal dossier.
+                  Example: 2021 to 2024 for multi-year sponsored project or committee tenure.
                 </p>
               </form>
             )}

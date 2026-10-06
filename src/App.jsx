@@ -1290,98 +1290,120 @@ function DynamicArraySection({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full">
-                {safeColumns.map((column) => (
-                  <div
-                    key={column.name}
-                    className={`flex flex-col ${
-                      column.name === 'evidenceLink'
-                        ? 'flex-1 min-w-[280px]'
-                        : column.name === 'paperTitle' ||
-                          column.name === 'title' ||
-                          column.name === 'scholarName' ||
-                          column.name === 'journalName' ||
-                          column.name === 'proceedingName' ||
-                          column.name === 'partner' ||
-                          column.name === 'researchArea'
-                          ? 'flex-1 min-w-[180px]'
-                          : ''
-                    }`}
-                  >
-                    {column.type === 'select' ? (
-                      <>
-                        <select
-                          value={row[column.name]}
-                          onChange={(event) =>
-                            onChange(row.id, column.name, event.target.value)
-                          }
-                          disabled={disabled}
-                          className={`w-full rounded-md border ${
-                            rowErrors?.[row.id]?.[column.name] ||
-                            (column.name === 'courseCode' &&
-                              isNonEmpty(row[column.name]) &&
-                              !isValidCourseCode(row[column.name]))
-                              ? 'border-red-400'
-                              : 'border-slate-200'
-                          } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                            column.name === 'courseCode'
-                              ? 'max-w-[110px]'
-                              : column.name === 'courseName'
-                                ? 'max-w-[160px]'
-                                : ''
-                          }`}
-                        >
-                          <option value="">{column.label}</option>
-                          {(column.options || []).map((option) => {
-                            const optValue = typeof option === 'object' && option !== null ? option.value : option;
-                            const optLabel = typeof option === 'object' && option !== null ? option.label : option;
-                            return (
-                              <option key={optValue} value={optValue}>
-                                {optLabel}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        {getFieldErrorText(row, column.name) ? (
-                          <span className="mt-0.5 block text-[10px] text-rose-600">
-                            {getFieldErrorText(row, column.name)}
-                          </span>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        <input
-                          type={column.type || 'text'}
-                          {...(column.type === 'date' ? { min: '1990-01-01', max: '2035-12-31' } : {})}
-                          value={row[column.name]}
-                          onChange={(event) =>
-                            onChange(row.id, column.name, event.target.value)
-                          }
-                          disabled={disabled}
-                          placeholder={column.placeholder || column.label}
-                          className={`w-full rounded-md border ${
-                            rowErrors?.[row.id]?.[column.name] ||
-                            (column.name === 'courseCode' &&
-                              isNonEmpty(row[column.name]) &&
-                              !isValidCourseCode(row[column.name]))
-                              ? 'border-red-400'
-                              : 'border-slate-200'
-                          } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                            column.name === 'courseCode'
-                              ? 'max-w-[110px]'
-                              : column.name === 'courseName'
-                                ? 'max-w-[160px]'
-                                : ''
-                          }`}
-                        />
-                        {getFieldErrorText(row, column.name) ? (
-                          <span className="mt-0.5 block text-[10px] text-rose-600">
-                            {getFieldErrorText(row, column.name)}
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
-                ))}
+                {safeColumns.map((column) => {
+                  const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
+                  return (
+                    <div
+                      key={column.name}
+                      className={`flex flex-col ${
+                        column.name === 'evidenceLink'
+                          ? 'flex-1 min-w-[280px]'
+                          : column.name === 'paperTitle' ||
+                            column.name === 'title' ||
+                            column.name === 'scholarName' ||
+                            column.name === 'journalName' ||
+                            column.name === 'proceedingName' ||
+                            column.name === 'partner' ||
+                            column.name === 'researchArea'
+                            ? 'flex-1 min-w-[180px]'
+                            : isTimelineCol
+                              ? 'min-w-[140px] max-w-[185px] flex-1'
+                              : ''
+                      }`}
+                    >
+                      {isTimelineCol ? (
+                        <>
+                          <AcademicTimelinePicker
+                            value={row[column.name] || ''}
+                            onChange={(val) => onChange(row.id, column.name, val)}
+                            disabled={disabled}
+                            isCompact={true}
+                            hideLabel={true}
+                            placeholder={column.placeholder || column.label || 'Select Period'}
+                            allowClear={true}
+                          />
+                          {getFieldErrorText(row, column.name) ? (
+                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                              {getFieldErrorText(row, column.name)}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : column.type === 'select' ? (
+                        <>
+                          <select
+                            value={row[column.name]}
+                            onChange={(event) =>
+                              onChange(row.id, column.name, event.target.value)
+                            }
+                            disabled={disabled}
+                            className={`w-full rounded-md border ${
+                              rowErrors?.[row.id]?.[column.name] ||
+                              (column.name === 'courseCode' &&
+                                isNonEmpty(row[column.name]) &&
+                                !isValidCourseCode(row[column.name]))
+                                ? 'border-red-400'
+                                : 'border-slate-200'
+                            } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed ${
+                              column.name === 'courseCode'
+                                ? 'max-w-[110px]'
+                                : column.name === 'courseName'
+                                  ? 'max-w-[160px]'
+                                  : ''
+                            }`}
+                          >
+                            <option value="">{column.label}</option>
+                            {(column.options || []).map((option) => {
+                              const optValue = typeof option === 'object' && option !== null ? option.value : option;
+                              const optLabel = typeof option === 'object' && option !== null ? option.label : option;
+                              return (
+                                <option key={optValue} value={optValue}>
+                                  {optLabel}
+                                </option>
+                              );
+                            })}
+                          </select>
+                          {getFieldErrorText(row, column.name) ? (
+                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                              {getFieldErrorText(row, column.name)}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            type={column.type || 'text'}
+                            {...(column.type === 'date' ? { min: '1990-01-01', max: '2035-12-31' } : {})}
+                            value={row[column.name]}
+                            onChange={(event) =>
+                              onChange(row.id, column.name, event.target.value)
+                            }
+                            disabled={disabled}
+                            placeholder={column.placeholder || column.label}
+                            className={`w-full rounded-md border ${
+                              rowErrors?.[row.id]?.[column.name] ||
+                              (column.name === 'courseCode' &&
+                                isNonEmpty(row[column.name]) &&
+                                !isValidCourseCode(row[column.name]))
+                                ? 'border-red-400'
+                                : 'border-slate-200'
+                            } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed ${
+                              column.name === 'courseCode'
+                                ? 'max-w-[110px]'
+                                : column.name === 'courseName'
+                                  ? 'max-w-[160px]'
+                                  : ''
+                            }`}
+                          />
+                          {getFieldErrorText(row, column.name) ? (
+                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                              {getFieldErrorText(row, column.name)}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -3104,7 +3126,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'institution', label: 'Partner Institution', placeholder: 'Enter Partner Institution Name' },
     { name: 'nature', label: 'Nature of Joint Studio / Workshop', placeholder: 'Enter Nature of Joint Studio / Workshop' },
     { name: 'country', label: 'Country', placeholder: 'Enter Country Name' },
-    { name: 'period', label: 'Period / Dates', placeholder: 'Enter Period / Dates' },
+    { name: 'period', label: 'Period / Dates', type: 'timeline', placeholder: 'Select Period / Dates' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
   ];
   const studentExhibitionsColumns = [
@@ -3350,7 +3372,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const editorialBoardColumns = [
     { name: "bodyName", label: "Name of Body", type: "text", placeholder: "Enter Name of Journal / Editorial Body" },
     { name: "position", label: "Position Held", type: "text", placeholder: "Enter Position Held" },
-    { name: "period", label: "Period", type: "select", options: ACADEMIC_PERIOD_OPTIONS },
+    { name: "period", label: "Period", type: "timeline", placeholder: "Select Period" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const moocDevelopedColumns = [
@@ -3492,7 +3514,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const researchProjectsColumns = [
     { name: "projectName", label: "Project Name", type: "text", placeholder: "Enter Project Name" },
     { name: "fundingAgency", label: "Funding Agency", type: "text", placeholder: "Enter Funding Agency Name" },
-    { name: "period", label: "Period", type: "select", options: ACADEMIC_PERIOD_OPTIONS },
+    { name: "period", label: "Period", type: "timeline", placeholder: "Select Period" },
     { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", placeholder: "Enter Sanctioned Amount in INR" },
     { name: "role", label: "Role", type: "select", options: ["PI", "Co-PI"] },
     { name: "status", label: "Project Status", type: "select", options: ["Ongoing", "Completed"] },
@@ -3501,7 +3523,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const consultancyProjectsColumns = [
     { name: "title", label: "Title of Consultancy Project", type: "text", placeholder: "Enter Title of Consultancy Project" },
     { name: "clientDetails", label: "Client Details", type: "text", placeholder: "Enter Client Details / Organization" },
-    { name: "period", label: "Period", type: "select", options: ACADEMIC_PERIOD_OPTIONS },
+    { name: "period", label: "Period", type: "timeline", placeholder: "Select Period" },
     { name: "amount", label: "Amount Generated (Rs.)", type: "number", placeholder: "Enter Amount Generated in INR" },
     { name: "facultyInvolved", label: "Names of Faculty Involved", type: "text", placeholder: "Enter Names of Faculty Involved" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
@@ -6006,7 +6028,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section IV Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IV" ? 'overflow-visible' : 'overflow-hidden'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "IV" ? null : "IV")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IV" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6048,7 +6070,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Section V Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "V" ? 'overflow-visible' : 'overflow-hidden'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "V" ? null : "V")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "V" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
@@ -6130,7 +6152,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       
         {/* Section VI Collapsible Card Container */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 overflow-hidden mb-4 glass-card-float">
+        <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VI" ? 'overflow-visible' : 'overflow-hidden'} mb-4 glass-card-float`}>
           <div 
             onClick={() => setActiveSection(activeSection === "VI" ? null : "VI")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VI" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
