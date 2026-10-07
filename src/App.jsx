@@ -3,6 +3,7 @@ import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import axios from 'axios';
 import tceBanner from './tce-banner.png';
 import tceLogo from './tce-logo.png';
+import tceLogo12 from './TCE-LOGO12.png';
 import AppraisalPrintDocument from './AppraisalPrintDocument.jsx';
 import { exportAppraisalToExcel } from './excelExporter.js';
 import { exportAppraisalToPDF, exportIqacRosterPDF } from './pdfExporter.js';
@@ -1549,8 +1550,8 @@ function LandingPage({ googleClientId, onLogin }) {
           <div className="flex items-center justify-start border-b border-white/10 pb-6">
             <div className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/95 px-5 py-3 shadow-xl shadow-black/25">
               <img
-                src={tceBanner}
-                alt="Thiagarajar College of Engineering Banner Logo"
+                src={tceLogo12}
+                alt="Thiagarajar College of Engineering Logo"
                 className="h-12 sm:h-14 w-auto max-w-full object-contain"
               />
             </div>
