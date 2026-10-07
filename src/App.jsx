@@ -1545,22 +1545,14 @@ function LandingPage({ googleClientId, onLogin }) {
     <div className="flex min-h-screen w-full flex-col md:flex-row">
       <section className="flex basis-full bg-gradient-to-br from-[#4A1519] via-[#3B1013] to-[#2A0B0E] px-6 py-10 text-white md:basis-3/5 md:px-12 md:py-16 lg:px-16 justify-between flex-col">
         <div className="flex w-full flex-col justify-between h-full">
-          {/* Institutional Banner & Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-white/10 pb-6">
-            <div className="flex h-16 w-auto max-w-[260px] items-center justify-center rounded-2xl border border-white/20 bg-white/95 px-3.5 py-1.5 shadow-lg shadow-black/20 shrink-0">
+          {/* Institutional Banner Header */}
+          <div className="flex items-center justify-start border-b border-white/10 pb-6">
+            <div className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/95 px-5 py-3 shadow-xl shadow-black/25">
               <img
                 src={tceBanner}
                 alt="Thiagarajar College of Engineering Banner Logo"
-                className="h-full w-auto object-contain"
+                className="h-12 sm:h-14 w-auto max-w-full object-contain"
               />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.35em] text-white/70">
-                Institutional Portal
-              </p>
-              <h1 className="mt-1 text-lg font-extrabold leading-tight sm:text-xl text-white tracking-wide">
-                Thiagarajar College of Engineering
-              </h1>
             </div>
           </div>
 
