@@ -1543,66 +1543,59 @@ function LandingPage({ googleClientId, onLogin }) {
 
   return (
     <div className="flex min-h-screen w-full flex-col md:flex-row">
-      <section className="flex basis-full bg-gradient-to-br from-[#4A1519] to-[#3B1013] px-6 py-8 text-white md:basis-3/5 md:px-12 md:py-10 lg:px-16">
-        <div className="flex w-full flex-col">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/95 p-1.5 shadow-lg shadow-black/20 shrink-0">
+      <section className="flex basis-full bg-gradient-to-br from-[#4A1519] via-[#3B1013] to-[#2A0B0E] px-6 py-10 text-white md:basis-3/5 md:px-12 md:py-16 lg:px-16 justify-between flex-col">
+        <div className="flex w-full flex-col justify-between h-full">
+          {/* Institutional Banner & Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border-b border-white/10 pb-6">
+            <div className="flex h-16 w-auto max-w-[260px] items-center justify-center rounded-2xl border border-white/20 bg-white/95 px-3.5 py-1.5 shadow-lg shadow-black/20 shrink-0">
               <img
-                src={tceLogo}
-                alt="Thiagarajar College of Engineering Official Logo"
-                className="h-full w-full object-contain"
+                src={tceBanner}
+                alt="Thiagarajar College of Engineering Banner Logo"
+                className="h-full w-auto object-contain"
               />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
+              <p className="text-xs font-bold uppercase tracking-[0.35em] text-white/70">
                 Institutional Portal
               </p>
-              <h1 className="mt-1 text-lg font-bold leading-tight sm:text-xl text-white tracking-wide">
+              <h1 className="mt-1 text-lg font-extrabold leading-tight sm:text-xl text-white tracking-wide">
                 Thiagarajar College of Engineering
               </h1>
             </div>
           </div>
 
-          <div className="flex flex-1 items-center py-16 md:py-20">
+          {/* Main Hero Title */}
+          <div className="my-auto py-12 md:py-16">
             <div className="max-w-2xl">
-              <p className="mb-5 text-sm font-medium uppercase tracking-[0.4em] text-white/60">
-                Appraisal Portal
-              </p>
-              <h2 className="max-w-xl text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
-                TCE Faculty Performance Evaluation Portal (TFPEP)
+              <h2 className="max-w-xl text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl text-white tracking-tight">
+                Faculty Performance Evaluation Portal
               </h2>
-              
+              <p className="mt-4 text-sm sm:text-base font-normal leading-relaxed text-white/80 max-w-lg">
+                Official academic appraisal and career advancement workspace for faculty members of Thiagarajar College of Engineering.
+              </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-6 border-t border-white/10 pt-6">
-            {STATS.map((stat) => (
-              <div key={stat.label} className="min-w-[120px]">
-                <p className="text-xl font-semibold tracking-wide sm:text-2xl">
-                  {stat.value}
-                </p>
-                <p className="mt-1 text-xs font-medium uppercase tracking-[0.35em] text-white/60">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
+          {/* Institutional Footer */}
+          <div className="border-t border-white/10 pt-4 text-xs text-white/50 font-medium tracking-wide">
+            © Thiagarajar College of Engineering • Autonomous Institution Affiliated to Anna University
           </div>
         </div>
       </section>
 
       <section className="flex basis-full items-center justify-center bg-gradient-to-br from-[#F5F5F5] via-slate-100 to-[#EAE6E5] px-6 py-10 md:basis-2/5 md:px-8 lg:px-10">
-        <div className="w-full max-w-md rounded-2xl bg-white/85 backdrop-blur-md p-8 shadow-2xl shadow-black/10 border border-white/80 sm:p-10 hover:bg-white/95 hover:shadow-3xl animate-subtle-float glass-card-float">
-          <div className="inline-flex rounded-full bg-[#4A1519]/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#4A1519]">
-            Staff Sign-In
+        <div className="w-full max-w-md rounded-2xl bg-white/90 backdrop-blur-md p-8 shadow-2xl shadow-black/10 border border-white/80 sm:p-10 hover:bg-white/95 hover:shadow-3xl transition-all duration-300">
+          <div className="inline-flex rounded-full bg-[#4A1519]/10 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.25em] text-[#4A1519] border border-[#4A1519]/15">
+            Faculty Sign In
           </div>
-          <h3 className="mt-5 text-3xl font-bold tracking-tight text-slate-900">
+          <h3 className="mt-5 text-3xl font-extrabold tracking-tight text-slate-900">
             Welcome back
           </h3>
-          <p className="mt-3 text-sm leading-6 text-slate-500">
-            Authenticate with Google to continue into the appraisal workspace.
+          <p className="mt-3 text-sm leading-6 text-slate-600 font-medium">
+            Authenticate with your official Google account to access your appraisal workspace.
           </p>
 
-          <div className="mt-8 rounded-2xl border border-slate-200/80 bg-white/60 backdrop-blur-sm px-4 py-6 shadow-xs hover:bg-white/80 transition-all duration-200">
+          <div className="mt-8 rounded-2xl border border-slate-200/90 bg-slate-50/70 backdrop-blur-sm px-4 py-6 shadow-sm hover:bg-white transition-all duration-200">
             <div className="flex justify-center">
               {resolvedClientId ? (
                 <GoogleOAuthProvider clientId={resolvedClientId}>
