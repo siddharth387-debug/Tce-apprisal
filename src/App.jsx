@@ -1548,11 +1548,11 @@ function LandingPage({ googleClientId, onLogin }) {
         <div className="flex w-full flex-col justify-between h-full">
           {/* Institutional Banner Header */}
           <div className="flex items-center justify-start border-b border-white/10 pb-6">
-            <div className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/95 px-5 py-3 shadow-xl shadow-black/25">
+            <div className="inline-flex items-center justify-center rounded-3xl border border-white/30 bg-white p-6 sm:p-7 shadow-2xl shadow-black/30">
               <img
                 src={tceLogo12}
                 alt="Thiagarajar College of Engineering Logo"
-                className="h-12 sm:h-14 w-auto max-w-full object-contain"
+                className="h-20 sm:h-24 md:h-28 w-auto max-w-full object-contain"
               />
             </div>
           </div>
