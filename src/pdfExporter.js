@@ -466,7 +466,7 @@ export const exportAppraisalToPDF = ({
   }
 
   renderSectionTable('1.8 NPTEL / SWAYAM Certifications', [{ key: 'courseName', label: 'Course Title' }, { key: 'platform', label: 'Platform' }, { key: 'certType', label: 'Grade' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.certifications, '1.8');
-  renderSectionTable('1.9 Student Feedback', [{ key: 'courseCode', label: 'Course Code' }, { key: 'feedbackPct', label: 'Feedback %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.studentFeedback, '1.9');
+  renderSectionTable('1.9 Student Feedback', [{ key: 'courseName', altKey: 'courseCode', label: 'Course Name' }, { key: 'feedbackPct', label: 'Feedback Avg / %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.studentFeedback, '1.9');
   renderSectionTable('1.10 Result Analysis', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'passPercentage', label: 'Pass %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.resultAnalysis, '1.10');
   renderSectionTable('1.11 CO Attainment', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'attainmentPct', label: 'Attainment %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coAttainment, '1.11');
 

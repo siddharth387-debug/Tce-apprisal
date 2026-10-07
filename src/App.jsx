@@ -565,7 +565,7 @@ function canAddStudentFeedback(rows) {
   if (!rows || rows.length === 0) return true;
   const last = rows[rows.length - 1];
   return (
-    isValidCourseCode(last.courseCode) &&
+    isNonEmpty(last.courseName || last.courseCode) &&
     isNonEmpty(last.feedbackPct) &&
     isValidEvidenceLink(last.evidenceLink)
   );
@@ -1826,7 +1826,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: '1.5 Innovative Methods', rows: (sec1.innovativeMethods || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'method', 'evidenceLink'] },
     { label: '1.6 Academic Collaborations', rows: (sec1.academicCollaborations || []).filter(r => !isRowBlank(r)), fields: ['organization', 'collaborationType', 'evidenceLink'] },
     { label: '1.8 NPTEL Certifications', rows: (sec1.certifications || []).filter(r => !isRowBlank(r)), fields: ['courseName', 'platform', 'certType', 'evidenceLink'] },
-    { label: '1.9 Student Feedback', rows: (sec1.studentFeedback || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'feedbackPct', 'evidenceLink'] },
+    { label: '1.9 Student Feedback', rows: (sec1.studentFeedback || []).filter(r => !isRowBlank(r)), fields: ['courseName', 'feedbackPct', 'evidenceLink'] },
     { label: '1.10 Result Analysis', rows: (sec1.resultAnalysis || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'] },
     { label: '1.11 CO Attainment %', rows: (sec1.coAttainment || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'courseName', 'attainmentPct', 'evidenceLink'] },
   ];
@@ -3340,8 +3340,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const studentFeedbackColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
-    { name: 'feedbackPct', label: 'Feedback %', type: 'number', placeholder: 'Enter Feedback Percentage' },
+    { name: 'courseName', label: 'Course Name', placeholder: 'Enter Course Name' },
+    { name: 'feedbackPct', label: 'Feedback Average', type: 'number', placeholder: 'Enter the feedback average' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const journalPapersColumns = [
@@ -5747,7 +5747,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           disabled={!isEditable}
           onAdd={() =>
             addArrayRow('studentFeedback', {
-              courseCode: '',
+              courseName: '',
               feedbackPct: '',
               evidenceLink: '',
             })

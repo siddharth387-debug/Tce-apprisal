@@ -362,8 +362,8 @@ export default function AppraisalPrintDocument({
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.certifications, '1.8')}
         {renderTable('1.9 Student Feedback', [
-          { key: 'courseCode', label: 'Course Code' },
-          { key: 'feedbackPct', label: 'Feedback %' },
+          { key: 'courseName', altKey: 'courseCode', label: 'Course Name' },
+          { key: 'feedbackPct', label: 'Feedback Avg / %' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.studentFeedback, '1.9')}
         {renderTable('1.10 Result Analysis', [
