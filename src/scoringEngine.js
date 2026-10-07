@@ -755,6 +755,8 @@ export function computeEffectiveScores(sectionData = {}, hodSubsectionScores = {
     sub1_3: effectiveMap['1.3'] || 0,
     sub1_4: effectiveMap['1.4'] || 0,
     sub1_5: effectiveMap['1.5'] || effectiveMap['1.5.1'] || 0,
+    sub1_5_1: effectiveMap['1.5.1'] || effectiveMap['1.5'] || 0,
+    sub1_5_2: effectiveMap['1.5.2'] || 0,
     sub1_6: effectiveMap['1.6'] || 0,
     sub1_7: effectiveMap['1.7'] || 0,
     sub1_8: effectiveMap['1.8'] || 0,
@@ -776,6 +778,7 @@ export function computeEffectiveScores(sectionData = {}, hodSubsectionScores = {
     sub3_3: effectiveMap['3.3'] || 0,
     sub3_4: effectiveMap['3.4'] || 0,
     sub3_5: effectiveMap['3.5'] || 0,
+    sub3_6: effectiveMap['3.6'] || 0,
 
     sub4_1: effectiveMap['4.1'] || 0,
     sub4_2: effectiveMap['4.2'] || 0,
@@ -785,6 +788,7 @@ export function computeEffectiveScores(sectionData = {}, hodSubsectionScores = {
     sub5_3: effectiveMap['5.3'] || 0,
     sub5_4: effectiveMap['5.4'] || 0,
     sub5_5: effectiveMap['5.5'] || 0,
+    sub5_6: effectiveMap['5.6'] || 0,
 
     sub6_1: effectiveMap['6.1'] || 0,
     sub6_2: effectiveMap['6.2'] || 0,
@@ -801,6 +805,7 @@ export function computeEffectiveScores(sectionData = {}, hodSubsectionScores = {
     sub8_1: effectiveMap['8.1'] || 0,
     sub8_2: effectiveMap['8.2'] || 0,
     sub8_3: effectiveMap['8.3'] || 0,
+    sub8_4: effectiveMap['8.4'] || 0,
 
     sub9_1: effectiveMap['9.1'] || 0,
     sub9_2: effectiveMap['9.2'] || 0,

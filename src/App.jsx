@@ -4376,18 +4376,31 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     });
   }, [workspaceByTimeline, selectedTimeline, user, scores, activeTimelineRecord]);
 
-  const scoreboardItems = [
-    { label: '1.1 Courses Handled', value: scores.coursesHandled, max: 8 },
-    { label: '1.2 Course File', value: scores.courseFile, max: 5 },
-    { label: '1.3 Course Design', value: scores.coursesDesigned, max: 5 },
-    { label: '1.4 Value-Added', value: scores.valueAdded, max: 4 },
-    { label: '1.5 Innovative Methods', value: scores.innovativeMethods, max: 5 },
-    { label: '1.6 Academic Collaborations', value: scores.academicCollaborations, max: 4 },
-    { label: '1.7 Mentoring System', value: scores.mentoring, max: 2 },
-    { label: '1.8 NPTEL Certifications', value: scores.certifications, max: 4 },
-    { label: '1.9 Student Feedback', value: scores.studentFeedback, max: 4 },
-    { label: '1.10 Result Analysis', value: scores.resultAnalysis, max: 5 },
-    { label: '1.11 CO Attainment %', value: scores.coAttainment, max: 4 },
+  const scoreboardItems = isArch ? [
+    { label: '1.1 Courses Handled', value: scores.coursesHandled ?? scores.sub1_1 ?? 0, max: 8 },
+    { label: '1.2 Course File', value: scores.courseFile ?? scores.sub1_2 ?? 0, max: 5 },
+    { label: '1.3 Course Design', value: scores.coursesDesigned ?? scores.sub1_3 ?? 0, max: 5 },
+    { label: '1.4 Value-Added', value: scores.valueAdded ?? scores.sub1_4 ?? 0, max: 4 },
+    { label: '1.5.1 Innovative Teaching Methods', value: scores.sub1_5_1 ?? scores.sub1_5 ?? 0, max: 5 },
+    { label: '1.5.2 Studio Pedagogy Innovations', value: scores.sub1_5_2 ?? 0, max: 3 },
+    { label: '1.6 Educational Tours & Case Studies', value: scores.academicCollaborations ?? scores.sub1_6 ?? 0, max: 4 },
+    { label: '1.7 Mentoring System', value: scores.mentoring ?? scores.sub1_7 ?? 0, max: 2 },
+    { label: '1.8 NPTEL Certifications', value: scores.certifications ?? scores.sub1_8 ?? 0, max: 4 },
+    { label: '1.9 Student Feedback', value: scores.studentFeedback ?? scores.sub1_9 ?? 0, max: 4 },
+    { label: '1.10 Result Analysis', value: scores.resultAnalysis ?? scores.sub1_10 ?? 0, max: 3 },
+    { label: '1.11 CO Attainment %', value: scores.coAttainment ?? scores.sub1_11 ?? 0, max: 3 },
+  ] : [
+    { label: '1.1 Courses Handled', value: scores.coursesHandled ?? scores.sub1_1 ?? 0, max: 8 },
+    { label: '1.2 Course File', value: scores.courseFile ?? scores.sub1_2 ?? 0, max: 5 },
+    { label: '1.3 Course Design', value: scores.coursesDesigned ?? scores.sub1_3 ?? 0, max: 5 },
+    { label: '1.4 Value-Added', value: scores.valueAdded ?? scores.sub1_4 ?? 0, max: 4 },
+    { label: '1.5 Innovative Methods', value: scores.innovativeMethods ?? scores.sub1_5 ?? 0, max: 5 },
+    { label: '1.6 Academic Collaborations', value: scores.academicCollaborations ?? scores.sub1_6 ?? 0, max: 4 },
+    { label: '1.7 Mentoring System', value: scores.mentoring ?? scores.sub1_7 ?? 0, max: 2 },
+    { label: '1.8 NPTEL Certifications', value: scores.certifications ?? scores.sub1_8 ?? 0, max: 4 },
+    { label: '1.9 Student Feedback', value: scores.studentFeedback ?? scores.sub1_9 ?? 0, max: 4 },
+    { label: '1.10 Result Analysis', value: scores.resultAnalysis ?? scores.sub1_10 ?? 0, max: 5 },
+    { label: '1.11 CO Attainment %', value: scores.coAttainment ?? scores.sub1_11 ?? 0, max: 4 },
   ];
 
   const renderOverview = () => {
@@ -5770,9 +5783,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
         <DynamicArraySection
           title="1.10 Result Analysis"
-          subtitle="(Calculation Rubric: ≥90% = 5 marks | 80-89% = 4 marks | 70-79% = 3 marks | 60-69% = 2 marks | <60% = 1 mark | Max 5 marks)"
+          subtitle={isArch ? "(Calculation Rubric: ≥90% = 3 marks | 70-89% = 2 marks | 60-69% = 1 mark | Max 3 marks)" : "(Calculation Rubric: ≥90% = 5 marks | 80-89% = 4 marks | 70-79% = 3 marks | 60-69% = 2 marks | <60% = 1 mark | Max 5 marks)"}
           subScore={scores.sub1_10 || 0}
-          maxScore={5}
+          maxScore={isArch ? 3 : 5}
           rows={currentSectionData.resultAnalysis || []}
           rowErrors={sectionValidation.rowErrors.resultAnalysis}
           canAdd={canAddResultAnalysis(currentSectionData.resultAnalysis || [])}
@@ -5794,9 +5807,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
         <DynamicArraySection
           title="1.11 CO Attainment %"
-          subtitle="(Calculation Rubric: ≥70% = 4 marks | 60-69% = 3 marks | 50-59% = 2 marks | Max 4 marks)"
+          subtitle={isArch ? "(Calculation Rubric: ≥70% = 3 marks | 60-69% = 2 marks | 50-59% = 1 mark | Max 3 marks)" : "(Calculation Rubric: ≥70% = 4 marks | 60-69% = 3 marks | 50-59% = 2 marks | Max 4 marks)"}
           subScore={scores.sub1_11 || 0}
-          maxScore={4}
+          maxScore={isArch ? 3 : 4}
           rows={currentSectionData.coAttainment || []}
           rowErrors={sectionValidation.rowErrors.coAttainment}
           canAdd={canAddCoAttainment(currentSectionData.coAttainment || [])}
@@ -6648,9 +6661,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <div className="flex justify-between"><span>2.1 Journal Papers (SCI/Scopus)</span><span className="font-bold text-gray-800">{scores.sub2_1 || 0} / 15</span></div>
                 <div className="flex justify-between"><span>2.2 Citations (Last 3 Years)</span><span className="font-bold text-gray-800">{scores.sub2_2 || 0} / 8</span></div>
                 <div className="flex justify-between"><span>2.3 Total Q1 Citations</span><span className="font-bold text-gray-800">{scores.sub2_3 || 0} / 7</span></div>
-                <div className="flex justify-between"><span>2.4 Books / Chapters</span><span className="font-bold text-gray-800">{scores.sub2_4 || 0} / 5</span></div>
+                <div className="flex justify-between"><span>2.4 Books / Chapters</span><span className="font-bold text-gray-800">{scores.sub2_4 || 0} / {isArch ? 4 : 5}</span></div>
                 <div className="flex justify-between"><span>2.5 Conference Publications</span><span className="font-bold text-gray-800">{scores.sub2_5 || 0} / 4</span></div>
-                <div className="flex justify-between"><span>2.6 Research Collaborations</span><span className="font-bold text-gray-800">{scores.sub2_6 || 0} / 5</span></div>
+                <div className="flex justify-between"><span>{isArch ? '2.6 Creative Scholarship & Design Works' : '2.6 Research Collaborations'}</span><span className="font-bold text-gray-800">{scores.sub2_6 || 0} / {isArch ? 6 : 5}</span></div>
                 <div className="flex justify-between"><span>2.7 PhD Scholars (Registered)</span><span className="font-bold text-gray-800">{scores.sub2_7 || 0} / 5</span></div>
                 <div className="flex justify-between"><span>2.8 PhD Scholars (Awarded)</span><span className="font-bold text-gray-800">{scores.sub2_8 || 0} / 6</span></div>
               </div>
@@ -6667,11 +6680,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             {activeSection === "III" && (
               <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>3.1 Patents Published</span><span className="font-bold text-gray-800">{scores.sub3_1 || 0} / 2</span></div>
-                <div className="flex justify-between"><span>3.2 Patents Granted</span><span className="font-bold text-gray-800">{scores.sub3_2 || 0} / 6</span></div>
-                <div className="flex justify-between"><span>3.3 Transfer of Technology</span><span className="font-bold text-gray-800">{scores.sub3_3 || 0} / 3</span></div>
-                <div className="flex justify-between"><span>3.4 Prototypes</span><span className="font-bold text-gray-800">{scores.sub3_4 || 0} / 2</span></div>
+                <div className="flex justify-between"><span>3.1 Patents Published</span><span className="font-bold text-gray-800">{scores.sub3_1 || 0} / {isArch ? 1 : 2}</span></div>
+                <div className="flex justify-between"><span>3.2 Patents Granted</span><span className="font-bold text-gray-800">{scores.sub3_2 || 0} / {isArch ? 3 : 6}</span></div>
+                <div className="flex justify-between"><span>3.3 Transfer of Technology</span><span className="font-bold text-gray-800">{scores.sub3_3 || 0} / {isArch ? 2 : 3}</span></div>
+                <div className="flex justify-between"><span>3.4 Prototypes</span><span className="font-bold text-gray-800">{scores.sub3_4 || 0} / {isArch ? 3 : 2}</span></div>
                 <div className="flex justify-between"><span>3.5 Hackathons Mentoring</span><span className="font-bold text-gray-800">{scores.sub3_5 || 0} / 2</span></div>
+                {isArch && <div className="flex justify-between"><span>3.6 Design Patents & Registered Designs</span><span className="font-bold text-gray-800">{scores.sub3_6 || 0} / 4</span></div>}
               </div>
             )}
           </div>
@@ -6704,11 +6718,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             {activeSection === "V" && (
               <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>5.1 Int. Engagement</span><span className="font-bold text-gray-800">{scores.sub5_1 || 0} / 2</span></div>
-                <div className="flex justify-between"><span>5.2 Visiting Abroad</span><span className="font-bold text-gray-800">{scores.sub5_2 || 0} / 4</span></div>
-                <div className="flex justify-between"><span>5.3 Hosted Faculty</span><span className="font-bold text-gray-800">{scores.sub5_3 || 0} / 2</span></div>
+                <div className="flex justify-between"><span>5.1 Int. Engagement</span><span className="font-bold text-gray-800">{scores.sub5_1 || 0} / {isArch ? 1 : 2}</span></div>
+                <div className="flex justify-between"><span>5.2 Visiting Abroad</span><span className="font-bold text-gray-800">{scores.sub5_2 || 0} / {isArch ? 2 : 4}</span></div>
+                <div className="flex justify-between"><span>5.3 Hosted Faculty</span><span className="font-bold text-gray-800">{scores.sub5_3 || 0} / {isArch ? 1 : 2}</span></div>
                 <div className="flex justify-between"><span>5.4 QS Survey</span><span className="font-bold text-gray-800">{scores.sub5_4 || 0} / 1</span></div>
                 <div className="flex justify-between"><span>5.5 NIRF Survey</span><span className="font-bold text-gray-800">{scores.sub5_5 || 0} / 1</span></div>
+                {isArch && <div className="flex justify-between"><span>5.6 International Design Studio / Workshops</span><span className="font-bold text-gray-800">{scores.sub5_6 || 0} / 4</span></div>}
               </div>
             )}
           </div>
@@ -6764,9 +6779,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             {activeSection === "VIII" && (
               <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>8.1 Project Publications</span><span className="font-bold text-gray-800">{scores.sub8_1 || 0} / 2</span></div>
+                <div className="flex justify-between"><span>8.1 Project Publications</span><span className="font-bold text-gray-800">{scores.sub8_1 || 0} / {isArch ? 1 : 2}</span></div>
                 <div className="flex justify-between"><span>8.2 Hackathon Mentoring</span><span className="font-bold text-gray-800">{scores.sub8_2 || 0} / 2</span></div>
                 <div className="flex justify-between"><span>8.3 Startup Support</span><span className="font-bold text-gray-800">{scores.sub8_3 || 0} / 1</span></div>
+                {isArch && <div className="flex justify-between"><span>8.4 Student Exhibitions / Competitions Mentored</span><span className="font-bold text-gray-800">{scores.sub8_4 || 0} / 1</span></div>}
               </div>
             )}
           </div>
