@@ -159,7 +159,9 @@ const AppraisalSchema = new mongoose.Schema({
     certifications: { type: Array, default: [] },
     studentFeedback: { type: Array, default: [] },
     resultAnalysis: { type: Array, default: [] },
-    coAttainment: { type: Array, default: [] }
+    coAttainment: { type: Array, default: [] },
+    studioPedagogy: { type: Array, default: [] },
+    educationalTours: { type: Array, default: [] }
   },
   section2Data: {
     journalPapers: { type: Array, default: [] },
@@ -169,14 +171,16 @@ const AppraisalSchema = new mongoose.Schema({
     conferencePapers: { type: Array, default: [] },
     researchCollaborations: { type: Array, default: [] },
     phdRegistered: { type: Array, default: [] },
-    phdAwarded: { type: Array, default: [] }
+    phdAwarded: { type: Array, default: [] },
+    creativeScholarship: { type: Array, default: [] }
   },
   section3Data: {
     patentsPublished: { type: Array, default: [] },
     patentsGranted: { type: Array, default: [] },
     transferOfTechnology: { type: Array, default: [] },
     prototypesDeveloped: { type: Array, default: [] },
-    hackathonPrizes: { type: Array, default: [] }
+    hackathonPrizes: { type: Array, default: [] },
+    designPatents: { type: Array, default: [] }
   },
   section4Data: {
     researchProjects: { type: Array, default: [] },
@@ -187,7 +191,8 @@ const AppraisalSchema = new mongoose.Schema({
     visitingPositions: { type: Array, default: [] },
     foreignFaculty: { type: Array, default: [] },
     reputationSurvey: { type: Array, default: [] },
-    nirfSurvey: { type: Array, default: [] }
+    nirfSurvey: { type: Array, default: [] },
+    internationalDesignStudio: { type: Array, default: [] }
   },
   section6Data: {
     fdpAttended: { type: Array, default: [] },
@@ -206,14 +211,15 @@ const AppraisalSchema = new mongoose.Schema({
   section8Data: {
     projectPublications: { type: Array, default: [] },
     hackathonMentoring: { type: Array, default: [] },
-    startupSupport: { type: Array, default: [] }
+    startupSupport: { type: Array, default: [] },
+    studentExhibitions: { type: Array, default: [] }
   },
   section9Data: {
     deptActivities: { type: Array, default: [] },
     collegeActivities: { type: Array, default: [] },
     adminResponsibilities: { type: Array, default: [] }
   }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 // Prevent a faculty member from submitting twice for the same academic year and department.
 AppraisalSchema.index({ email: 1, timeline: 1, department: 1 }, { unique: true });

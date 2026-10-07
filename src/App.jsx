@@ -304,22 +304,48 @@ function flattenAppraisalRecord(record) {
 }
 
 function hasSectionEntries(sectionData) {
-  return (
-    (sectionData.coursesHandled || []).length > 0 ||
-    (sectionData.courseFiles || []).length > 0 ||
-    (sectionData.coursesDesigned || []).length > 0 ||
-    (sectionData.valueAdded || []).length > 0 ||
-    (sectionData.innovativeMethods || []).length > 0 ||
-    (sectionData.academicCollaborations || []).length > 0 ||
-    (sectionData.certifications || []).length > 0 ||
-    (sectionData.studentFeedback || []).length > 0 ||
-    (sectionData.resultAnalysis || []).length > 0 ||
-    (sectionData.coAttainment || []).length > 0 ||
+  if (!sectionData || typeof sectionData !== 'object') return false;
+
+  const arrayKeys = [
+    'coursesHandled', 'courseFiles', 'coursesDesigned', 'valueAdded', 'innovativeMethods',
+    'academicCollaborations', 'certifications', 'studentFeedback', 'resultAnalysis', 'coAttainment',
+    'journalPapers', 'bookPublications', 'conferencePapers', 'researchCollaborations',
+    'phdRegistered', 'phdAwarded', 'patentsPublished', 'patentsGranted', 'transferOfTechnology',
+    'prototypesDeveloped', 'hackathonPrizes', 'researchProjects', 'consultancyProjects',
+    'internationalEngagement', 'visitingPositions', 'foreignFaculty', 'reputationSurvey',
+    'nirfSurvey', 'fdpAttended', 'programsOrganized', 'resourcePerson', 'professionalMembership',
+    'editorialBoard', 'moocDeveloped', 'partialDelivery', 'industrialVisits', 'facultyInternships',
+    'employerEngagement', 'projectPublications', 'hackathonMentoring', 'startupSupport',
+    'deptActivities', 'collegeActivities', 'adminResponsibilities',
+    // Architecture Specific Subsections (TSEDA)
+    'studioPedagogy', 'educationalTours', 'creativeScholarship', 'designPatents',
+    'internationalDesignStudio', 'studentExhibitions'
+  ];
+
+  for (const key of arrayKeys) {
+    const arr = sectionData[key];
+    if (Array.isArray(arr) && arr.some(isMeaningfullyFilledRow)) {
+      return true;
+    }
+  }
+
+  if (
     Boolean(sectionData.mentoring?.menteeCount?.toString().trim()) ||
     Boolean(sectionData.mentoring?.batch?.toString().trim()) ||
     Boolean(sectionData.mentoring?.description?.toString().trim()) ||
     Boolean(sectionData.mentoring?.evidenceLink?.toString().trim())
-  );
+  ) {
+    return true;
+  }
+
+  if (
+    Boolean(sectionData.citationsReceived?.totalCount?.toString().trim()) ||
+    Boolean(sectionData.q1Citations?.totalCount?.toString().trim())
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function buildTimelineState() {
@@ -2758,7 +2784,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const draftUserKey = useMemo(() => {
     const baseKey = (user?.personalEmail || user?.email || '').toLowerCase().trim();
     if (!baseKey) return '';
-    if (isMasterUser && masterAppraisalMode === 'ARCH') {
+    if ((isMasterUser && masterAppraisalMode === 'ARCH') || (user?.department || '').toUpperCase() === 'ARCH') {
       return `${baseKey}_arch`;
     }
     return baseKey;
