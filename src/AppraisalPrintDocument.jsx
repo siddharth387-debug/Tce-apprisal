@@ -596,19 +596,27 @@ export default function AppraisalPrintDocument({
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.professionalMembership, '6.4')}
         {renderTable('6.5 Designation in Professional Body / Editorial Board', [
-          { key: 'journalName', label: 'Journal / Body' },
-          { key: 'role', label: 'Role' },
-          { key: 'year', label: 'Year' },
+          { key: 'bodyName', altKey: 'journalName', label: 'Journal / Body' },
+          { key: 'position', altKey: 'role', label: 'Position / Role' },
+          { key: 'period', altKey: 'year', label: 'Period / Dates' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
-        ], sectionData.editorialBoard, '6.5')}
+        ], (sectionData.editorialBoard || []).map(r => ({
+          ...r,
+          period: r.period || (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || r.year || '')))
+        })), '6.5')}
         {renderTable('6.6 MOOC Content Developed', [
           { key: 'courseName', label: 'Course Code & Name' },
-          { key: 'courseId', label: 'Course ID / Staff ID / Roll No' },
+          { key: 'courseId', label: 'Course ID / MOOC Portal ID' },
           { key: 'weeks', label: 'Weeks' },
           { key: 'coFacultyCount', label: 'Modules / Co-Faculty' },
-          { key: 'takersCount', label: 'Learners' },
+          { key: 'internalStudents', label: 'No. of Internal Students' },
+          { key: 'externalStudents', label: 'No. of External Students' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
-        ], sectionData.moocDeveloped, '6.6')}
+        ], (sectionData.moocDeveloped || []).map(r => ({
+          ...r,
+          internalStudents: r.internalStudents !== undefined && r.internalStudents !== '' ? r.internalStudents : (r.takersCount ? r.takersCount : ''),
+          externalStudents: r.externalStudents !== undefined && r.externalStudents !== '' ? r.externalStudents : ''
+        })), '6.6')}
       </div>
 
       {/* ── Section VII: Industry Interaction & Internship ─────────────────── */}

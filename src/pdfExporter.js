@@ -561,8 +561,38 @@ export const exportAppraisalToPDF = ({
   renderSectionTable('6.2 Programs Organized', [{ key: 'programName', label: 'Program Name' }, { key: 'days', label: 'Days' }, { key: 'dateRange', label: 'Dates' }, { key: 'role', label: 'Role' }, { key: 'participants', label: 'Participants' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.programsOrganized, '6.2');
   renderSectionTable('6.3 Resource Person / Keynote Speaker', [{ key: 'eventName', label: 'Event' }, { key: 'level', label: 'Level' }, { key: 'topic', label: 'Topic' }, { key: 'date', label: 'Date' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.resourcePerson, '6.3');
   renderSectionTable('6.4 Professional Memberships', [{ key: 'societyName', label: 'Society' }, { key: 'membershipType', altKey: 'membershipGrade', label: 'Grade / Type' }, { key: 'status', label: 'Status' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.professionalMembership, '6.4');
-  renderSectionTable('6.5 Designation in Professional Body / Editorial Board', [{ key: 'bodyName', altKey: 'journalName', label: 'Journal / Body' }, { key: 'position', altKey: 'role', label: 'Role / Position' }, { key: 'period', altKey: 'year', label: 'Year / Period' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.editorialBoard, '6.5');
-  renderSectionTable('6.6 MOOC Content Developed', [{ key: 'courseName', label: 'Course Name' }, { key: 'weeks', altKey: 'creditsOrWeeks', label: 'Weeks' }, { key: 'coFacultyCount', altKey: 'modules', label: 'Modules / Co-Faculty' }, { key: 'takersCount', altKey: 'learnersEnrolled', label: 'Learners' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.moocDeveloped, '6.6');
+  renderSectionTable(
+    '6.5 Designation in Professional Body / Editorial Board',
+    [
+      { key: 'bodyName', altKey: 'journalName', label: 'Journal / Body' },
+      { key: 'position', altKey: 'role', label: 'Role / Position' },
+      { key: 'period', altKey: 'year', label: 'Period / Year' },
+      { key: 'evidenceLink', label: 'Evidence Link' }
+    ],
+    (sectionData.editorialBoard || []).map(r => ({
+      ...r,
+      period: r.period || (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || r.year || '')))
+    })),
+    '6.5'
+  );
+  renderSectionTable(
+    '6.6 MOOC Content Developed',
+    [
+      { key: 'courseName', label: 'Course Code & Name' },
+      { key: 'courseId', label: 'Course ID' },
+      { key: 'weeks', altKey: 'creditsOrWeeks', label: 'Weeks' },
+      { key: 'coFacultyCount', altKey: 'modules', label: 'Modules / Co-Faculty' },
+      { key: 'internalStudents', label: 'Internal Students' },
+      { key: 'externalStudents', label: 'External Students' },
+      { key: 'evidenceLink', label: 'Evidence Link' }
+    ],
+    (sectionData.moocDeveloped || []).map(r => ({
+      ...r,
+      internalStudents: r.internalStudents !== undefined && r.internalStudents !== '' ? r.internalStudents : (r.takersCount ? r.takersCount : ''),
+      externalStudents: r.externalStudents !== undefined && r.externalStudents !== '' ? r.externalStudents : ''
+    })),
+    '6.6'
+  );
 
   // ── Section VII: Industry Interaction & Internship ────────────────────────
   renderSectionHeader('SECTION VII: Industry Interaction & Internship', effectiveScoreObj.section7Total, 10);

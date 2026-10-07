@@ -626,12 +626,12 @@ function canAddProfessionalMembership(rows) {
 function canAddEditorialBoard(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.bodyName && last.position && last.period && last.evidenceLink);
+  return !!(last.bodyName && last.position && (last.fromDate || last.isTillDate || last.period) && last.evidenceLink);
 }
 function canAddMoocDeveloped(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.courseName && last.weeks && last.coFacultyCount && last.takersCount && last.evidenceLink);
+  return !!(last.courseName && last.weeks && last.coFacultyCount && (last.internalStudents !== undefined || last.externalStudents !== undefined || last.takersCount) && last.evidenceLink);
 }
 function canAddPartialDelivery(rows) {
   if (rows.length === 0) return true;
@@ -1304,11 +1304,17 @@ function DynamicArraySection({
                             column.name === 'journalName' ||
                             column.name === 'proceedingName' ||
                             column.name === 'partner' ||
-                            column.name === 'researchArea'
+                            column.name === 'researchArea' ||
+                            column.name === 'bodyName' ||
+                            column.name === 'courseName'
                             ? 'flex-1 min-w-[180px]'
-                            : isTimelineCol
-                              ? 'min-w-[140px] max-w-[185px] flex-1'
-                              : ''
+                            : column.name === 'internalStudents' || column.name === 'externalStudents'
+                              ? 'min-w-[150px] flex-1'
+                              : column.name === 'fromDate' || column.name === 'toDate' || column.name === 'isTillDate'
+                                ? 'min-w-[125px]'
+                                : isTimelineCol
+                                  ? 'min-w-[140px] max-w-[185px] flex-1'
+                                  : ''
                       }`}
                     >
                       {isTimelineCol ? (
@@ -1322,6 +1328,30 @@ function DynamicArraySection({
                             placeholder={column.placeholder || column.label || 'Select Period'}
                             allowClear={true}
                           />
+                          {getFieldErrorText(row, column.name) ? (
+                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                              {getFieldErrorText(row, column.name)}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : column.type === 'checkbox' ? (
+                        <>
+                          <label className="flex items-center gap-1.5 h-7 px-2 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(row[column.name])}
+                              disabled={disabled}
+                              onChange={(event) => {
+                                const isChecked = event.target.checked;
+                                onChange(row.id, column.name, isChecked);
+                                if (isChecked && column.name === 'isTillDate') {
+                                  onChange(row.id, 'toDate', '');
+                                }
+                              }}
+                              className="w-3.5 h-3.5 accent-[#4A1519] rounded cursor-pointer"
+                            />
+                            <span className="truncate">{column.label}</span>
+                          </label>
                           {getFieldErrorText(row, column.name) ? (
                             <span className="mt-0.5 block text-[10px] text-rose-600">
                               {getFieldErrorText(row, column.name)}
@@ -1373,12 +1403,12 @@ function DynamicArraySection({
                           <input
                             type={column.type || 'text'}
                             {...(column.type === 'date' ? { min: '1990-01-01', max: '2035-12-31' } : {})}
-                            value={row[column.name]}
+                            value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
                             onChange={(event) =>
                               onChange(row.id, column.name, event.target.value)
                             }
-                            disabled={disabled}
-                            placeholder={column.placeholder || column.label}
+                            disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
+                            placeholder={column.name === 'toDate' && Boolean(row.isTillDate) ? 'Present / Ongoing' : (column.placeholder || column.label)}
                             list={
                               column.name === 'courseCode'
                                 ? 'autofill-course-codes'
@@ -3430,7 +3460,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const editorialBoardColumns = [
     { name: "bodyName", label: "Name of Body", type: "text", placeholder: "Enter Name of Journal / Editorial Body" },
     { name: "position", label: "Position Held", type: "text", placeholder: "Enter Position Held" },
-    { name: "period", label: "Period", type: "timeline", placeholder: "Select Period" },
+    { name: "fromDate", label: "From Date", type: "date" },
+    { name: "toDate", label: "To Date", type: "date" },
+    { name: "isTillDate", label: "Till Date / Present", type: "checkbox" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const moocDevelopedColumns = [
@@ -3438,7 +3470,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "courseId", label: "Course ID / MOOC Portal ID", type: "text", placeholder: "Enter Course ID / MOOC Portal ID" },
     { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "Enter Duration in Weeks or Credits" },
     { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "Enter Number of Modules / Co-Faculty" },
-    { name: "takersCount", label: "Number of Learners / Takers (Internal, External)", type: "text", placeholder: "Enter Number of Learners / Takers" },
+    { name: "internalStudents", label: "No. of Internal Students", type: "number", placeholder: "No. of Internal Students" },
+    { name: "externalStudents", label: "No. of External Students", type: "number", placeholder: "No. of External Students" },
     { name: "evidenceLink", label: "Proof / Evidence Link (Syllabus, Video or Platform URL)", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
 
@@ -3956,8 +3989,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         programsOrganized: cleanSectionArray(formData.programsOrganized),
         resourcePerson: cleanSectionArray(formData.resourcePerson),
         professionalMembership: cleanSectionArray(formData.professionalMembership),
-        editorialBoard: cleanSectionArray(formData.editorialBoard),
-        moocDeveloped: cleanSectionArray(formData.moocDeveloped),
+        editorialBoard: cleanSectionArray(formData.editorialBoard).map(r => ({
+          ...r,
+          period: r.period || (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
+        })),
+        moocDeveloped: cleanSectionArray(formData.moocDeveloped).map(r => ({
+          ...r,
+          takersCount: r.takersCount || `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
+        })),
       };
 
       const cleanedSection7Data = {
@@ -6304,7 +6343,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.editorialBoard || []}
                 canAdd={canAddEditorialBoard(currentSectionData.editorialBoard || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("editorialBoard", { bodyName: "", position: "", period: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("editorialBoard", { bodyName: "", position: "", fromDate: "", toDate: "", isTillDate: false, evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("editorialBoard", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("editorialBoard", rowId)}
                 columns={editorialBoardColumns}
@@ -6317,7 +6356,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.moocDeveloped || []}
                 canAdd={canAddMoocDeveloped(currentSectionData.moocDeveloped || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("moocDeveloped", { courseName: "", courseId: "", weeks: "", coFacultyCount: "", takersCount: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("moocDeveloped", { courseName: "", courseId: "", weeks: "", coFacultyCount: "", internalStudents: "", externalStudents: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("moocDeveloped", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("moocDeveloped", rowId)}
                 columns={moocDevelopedColumns}
