@@ -1562,9 +1562,6 @@ function LandingPage({ googleClientId, onLogin }) {
               <h2 className="max-w-xl text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl text-white tracking-tight">
                 Faculty Performance Evaluation Portal
               </h2>
-              <p className="mt-4 text-sm sm:text-base font-normal leading-relaxed text-white/80 max-w-lg">
-                Official academic appraisal and career advancement workspace for faculty members of Thiagarajar College of Engineering.
-              </p>
             </div>
           </div>
 
