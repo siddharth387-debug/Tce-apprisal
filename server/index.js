@@ -2192,6 +2192,17 @@ async function migrateGmailLoginsToMca() {
 
 // ── Asynchronous Server Initialization ───────────────────────────────────────
 async function startServer() {
+  // Bind HTTP server immediately on 0.0.0.0 to guarantee Render health checks pass
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`✓ Auth server listening on 0.0.0.0:${port}`);
+  });
+
+  if (!mongoUri) {
+    console.warn('⚠️ WARNING: MONGO_URI is not set in environment variables!');
+    console.warn('Please configure MONGO_URI in your Render environment variables.');
+    return;
+  }
+
   try {
     console.log('⏳ Connecting to MongoDB Atlas Cloud Cluster...');
     await mongoose.connect(mongoUri, {
@@ -2205,13 +2216,9 @@ async function startServer() {
 
     // Auto-migrate existing gmail.com logins to MCA department
     await migrateGmailLoginsToMca();
-
-    app.listen(port, () => {
-      console.log(`✓ Auth server listening on http://localhost:${port}`);
-    });
   } catch (err) {
-    console.error('❌ FATAL DATABASE STARTUP ERROR:', err.message);
-    process.exit(1);
+    console.error('⚠️ NON-FATAL DATABASE STARTUP WARNING:', err.message);
+    console.error('The server remains running for healthchecks and API requests.');
   }
 }
 

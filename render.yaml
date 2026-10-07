@@ -5,6 +5,7 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: node server/index.js
+    healthCheckPath: /api/health
     envVars:
       - key: GOOGLE_CLIENT_ID
         sync: false
