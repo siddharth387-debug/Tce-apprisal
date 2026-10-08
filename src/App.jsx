@@ -282,7 +282,8 @@ function mergeSectionState(baseState, overlayState) {
   Object.keys(overlayState).forEach((key) => {
     const val = overlayState[key];
     if (Array.isArray(val)) {
-      if (val.length > 0) {
+      const filledOverlayRows = val.filter(isMeaningfullyFilledRow);
+      if (filledOverlayRows.length > 0) {
         merged[key] = val;
       }
     } else if (val && typeof val === 'object') {
@@ -2706,16 +2707,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 }
 
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
-  const isSuperAdmin = user.email === 'siddharthk@student.tce.edu' || 
-                       user.email === 'siddharth@student.tce.edu' ||
-                       user.email === 'registrar@tce.edu' || 
-                       user.email === 'principal@tce.edu' || 
-                       user.email === 'iqac@tce.edu' ||
-                       user.email?.includes('iqac') ||
-                       user.role === 'Registrar' || 
-                       user.role === 'Principal' ||
-                       user.role === 'IQAC' ||
-                       user.role === 'Admin';
+  const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || 
+                       (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu';
+  const isSuperAdmin = isMasterUser;
 
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
     if (user.role === 'Principal') return 'Principal';
@@ -2727,18 +2721,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const effectiveRole = isSuperAdmin ? adminActiveRole : user.role;
   const isPrincipal = effectiveRole === 'Principal';
   const isRegistrar = effectiveRole === 'Registrar';
-  const [iqacWorkspaceMode, setIqacWorkspaceMode] = useState('iqac_audit'); // 'iqac_audit' | 'hod_inbox' | 'self_appraisal'
   const [hodWorkspaceMode, setHodWorkspaceMode] = useState('hod_inbox'); // 'hod_inbox' | 'self_appraisal'
   
-  const isIQAC = (effectiveRole === 'IQAC' || user?.role === 'IQAC') && iqacWorkspaceMode === 'iqac_audit';
-  const isHod = (effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox') || ((effectiveRole === 'IQAC' || user?.role === 'IQAC') && iqacWorkspaceMode === 'hod_inbox');
-  const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal || isIQAC || effectiveRole === 'IQAC';
+  const isIQAC = effectiveRole === 'IQAC' || user?.role === 'IQAC';
+  const isHod = effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox';
+  const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal;
   
   const [isLeadershipModalOpen, setIsLeadershipModalOpen] = useState(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
 
-  const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu';
   const [masterAppraisalMode, setMasterAppraisalMode] = useState('GENERAL'); // 'GENERAL' | 'ARCH'
 
   const activeDept = isMasterUser
@@ -2865,7 +2857,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   }, [workspaceByTimeline, onWorkspaceSave]);
 
   const draftUserKey = useMemo(() => {
-    const baseEmail = (user?.personalEmail || user?.email || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const baseEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
     if (!baseEmail) return '';
     const deptKey = (activeDept || user?.department || 'CSE').toUpperCase().trim();
     return `${baseEmail}_${deptKey}`;
@@ -2891,7 +2883,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (!currentDraft || !hasSectionEntries(currentDraft)) return;
 
     try {
-      const submissionEmail = (user?.personalEmail || user?.email || '').toLowerCase().trim();
+      const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
       const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || 'CSE');
       const effScores = computeEffectiveScores(currentDraft, activeTimelineRecord?.hodSubsectionScores || {}, activeDept);
 
@@ -4133,7 +4125,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const handleSaveAndSubmit = async () => {
     const activeToken = getStoredAuthContext().token;
-    const submissionEmail = (user?.personalEmail || user?.email || '').toLowerCase().trim();
+    const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
     
     // Emergency Backup Lambda: Instantly locks form state to localStorage
     const backupCurrentDraft = () => {
