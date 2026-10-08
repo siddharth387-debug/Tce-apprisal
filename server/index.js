@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 import XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { computeEffectiveScores } from '../src/scoringEngine.js';
+import { scheduleDailyAutoBackup, runDatabaseBackup } from './autoBackup.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2222,6 +2223,9 @@ async function startServer() {
 
     // Auto-migrate existing gmail.com logins to MCA department
     await migrateGmailLoginsToMca();
+
+    // Start automated daily database backup background schedule
+    scheduleDailyAutoBackup();
   } catch (err) {
     console.error('⚠️ NON-FATAL DATABASE STARTUP WARNING:', err.message);
     console.error('The server remains running for healthchecks and API requests.');
