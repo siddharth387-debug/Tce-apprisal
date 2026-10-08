@@ -142,6 +142,11 @@ function isMeaningfullyFilledRow(row) {
   });
 }
 
+function cleanSectionArray(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.filter(isMeaningfullyFilledRow);
+}
+
 function createRowId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -149,7 +154,7 @@ function createRowId() {
 // Section I data vectors stay completely empty until the user starts adding rows.
 function createEmptySectionState() {
   return {
-    appraisalStatus: 'Pending',
+    appraisalStatus: 'Draft',
     submittedAt: '',
     hodRemarks: '',
     coursesHandled: [],
@@ -4144,10 +4149,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       setSubmitSuccess('');
 
       const formData = currentSectionData;
-      const cleanSectionArray = (arr) => {
-        if (!Array.isArray(arr)) return [];
-        return arr.filter(isMeaningfullyFilledRow);
-      };
 
       const cleanedSection1Data = {
         ...formData,
