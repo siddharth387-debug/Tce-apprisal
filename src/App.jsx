@@ -275,6 +275,76 @@ const CRITERIA_SECTION_MAP = [
   { key: '9.3', dataKey: 'adminResponsibilities', label: '9.3 Administrative Responsibilities', fields: ['role', 'evidenceLink'] },
 ];
 
+function normalizeSection6Data(sec6 = {}) {
+  const editorialBoard = (sec6.editorialBoard || []).map((r) => {
+    let fromDate = r.fromDate || '';
+    let toDate = r.toDate || '';
+    let isTillDate = Boolean(r.isTillDate);
+
+    if (!fromDate && !toDate && !isTillDate && r.period) {
+      const p = String(r.period).trim();
+      if (p.toLowerCase().includes('present')) {
+        isTillDate = true;
+        fromDate = p.split(/\s+to\s+/i)[0] || '';
+      } else if (p.includes(' to ')) {
+        const parts = p.split(/\s+to\s+/i);
+        fromDate = parts[0] || '';
+        toDate = parts[1] || '';
+      } else {
+        fromDate = p;
+      }
+    }
+
+    const computedPeriod = (fromDate || toDate || isTillDate)
+      ? (isTillDate ? `${fromDate} to Present` : (fromDate && toDate ? `${fromDate} to ${toDate}` : fromDate))
+      : (r.period || '');
+
+    return {
+      ...r,
+      fromDate,
+      toDate,
+      isTillDate,
+      period: computedPeriod,
+    };
+  });
+
+  const moocDeveloped = (sec6.moocDeveloped || []).map((r) => {
+    let internalStudents = r.internalStudents ?? '';
+    let externalStudents = r.externalStudents ?? '';
+
+    if ((internalStudents === '' || internalStudents === undefined) && (externalStudents === '' || externalStudents === undefined) && r.takersCount) {
+      const tc = String(r.takersCount);
+      const intMatch = tc.match(/Internal:\s*(\d+)/i);
+      const extMatch = tc.match(/External:\s*(\d+)/i);
+
+      if (intMatch || extMatch) {
+        internalStudents = intMatch ? intMatch[1] : '';
+        externalStudents = extMatch ? extMatch[1] : '';
+      } else if (/^\d+$/.test(tc.trim())) {
+        internalStudents = tc.trim();
+        externalStudents = '0';
+      }
+    }
+
+    const computedTakersCount = (internalStudents !== '' || externalStudents !== '')
+      ? `Internal: ${internalStudents || 0}, External: ${externalStudents || 0}`
+      : (r.takersCount || '');
+
+    return {
+      ...r,
+      internalStudents,
+      externalStudents,
+      takersCount: computedTakersCount,
+    };
+  });
+
+  return {
+    ...sec6,
+    editorialBoard,
+    moocDeveloped,
+  };
+}
+
 function flattenAppraisalRecord(record) {
   if (!record) return createEmptySectionState();
   return {
@@ -284,7 +354,7 @@ function flattenAppraisalRecord(record) {
     ...(record.section3Data || {}),
     ...(record.section4Data || {}),
     ...(record.section5Data || {}),
-    ...(record.section6Data || {}),
+    ...(normalizeSection6Data(record.section6Data || {})),
     ...(record.section7Data || {}),
     ...(record.section8Data || {}),
     ...(record.section9Data || {}),
@@ -1883,7 +1953,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   ];
   const isSection5Populated = section5Arrays.some(s => s.rows.length > 0);
 
-  const sec6 = appraisal.section6Data || {};
+  const sec6 = normalizeSection6Data(appraisal.section6Data || {});
   const sec7 = appraisal.section7Data || {};
   const sec8 = appraisal.section8Data || {};
   const sec9 = appraisal.section9Data || {};
@@ -4000,11 +4070,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         professionalMembership: cleanSectionArray(formData.professionalMembership),
         editorialBoard: cleanSectionArray(formData.editorialBoard).map(r => ({
           ...r,
-          period: r.period || (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
+          period: (r.fromDate || r.toDate || r.isTillDate)
+            ? (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
+            : (r.period || '')
         })),
         moocDeveloped: cleanSectionArray(formData.moocDeveloped).map(r => ({
           ...r,
-          takersCount: r.takersCount || `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
+          takersCount: ((r.internalStudents !== undefined && r.internalStudents !== '') || (r.externalStudents !== undefined && r.externalStudents !== ''))
+            ? `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
+            : (r.takersCount || '')
         })),
       };
 
