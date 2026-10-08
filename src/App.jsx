@@ -4116,8 +4116,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     } else {
       updateCurrentTimeline((current) => ({
         ...current,
-        submittedAt: current.submittedAt || new Date().toISOString(),
-        appraisalStatus: current.appraisalStatus || 'Pending',
+        submittedAt: current.submittedAt || null,
+        appraisalStatus: current.appraisalStatus || 'Draft',
       }));
     }
     setActiveView('section1');
@@ -4883,25 +4883,34 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         )}
 
-        {!isReviewMode && (
-          <div className="mt-4 flex min-h-20 items-center justify-between rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
-            <div>
-              <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
-              <p className="text-[11px] text-slate-500">
-                {activeTimelineRecord
-                  ? `Submission Status: ${activeTimelineRecord.appraisalStatus || 'Pending'} (${activeTimelineRecord.convertedScore || 0} / 200)`
-                  : 'No active submission for this academic year yet. Click Submit Form to edit your appraisal.'}
-              </p>
+        {!isReviewMode && (() => {
+          const isSubmitted = activeTimelineRecord && ['PENDING', 'APPROVED', 'RATIFIED', 'SUBMITTED', 'HOD APPROVED'].includes((activeTimelineRecord.appraisalStatus || '').toUpperCase().trim());
+          return (
+            <div className="mt-4 flex min-h-20 items-center justify-between rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
+              <div>
+                <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
+                <p className="text-[11px] text-slate-500">
+                  {isSubmitted
+                    ? `Submission Status: ${activeTimelineRecord.appraisalStatus || 'Submitted'} (${activeTimelineRecord.convertedScore || 0} / 200 Marks)`
+                    : (activeTimelineRecord
+                        ? `Draft Status: In-Progress Draft (Auto-Saved to Cloud) | ${activeTimelineRecord.convertedScore || 0} / 200 Marks`
+                        : 'Draft Status: Not Started | Click button to open self-appraisal sections.')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleProceedToSectionOne}
+                className={`text-xs py-1.5 px-4 rounded-md font-bold text-white shadow-sm transition flex items-center gap-1.5 ${
+                  isSubmitted
+                    ? 'bg-emerald-700 hover:bg-emerald-800'
+                    : 'bg-[#4A1519] hover:bg-[#5a1c22]'
+                }`}
+              >
+                {isSubmitted ? '👁️ View Submitted Appraisal' : '✏️ Continue / Edit Appraisal'}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={handleProceedToSectionOne}
-              className="text-xs py-1.5 px-4 bg-[#4A1519] rounded-md font-bold text-white shadow-sm hover:bg-[#5a1c22] transition"
-            >
-              {activeTimelineRecord ? 'Edit / View Form' : 'Submit Form'}
-            </button>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {isReviewMode ? (
