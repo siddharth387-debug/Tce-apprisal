@@ -896,6 +896,13 @@ function canAddStudentExhibitions(rows) {
 }
 
 function computeSectionScores(sectionData = {}, role) {
+  const isArchMode = (typeof role === 'string' && role.toUpperCase() === 'ARCH') ||
+    (sectionData.department || '').toUpperCase() === 'ARCH';
+  const targetDept = isArchMode ? 'ARCH' : (sectionData.department || 'CSE');
+  return computeEffectiveScores(sectionData, sectionData.hodSubsectionScores || {}, targetDept);
+}
+
+function unusedComputeSectionScores(sectionData = {}, role) {
   const safeData = sectionData || {};
   const validCoursesHandledRows = (safeData.coursesHandled || []).filter(
     (row) =>
@@ -4595,7 +4602,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { label: '1.3 Course Design', value: scores.coursesDesigned ?? scores.sub1_3 ?? 0, max: 5 },
     { label: '1.4 Value-Added', value: scores.valueAdded ?? scores.sub1_4 ?? 0, max: 4 },
     { label: '1.5.1 Innovative Teaching Methods', value: scores.sub1_5_1 ?? scores.sub1_5 ?? 0, max: 5 },
-    { label: '1.5.2 Studio Pedagogy Innovations', value: scores.sub1_5_2 ?? 0, max: 3 },
+    { label: '1.5.2 Studio Based Teaching and Design Education', value: scores.sub1_5_2 ?? 0, max: 3 },
     { label: '1.6 Educational Tours & Case Studies', value: scores.academicCollaborations ?? scores.sub1_6 ?? 0, max: 4 },
     { label: '1.7 Mentoring System', value: scores.mentoring ?? scores.sub1_7 ?? 0, max: 2 },
     { label: '1.8 NPTEL Certifications', value: scores.certifications ?? scores.sub1_8 ?? 0, max: 4 },
@@ -5740,7 +5747,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             />
 
             <DynamicArraySection
-              title="1.5.2 Studio Based Teaching & Design Education"
+              title="1.5.2 Studio Based Teaching and Design Education"
               subtitle="(Calculation Rubric: 2 marks per studio activity | Max 3 marks)"
               subScore={scores.sub1_5_2 || 0}
               maxScore={3}
@@ -6229,12 +6236,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 columns={conferencePapersColumns}
               />
 
-              {/* 2.6 Research Collaborations */}
+              {/* 2.6 Research Collaborations / Creative Scholarship */}
               <DynamicArraySection
-                title="2.6 Research Collaborations & Projects"
-                subtitle="(Calculation Rubric: International = 3 marks | National/Industry = 2 marks | Max 5 marks)"
+                title={isArch ? "2.6 Creative Scholarship and Professional Writing" : "2.6 Research Collaborations & Projects"}
+                subtitle={isArch ? "(Calculation Rubric: Published Design Works / Creative Writings | Max 6 marks)" : "(Calculation Rubric: International = 3 marks | National/Industry = 2 marks | Max 5 marks)"}
                 subScore={scores.sub2_6 || 0}
-                maxScore={5}
+                maxScore={isArch ? 6 : 5}
                 rows={currentSectionData.researchCollaborations || []}
                 canAdd={canAddResearchCollaborations(currentSectionData.researchCollaborations || [])}
                 disabled={!isEditable}
@@ -6378,6 +6385,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 onRemove={(rowId) => removeArrayRow("hackathonPrizes", rowId)}
                 columns={hackathonPrizesColumns}
               />
+              {isArch && (
+                <DynamicArraySection
+                  title="3.6 Design Patents"
+                  subtitle="(Calculation Rubric: 2 marks per registered design / patent | Max 4 marks)"
+                  subScore={scores.sub3_6 || 0}
+                  maxScore={4}
+                  rows={currentSectionData.designPatents || []}
+                  canAdd={canAddDesignPatents(currentSectionData.designPatents || [])}
+                  disabled={!isEditable}
+                  onAdd={() => addArrayRow("designPatents", { title: "", registrationNo: "", date: "", status: "Registered", evidenceLink: "" })}
+                  onChange={(rowId, field, value) => updateArrayRow("designPatents", rowId, field, value)}
+                  onRemove={(rowId) => removeArrayRow("designPatents", rowId)}
+                  columns={designPatentsColumns}
+                />
+              )}
             </div>
         </div>
 
@@ -6501,6 +6523,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 onRemove={(rowId) => removeArrayRow("nirfSurvey", rowId)}
                 columns={nirfSurveyColumns}
               />
+              {isArch && (
+                <DynamicArraySection
+                  title="5.6 International Design Studio or other Collaborations"
+                  subtitle="(Calculation Rubric: 2 marks per international design studio/workshop | Max 4 marks)"
+                  subScore={scores.sub5_6 || 0}
+                  maxScore={4}
+                  rows={currentSectionData.internationalDesignStudio || []}
+                  canAdd={canAddInternationalDesignStudio(currentSectionData.internationalDesignStudio || [])}
+                  disabled={!isEditable}
+                  onAdd={() => addArrayRow("internationalDesignStudio", { institution: "", country: "", duration: "", evidenceLink: "" })}
+                  onChange={(rowId, field, value) => updateArrayRow("internationalDesignStudio", rowId, field, value)}
+                  onRemove={(rowId) => removeArrayRow("internationalDesignStudio", rowId)}
+                  columns={internationalDesignStudioColumns}
+                />
+              )}
             </div>
         </div>
 
@@ -6719,6 +6756,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 onRemove={(rowId) => removeArrayRow("startupSupport", rowId)}
                 columns={startupSupportColumns}
               />
+              {isArch && (
+                <DynamicArraySection
+                  title="8.4 Student Exhibitions"
+                  subtitle="(Calculation Rubric: 1 mark per exhibition/competition mentored | Max 1 mark)"
+                  subScore={scores.sub8_4 || 0}
+                  maxScore={1}
+                  rows={currentSectionData.studentExhibitions || []}
+                  canAdd={canAddStudentExhibitions(currentSectionData.studentExhibitions || [])}
+                  disabled={!isEditable}
+                  onAdd={() => addArrayRow("studentExhibitions", { eventName: "", students: "", outcome: "", dateRange: "", evidenceLink: "" })}
+                  onChange={(rowId, field, value) => updateArrayRow("studentExhibitions", rowId, field, value)}
+                  onRemove={(rowId) => removeArrayRow("studentExhibitions", rowId)}
+                  columns={studentExhibitionsColumns}
+                />
+              )}
             </div>
         </div>
 
