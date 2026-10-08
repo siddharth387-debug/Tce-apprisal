@@ -272,8 +272,31 @@ const CRITERIA_SECTION_MAP = [
   { key: '8.1', dataKey: 'projectPublications', label: '8.1 Student Project Publications', fields: ['projectTitle', 'studentNames', 'journalName', 'evidenceLink'] },
   { key: '9.1', dataKey: 'deptActivities', label: '9.1 Department Level Activities', fields: ['description', 'type', 'role', 'approval', 'evidenceLink'] },
   { key: '9.2', dataKey: 'collegeActivities', label: '9.2 College Level Activities', fields: ['description', 'category', 'role', 'approval', 'evidenceLink'] },
-  { key: '9.3', dataKey: 'adminResponsibilities', label: '9.3 Administrative Responsibilities', fields: ['role', 'evidenceLink'] },
 ];
+
+function mergeSectionState(baseState, overlayState) {
+  if (!baseState) return overlayState || createEmptySectionState();
+  if (!overlayState) return baseState || createEmptySectionState();
+
+  const merged = { ...baseState };
+  Object.keys(overlayState).forEach((key) => {
+    const val = overlayState[key];
+    if (Array.isArray(val)) {
+      if (val.length > 0) {
+        merged[key] = val;
+      }
+    } else if (val && typeof val === 'object') {
+      merged[key] = {
+        ...(merged[key] || {}),
+        ...val,
+      };
+    } else if (val !== undefined && val !== null && val !== '') {
+      merged[key] = val;
+    }
+  });
+
+  return merged;
+}
 
 function normalizeSection6Data(sec6 = {}) {
   const editorialBoard = (sec6.editorialBoard || []).map((r) => {
@@ -2835,16 +2858,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   }, [workspaceByTimeline, onWorkspaceSave]);
 
   const draftUserKey = useMemo(() => {
-    const baseKey = (user?.personalEmail || user?.email || '').toLowerCase().trim();
-    if (!baseKey) return '';
-    if ((isMasterUser && masterAppraisalMode === 'ARCH') || (user?.department || '').toUpperCase() === 'ARCH') {
-      return `${baseKey}_arch`;
+    const baseEmail = (user?.personalEmail || user?.email || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    if (!baseEmail) return '';
+    const deptKey = (activeDept || user?.department || 'CSE').toUpperCase().trim();
+    return `${baseEmail}_${deptKey}`;
+  }, [user, activeDept]);
+
+  const saveLocalDraft = useCallback((nextFormDataState) => {
+    if (draftUserKey && selectedTimeline && nextFormDataState) {
+      try {
+        localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(nextFormDataState));
+      } catch (e) {
+        console.warn("Failed to write local draft to localStorage:", e);
+      }
     }
-    return baseKey;
-  }, [user, isMasterUser, masterAppraisalMode]);
+  }, [draftUserKey, selectedTimeline]);
 
   // Helper to save in-progress draft directly to MongoDB Atlas cloud database (enabling cross-device sync from college PC to home laptop)
-  const saveDraftToCloud = useCallback(async (isAuto = false) => {
+  const saveDraftToCloud = useCallback(async (isAuto = false, isUnloading = false) => {
     if (!user || !selectedTimeline) return;
     const activeToken = getAuthToken() || user?.token;
     if (!activeToken) return;
@@ -2857,25 +2888,132 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || 'CSE');
       const effScores = computeEffectiveScores(currentDraft, activeTimelineRecord?.hodSubsectionScores || {}, activeDept);
 
+      const cleanedSection1Data = {
+        coursesHandled: cleanSectionArray(currentDraft.coursesHandled),
+        courseFiles: cleanSectionArray(currentDraft.courseFiles),
+        coursesDesigned: cleanSectionArray(currentDraft.coursesDesigned),
+        valueAdded: cleanSectionArray(currentDraft.valueAdded),
+        innovativeMethods: cleanSectionArray(currentDraft.innovativeMethods),
+        studioPedagogy: cleanSectionArray(currentDraft.studioPedagogy),
+        educationalTours: cleanSectionArray(currentDraft.educationalTours),
+        academicCollaborations: cleanSectionArray(currentDraft.academicCollaborations),
+        mentoring: currentDraft.mentoring || {},
+        certifications: cleanSectionArray(currentDraft.certifications),
+        studentFeedback: cleanSectionArray(currentDraft.studentFeedback),
+        resultAnalysis: cleanSectionArray(currentDraft.resultAnalysis),
+        coAttainment: cleanSectionArray(currentDraft.coAttainment),
+      };
+
+      const cleanedSection2Data = {
+        journalPapers: cleanSectionArray(currentDraft.journalPapers),
+        citationsReceived: currentDraft.citationsReceived || {},
+        q1Citations: currentDraft.q1Citations || {},
+        bookPublications: cleanSectionArray(currentDraft.bookPublications),
+        conferencePapers: cleanSectionArray(currentDraft.conferencePapers),
+        researchCollaborations: cleanSectionArray(currentDraft.researchCollaborations),
+        phdRegistered: cleanSectionArray(currentDraft.phdRegistered),
+        phdAwarded: cleanSectionArray(currentDraft.phdAwarded),
+        creativeScholarship: cleanSectionArray(currentDraft.creativeScholarship),
+      };
+
+      const cleanedSection3Data = {
+        patentsPublished: cleanSectionArray(currentDraft.patentsPublished),
+        patentsGranted: cleanSectionArray(currentDraft.patentsGranted),
+        transferOfTechnology: cleanSectionArray(currentDraft.transferOfTechnology),
+        prototypesDeveloped: cleanSectionArray(currentDraft.prototypesDeveloped),
+        hackathonPrizes: cleanSectionArray(currentDraft.hackathonPrizes),
+        designPatents: cleanSectionArray(currentDraft.designPatents),
+      };
+
+      const cleanedSection4Data = {
+        researchProjects: cleanSectionArray(currentDraft.researchProjects),
+        consultancyProjects: cleanSectionArray(currentDraft.consultancyProjects),
+      };
+
+      const cleanedSection5Data = {
+        internationalEngagement: cleanSectionArray(currentDraft.internationalEngagement),
+        visitingPositions: cleanSectionArray(currentDraft.visitingPositions),
+        foreignFaculty: cleanSectionArray(currentDraft.foreignFaculty),
+        reputationSurvey: cleanSectionArray(currentDraft.reputationSurvey),
+        nirfSurvey: cleanSectionArray(currentDraft.nirfSurvey),
+        internationalDesignStudio: cleanSectionArray(currentDraft.internationalDesignStudio),
+      };
+
+      const cleanedSection6Data = {
+        fdpAttended: cleanSectionArray(currentDraft.fdpAttended),
+        programsOrganized: cleanSectionArray(currentDraft.programsOrganized),
+        resourcePerson: cleanSectionArray(currentDraft.resourcePerson),
+        professionalMembership: cleanSectionArray(currentDraft.professionalMembership),
+        editorialBoard: cleanSectionArray(currentDraft.editorialBoard).map(r => ({
+          ...r,
+          period: (r.fromDate || r.toDate || r.isTillDate)
+            ? (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
+            : (r.period || '')
+        })),
+        moocDeveloped: cleanSectionArray(currentDraft.moocDeveloped).map(r => ({
+          ...r,
+          takersCount: ((r.internalStudents !== undefined && r.internalStudents !== '') || (r.externalStudents !== undefined && r.externalStudents !== ''))
+            ? `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
+            : (r.takersCount || '')
+        })),
+      };
+
+      const cleanedSection7Data = {
+        partialDelivery: cleanSectionArray(currentDraft.partialDelivery),
+        industrialVisits: cleanSectionArray(currentDraft.industrialVisits),
+        facultyInternships: cleanSectionArray(currentDraft.facultyInternships),
+        employerEngagement: cleanSectionArray(currentDraft.employerEngagement),
+      };
+
+      const cleanedSection8Data = {
+        projectPublications: cleanSectionArray(currentDraft.projectPublications),
+        hackathonMentoring: cleanSectionArray(currentDraft.hackathonMentoring),
+        startupSupport: cleanSectionArray(currentDraft.startupSupport),
+        studentExhibitions: cleanSectionArray(currentDraft.studentExhibitions),
+      };
+
+      const cleanedSection9Data = {
+        deptActivities: cleanSectionArray(currentDraft.deptActivities),
+        collegeActivities: cleanSectionArray(currentDraft.collegeActivities),
+        adminResponsibilities: cleanSectionArray(currentDraft.adminResponsibilities),
+      };
+
+      const payload = {
+        timeline: selectedTimeline,
+        facultyName: user?.name || "Faculty Member",
+        email: submissionEmail,
+        department: targetDeptToSubmit,
+        convertedScore: effScores.grandTotal || 0,
+        appraisalStatus: (activeTimelineRecord?.appraisalStatus && activeTimelineRecord.appraisalStatus !== 'Pending') ? activeTimelineRecord.appraisalStatus : 'Draft',
+        section1Data: cleanedSection1Data,
+        section2Data: cleanedSection2Data,
+        section3Data: cleanedSection3Data,
+        section4Data: cleanedSection4Data,
+        section5Data: cleanedSection5Data,
+        section6Data: cleanedSection6Data,
+        section7Data: cleanedSection7Data,
+        section8Data: cleanedSection8Data,
+        section9Data: cleanedSection9Data,
+      };
+
+      if (isUnloading) {
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(`${API_BASE_URL}/appraisals`, blob);
+        } else {
+          fetch(`${API_BASE_URL}/appraisals`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${activeToken}` },
+            body: JSON.stringify(payload),
+            keepalive: true,
+          });
+        }
+        return;
+      }
+
       await axios.post(
         `${API_BASE_URL}/appraisals`,
-        {
-          timeline: selectedTimeline,
-          facultyName: user?.name || "Faculty Member",
-          email: submissionEmail,
-          department: targetDeptToSubmit,
-          convertedScore: effScores.grandTotal || 0,
-          appraisalStatus: (activeTimelineRecord?.appraisalStatus && activeTimelineRecord.appraisalStatus !== 'Pending') ? activeTimelineRecord.appraisalStatus : 'Draft',
-          section1Data: currentDraft,
-          section2Data: currentDraft,
-          section3Data: currentDraft,
-          section4Data: currentDraft,
-          section5Data: currentDraft,
-          section6Data: currentDraft,
-          section7Data: currentDraft,
-          section8Data: currentDraft,
-          section9Data: currentDraft,
-        },
+        payload,
         {
           withCredentials: true,
           headers: { Authorization: `Bearer ${activeToken}` },
@@ -2906,38 +3044,31 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const hasLocal = localData && hasSectionEntries(localData);
     const hasCloud = cloudData && hasSectionEntries(cloudData);
 
-    if (hasCloud && !hasLocal) {
-      // Home laptop scenario: no local draft on home laptop, load cloud draft from MongoDB Atlas!
-      setWorkspaceByTimeline((prev) => ({
-        ...prev,
-        [selectedTimeline]: cloudData,
-      }));
+    let finalData = null;
+    if (hasLocal && hasCloud) {
+      finalData = mergeSectionState(cloudData, localData);
     } else if (hasLocal) {
-      setWorkspaceByTimeline((prev) => ({
-        ...prev,
-        [selectedTimeline]: localData,
-      }));
+      finalData = localData;
     } else if (hasCloud) {
-      setWorkspaceByTimeline((prev) => ({
-        ...prev,
-        [selectedTimeline]: cloudData,
-      }));
+      finalData = cloudData;
     } else {
-      setWorkspaceByTimeline((prev) => ({
-        ...prev,
-        [selectedTimeline]: createEmptySectionState(),
-      }));
+      finalData = createEmptySectionState();
     }
+
+    setWorkspaceByTimeline((prev) => ({
+      ...prev,
+      [selectedTimeline]: finalData,
+    }));
   }, [selectedTimeline, draftUserKey, activeTimelineRecord]);
 
   // Auto-save local draft to localStorage whenever workspace data for current timeline changes
   useEffect(() => {
     if (!draftUserKey || !selectedTimeline) return;
     const currentData = workspaceByTimeline[selectedTimeline];
-    if (currentData && hasSectionEntries(currentData)) {
-      localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(currentData));
+    if (currentData) {
+      saveLocalDraft(currentData);
     }
-  }, [workspaceByTimeline, draftUserKey, selectedTimeline]);
+  }, [workspaceByTimeline, draftUserKey, selectedTimeline, saveLocalDraft]);
 
   // Fully automated background cloud draft sync (runs 1.5s after user pauses typing, or immediately on tab switch / window close)
   useEffect(() => {
@@ -2946,20 +3077,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (!currentData || !hasSectionEntries(currentData)) return;
 
     const timer = setTimeout(() => {
-      saveDraftToCloud(true);
+      saveDraftToCloud(true, false);
     }, 1500);
 
-    const handleVisibilityOrUnload = () => {
-      saveDraftToCloud(true);
+    const handleUnload = () => {
+      saveDraftToCloud(true, true);
     };
 
-    window.addEventListener('visibilitychange', handleVisibilityOrUnload);
-    window.addEventListener('pagehide', handleVisibilityOrUnload);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleUnload();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handleUnload);
+    window.addEventListener('beforeunload', handleUnload);
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('visibilitychange', handleVisibilityOrUnload);
-      window.removeEventListener('pagehide', handleVisibilityOrUnload);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handleUnload);
+      window.removeEventListener('beforeunload', handleUnload);
     };
   }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, saveDraftToCloud]);
 
