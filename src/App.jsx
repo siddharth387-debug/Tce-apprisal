@@ -5487,7 +5487,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               }}
                               className="text-[10.5px] py-1 px-2.5 bg-[#4A1519] hover:bg-[#3B1013] text-white font-medium rounded shadow-xs transition-all"
                             >
-                              View
+                              {['PENDING', 'APPROVED', 'RATIFIED', 'SUBMITTED', 'HOD APPROVED'].includes((row.appraisalStatus || '').toUpperCase().trim()) ? '👁️ View Submission' : '✏️ Edit Draft'}
                             </button>
                           </div>
                         </td>
