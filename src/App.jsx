@@ -2928,9 +2928,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     return status === 'DRAFT' || status === 'NOT APPROVED' || status === 'FIX NEEDED' || status === 'REJECTED' || status === 'NOT SUBMITTED' || !status;
   }, [activeTimelineRecord, isReviewMode]);
 
-  // Workspace persistence effect (existing).
+  // Workspace persistence effect - debounced by 500ms so it never freezes the main thread on keystrokes
   React.useEffect(() => {
-    onWorkspaceSave?.(workspaceByTimeline);
+    const timer = setTimeout(() => {
+      onWorkspaceSave?.(workspaceByTimeline);
+    }, 500);
+    return () => clearTimeout(timer);
   }, [workspaceByTimeline, onWorkspaceSave]);
 
   const draftUserKey = useMemo(() => {
@@ -3109,8 +3112,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       setCloudSyncState('saved');
       setLastCloudSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
 
-      // Immediately keep activeTimelineRecord in sync with cloud
-      if (response.data && response.data.data) {
+      // Immediately keep activeTimelineRecord in sync with cloud (only on manual save to avoid typing glitch loops)
+      if (!isAuto && response.data && response.data.data) {
         const savedDoc = response.data.data;
         setAppraisals((prevAppraisals) => {
           const cleanId = String(savedDoc._id || savedDoc.id || '');
@@ -3167,9 +3170,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [isManualSaving, isSubmitting, workspaceByTimeline, selectedTimeline, saveLocalDraft, onWorkspaceSave, saveDraftToCloud]);
 
-  // Check for local or cloud draft when switching timeline years or logging back in across devices
+  const hydratedTimelinesRef = useRef(new Set());
+
+  // Check for local or cloud draft only once on timeline switch / mount (prevents typing overwrites)
   useEffect(() => {
     if (!selectedTimeline) return;
+    if (hydratedTimelinesRef.current.has(selectedTimeline)) return;
+
     const savedDraft = draftUserKey ? localStorage.getItem(`draft_${draftUserKey}_${selectedTimeline}`) : null;
     let localData = null;
     if (savedDraft) {
@@ -3184,15 +3191,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const hasLocal = localData && hasSectionEntries(localData);
     const hasCloud = Boolean(cloudData && (hasSectionEntries(cloudData) || activeTimelineRecord?._id || activeTimelineRecord?.id));
 
+    // If neither local nor cloud data is ready yet, wait until activeTimelineRecord finishes fetching
+    if (!hasLocal && !hasCloud && !activeTimelineRecord) {
+      return;
+    }
+
     let finalData = null;
     if (hasLocal && hasCloud) {
       const localTime = localData._savedAt || 0;
       const cloudTime = activeTimelineRecord?.updatedAt ? new Date(activeTimelineRecord.updatedAt).getTime() : 0;
       if (cloudTime > localTime) {
-        // Cloud has fresher edits from another device - merge local edits into cloud as base
         finalData = mergeSectionState(localData, cloudData);
       } else {
-        // Local has fresher keystrokes - merge cloud into local
         finalData = mergeSectionState(cloudData, localData);
       }
     } else if (hasLocal) {
@@ -3203,22 +3213,27 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       finalData = createEmptySectionState();
     }
 
+    hydratedTimelinesRef.current.add(selectedTimeline);
     setWorkspaceByTimeline((prev) => ({
       ...prev,
       [selectedTimeline]: finalData,
     }));
   }, [selectedTimeline, draftUserKey, activeTimelineRecord]);
 
-  // Auto-save local draft to localStorage whenever workspace data for current timeline changes
+  // Auto-save local draft to localStorage whenever workspace data changes (debounced by 350ms so typing never stutters)
   useEffect(() => {
     if (!draftUserKey || !selectedTimeline) return;
     const currentData = workspaceByTimeline[selectedTimeline];
-    if (currentData) {
+    if (!currentData) return;
+
+    const timer = setTimeout(() => {
       saveLocalDraft(currentData);
-    }
+    }, 350);
+
+    return () => clearTimeout(timer);
   }, [workspaceByTimeline, draftUserKey, selectedTimeline, saveLocalDraft]);
 
-  // Fully automated background cloud draft sync with retry on network disruption
+  // Fully automated background cloud draft sync with retry on network disruption (4s debounce so typing is uninterrupted)
   useEffect(() => {
     if (!user || !selectedTimeline || isReviewMode) return;
     const currentData = workspaceByTimeline[selectedTimeline];
@@ -3242,7 +3257,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     const timer = setTimeout(() => {
       executeSave(0);
-    }, 1500);
+    }, 4000);
 
     const handleUnload = () => {
       saveDraftToCloud(true, true);
@@ -4668,68 +4683,46 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   };
 
   const addArrayRow = (key, template) => {
-    updateCurrentTimeline((current) => {
-      const nextFormDataState = {
-        ...current,
-        [key]: [...(current[key] || []), { id: createRowId(), ...template }],
-      };
-      localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(nextFormDataState));
-      return nextFormDataState;
-    });
+    updateCurrentTimeline((current) => ({
+      ...current,
+      [key]: [...(current[key] || []), { id: createRowId(), ...template }],
+    }));
   };
 
   const updateArrayRow = (key, rowId, field, value) => {
-    updateCurrentTimeline((current) => {
-      const nextFormDataState = {
-        ...current,
-        [key]: (current[key] || []).map((row) =>
-          row.id === rowId ? { ...row, [field]: value } : row
-        ),
-      };
-      localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(nextFormDataState));
-      return nextFormDataState;
-    });
+    updateCurrentTimeline((current) => ({
+      ...current,
+      [key]: (current[key] || []).map((row) =>
+        row.id === rowId ? { ...row, [field]: value } : row
+      ),
+    }));
   };
 
   const removeArrayRow = (key, rowId) => {
-    updateCurrentTimeline((current) => {
-      const nextFormDataState = {
-        ...current,
-        [key]: (current[key] || []).filter((row) => row.id !== rowId),
-      };
-      localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(nextFormDataState));
-      return nextFormDataState;
-    });
+    updateCurrentTimeline((current) => ({
+      ...current,
+      [key]: (current[key] || []).filter((row) => row.id !== rowId),
+    }));
   };
 
   const updateMentoringField = (field, value) => {
-    updateCurrentTimeline((current) => {
-      const nextFormDataState = {
-        ...current,
-        mentoring: {
-          ...current.mentoring,
-          [field]: value,
-        },
-      };
-      localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(nextFormDataState));
-      return nextFormDataState;
-    });
+    updateCurrentTimeline((current) => ({
+      ...current,
+      mentoring: {
+        ...current.mentoring,
+        [field]: value,
+      },
+    }));
   };
 
   const updateNestedField = (parentKey, field, value) => {
-    updateCurrentTimeline((current) => {
-      const nextFormDataState = {
-        ...current,
-        [parentKey]: {
-          ...(current[parentKey] || {}),
-          [field]: value,
-        },
-      };
-      if (draftUserKey && selectedTimeline) {
-        localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(nextFormDataState));
-      }
-      return nextFormDataState;
-    });
+    updateCurrentTimeline((current) => ({
+      ...current,
+      [parentKey]: {
+        ...(current[parentKey] || {}),
+        [field]: value,
+      },
+    }));
   };
 
 
@@ -6392,18 +6385,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       value={currentSectionData.citationsReceived?.totalCount || ''}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, ''); // Allow only numbers
-                        updateCurrentTimeline((prev) => {
-                          const next = {
-                            ...prev,
-                            citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
-                              ? { ...prev.citationsReceived, totalCount: val }
-                              : { totalCount: val }
-                          };
-                          if (draftUserKey && selectedTimeline) {
-                            localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(next));
-                          }
-                          return next;
-                        });
+                        updateCurrentTimeline((prev) => ({
+                          ...prev,
+                          citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
+                            ? { ...prev.citationsReceived, totalCount: val }
+                            : { totalCount: val }
+                        }));
                       }}
                       disabled={!isEditable}
                       className="w-full max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#4A1519] bg-white text-gray-900 disabled:bg-slate-100 disabled:cursor-not-allowed"
@@ -6442,18 +6429,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       value={currentSectionData.q1Citations?.totalCount || ''}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\D/g, ''); // Allow only numbers
-                        updateCurrentTimeline((prev) => {
-                          const next = {
-                            ...prev,
-                            q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
-                              ? { ...prev.q1Citations, totalCount: val }
-                              : { totalCount: val }
-                          };
-                          if (draftUserKey && selectedTimeline) {
-                            localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(next));
-                          }
-                          return next;
-                        });
+                        updateCurrentTimeline((prev) => ({
+                          ...prev,
+                          q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
+                            ? { ...prev.q1Citations, totalCount: val }
+                            : { totalCount: val }
+                        }));
                       }}
                       disabled={!isEditable}
                       className="w-full max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#4A1519] bg-white text-gray-900 disabled:bg-slate-100 disabled:cursor-not-allowed"
