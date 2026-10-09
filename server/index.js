@@ -1217,18 +1217,9 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       }
     }
 
-    // Faculty mode check: If requestRole is explicitly FACULTY, or tokenRole is FACULTY (and not an official hod... account),
-    // then the caller is requesting their individual faculty appraisal, NOT the elevated departmental queue.
-    const isExplicitFacultyRequest = requestRole === 'FACULTY' || (tokenRole === 'FACULTY' && !requestEmail.startsWith('hod'));
-
-    // Dynamic Role Check: If user is HOD, Registrar, Principal, IQAC, or Admin, retrieve departmental/campus queue
-    const isElevated = !isExplicitFacultyRequest && (
-      requestRole === 'HOD' || 
-      requestRole === 'REGISTRAR' ||
-      requestRole === 'PRINCIPAL' ||
-      requestRole === 'IQAC' ||
-      requestRole === 'ADMIN' ||
-      tokenRole === 'HOD' ||
+    // Check if caller has legitimate elevated privileges (HOD, Registrar, Principal, IQAC, Admin)
+    const hasElevatedPrivilege = (
+      tokenRole === 'HOD' || 
       tokenRole === 'REGISTRAR' ||
       tokenRole === 'PRINCIPAL' ||
       tokenRole === 'IQAC' ||
@@ -1238,6 +1229,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       masterRecord?.role === 'Principal' ||
       masterRecord?.role === 'IQAC' ||
       masterRecord?.role === 'Admin' ||
+      (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) ||
       requestEmail === 'siddharthk@student.tce.edu' || 
       requestEmail === 'siddharth@student.tce.edu' ||
       requestEmail === 'personalsiddharth387@gmail.com' ||
@@ -1247,6 +1239,12 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       requestEmail.includes('iqac') ||
       requestEmail.startsWith('hod')
     );
+
+    // Faculty mode check: If caller explicitly requests individual faculty mode (e.g. self-appraisal), or lacks elevated privileges
+    const isExplicitFacultyRequest = requestRole === 'FACULTY' || !hasElevatedPrivilege;
+
+    // Dynamic Role Check: If user has elevated privileges and is not in explicit faculty mode, retrieve departmental/campus queue
+    const isElevated = !isExplicitFacultyRequest && hasElevatedPrivilege;
 
     let queryFilter = {};
 

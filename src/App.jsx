@@ -421,22 +421,24 @@ function normalizeSection6Data(sec6 = {}) {
 
 function flattenAppraisalRecord(record) {
   if (!record) return createEmptySectionState();
+  const rawSec = record.sectionData || {};
   return {
     ...createEmptySectionState(),
+    ...rawSec,
     ...(record.section1Data || {}),
     ...(record.section2Data || {}),
     ...(record.section3Data || {}),
     ...(record.section4Data || {}),
     ...(record.section5Data || {}),
-    ...(normalizeSection6Data(record.section6Data || {})),
+    ...(normalizeSection6Data(record.section6Data || rawSec.section6Data || {})),
     ...(record.section7Data || {}),
     ...(record.section8Data || {}),
     ...(record.section9Data || {}),
     submittedAt: record.submittedAt,
     appraisalStatus: record.appraisalStatus,
-    hodRemarks: record.hodRemarks,
-    subsectionRemarks: record.subsectionRemarks || {},
-    hodSubsectionScores: record.hodSubsectionScores || {},
+    hodRemarks: record.hodRemarks || rawSec.hodRemarks || '',
+    subsectionRemarks: record.subsectionRemarks || rawSec.subsectionRemarks || {},
+    hodSubsectionScores: record.hodSubsectionScores || rawSec.hodSubsectionScores || {},
     systemScore: record.systemScore || 0,
     iqacStatus: record.iqacStatus || 'Pending',
     iqacAuditRemarks: record.iqacAuditRemarks || '',
@@ -1815,9 +1817,62 @@ function LandingPage({ googleClientId, onLogin }) {
 function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, iqacControls, onExportPDF }) {
   const facultyName = appraisal.facultyName || appraisal.name || "Faculty Member";
   const facultyEmail = appraisal.facultyEmail || appraisal.email || "";
-  const fullData = flattenAppraisalRecord(appraisal);
-  const sec1 = appraisal.section1Data || appraisal.sectionData || fullData;
-  const sec2 = appraisal.section2Data || appraisal.sectionData || fullData;
+  const getFirstPopulatedArray = (arrayKey, ...sources) => {
+    for (const s of sources) {
+      if (Array.isArray(s?.[arrayKey]) && s[arrayKey].length > 0) {
+        return s[arrayKey];
+      }
+    }
+    return [];
+  };
+
+  const fullData = useMemo(() => {
+    const flat = flattenAppraisalRecord(appraisal);
+    const rawSec = appraisal.sectionData || {};
+    return {
+      ...createEmptySectionState(),
+      ...flat,
+      ...rawSec,
+      ...(appraisal.section1Data || {}),
+      ...(appraisal.section2Data || {}),
+      ...(appraisal.section3Data || {}),
+      ...(appraisal.section4Data || {}),
+      ...(appraisal.section5Data || {}),
+      ...(normalizeSection6Data(appraisal.section6Data || rawSec.section6Data || {})),
+      ...(appraisal.section7Data || {}),
+      ...(appraisal.section8Data || {}),
+      ...(appraisal.section9Data || {}),
+    };
+  }, [appraisal]);
+
+  const sec1 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section1Data || {}),
+    coursesHandled: getFirstPopulatedArray('coursesHandled', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    courseFiles: getFirstPopulatedArray('courseFiles', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    coursesDesigned: getFirstPopulatedArray('coursesDesigned', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    valueAdded: getFirstPopulatedArray('valueAdded', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    innovativeMethods: getFirstPopulatedArray('innovativeMethods', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    academicCollaborations: getFirstPopulatedArray('academicCollaborations', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    certifications: getFirstPopulatedArray('certifications', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    studentFeedback: getFirstPopulatedArray('studentFeedback', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    resultAnalysis: getFirstPopulatedArray('resultAnalysis', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    coAttainment: getFirstPopulatedArray('coAttainment', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    mentoring: appraisal.section1Data?.mentoring || appraisal.sectionData?.mentoring || fullData.mentoring || {},
+  }), [appraisal, fullData]);
+
+  const sec2 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section2Data || {}),
+    journalPapers: getFirstPopulatedArray('journalPapers', appraisal.section2Data, appraisal.sectionData, fullData, appraisal),
+    bookPublications: getFirstPopulatedArray('bookPublications', appraisal.section2Data, appraisal.sectionData, fullData, appraisal),
+    conferencePapers: getFirstPopulatedArray('conferencePapers', appraisal.section2Data, appraisal.sectionData, fullData, appraisal),
+    researchCollaborations: getFirstPopulatedArray('researchCollaborations', appraisal.section2Data, appraisal.sectionData, fullData, appraisal),
+    phdRegistered: getFirstPopulatedArray('phdRegistered', appraisal.section2Data, appraisal.sectionData, fullData, appraisal),
+    phdAwarded: getFirstPopulatedArray('phdAwarded', appraisal.section2Data, appraisal.sectionData, fullData, appraisal),
+    citationsReceived: appraisal.section2Data?.citationsReceived || appraisal.sectionData?.citationsReceived || fullData.citationsReceived || {},
+    q1Citations: appraisal.section2Data?.q1Citations || appraisal.sectionData?.q1Citations || fullData.q1Citations || {},
+  }), [appraisal, fullData]);
   
   const exportUserObj = {
     name: facultyName,
@@ -1834,6 +1889,16 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const [loadingAiKey, setLoadingAiKey] = useState(null);
   const [principalRemarksInput, setPrincipalRemarksInput] = useState(principalControls?.remarks || appraisal.principalRemarks || '');
   const [isEndorsing, setIsEndorsing] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const fetchAISuggestion = async (payload) => {
     try {
@@ -2042,9 +2107,69 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const isSection2Populated = section2Arrays.some(s => s.rows.length > 0) ||
     Boolean(sec2.citationsReceived?.totalCount || sec2.q1Citations?.totalCount);
 
-  const sec3 = appraisal.section3Data || {};
-  const sec4 = appraisal.section4Data || {};
-  const sec5 = appraisal.section5Data || {};
+  const sec3 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section3Data || {}),
+    patentsPublished: getFirstPopulatedArray('patentsPublished', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
+    patentsGranted: getFirstPopulatedArray('patentsGranted', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
+    transferOfTechnology: getFirstPopulatedArray('transferOfTechnology', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
+    prototypesDeveloped: getFirstPopulatedArray('prototypesDeveloped', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
+    hackathonPrizes: getFirstPopulatedArray('hackathonPrizes', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
+  }), [appraisal, fullData]);
+
+  const sec4 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section4Data || {}),
+    researchProjects: getFirstPopulatedArray('researchProjects', appraisal.section4Data, appraisal.sectionData, fullData, appraisal),
+    consultancyProjects: getFirstPopulatedArray('consultancyProjects', appraisal.section4Data, appraisal.sectionData, fullData, appraisal),
+  }), [appraisal, fullData]);
+
+  const sec5 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section5Data || {}),
+    internationalEngagement: getFirstPopulatedArray('internationalEngagement', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
+    visitingPositions: getFirstPopulatedArray('visitingPositions', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
+    foreignFaculty: getFirstPopulatedArray('foreignFaculty', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
+    reputationSurvey: getFirstPopulatedArray('reputationSurvey', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
+    nirfSurvey: getFirstPopulatedArray('nirfSurvey', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
+  }), [appraisal, fullData]);
+
+  const sec6Norm = useMemo(() => normalizeSection6Data(appraisal.section6Data || appraisal.sectionData || fullData || {}), [appraisal, fullData]);
+  const sec6 = useMemo(() => ({
+    ...fullData,
+    ...sec6Norm,
+    fdpAttended: getFirstPopulatedArray('fdpAttended', sec6Norm, appraisal.section6Data, appraisal.sectionData, fullData, appraisal),
+    programsOrganized: getFirstPopulatedArray('programsOrganized', sec6Norm, appraisal.section6Data, appraisal.sectionData, fullData, appraisal),
+    resourcePerson: getFirstPopulatedArray('resourcePerson', sec6Norm, appraisal.section6Data, appraisal.sectionData, fullData, appraisal),
+    professionalMembership: getFirstPopulatedArray('professionalMembership', sec6Norm, appraisal.section6Data, appraisal.sectionData, fullData, appraisal),
+    editorialBoard: getFirstPopulatedArray('editorialBoard', sec6Norm, appraisal.section6Data, appraisal.sectionData, fullData, appraisal),
+    moocDeveloped: getFirstPopulatedArray('moocDeveloped', sec6Norm, appraisal.section6Data, appraisal.sectionData, fullData, appraisal),
+  }), [appraisal, fullData, sec6Norm]);
+
+  const sec7 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section7Data || {}),
+    partialDelivery: getFirstPopulatedArray('partialDelivery', appraisal.section7Data, appraisal.sectionData, fullData, appraisal),
+    industrialVisits: getFirstPopulatedArray('industrialVisits', appraisal.section7Data, appraisal.sectionData, fullData, appraisal),
+    facultyInternships: getFirstPopulatedArray('facultyInternships', appraisal.section7Data, appraisal.sectionData, fullData, appraisal),
+    employerEngagement: getFirstPopulatedArray('employerEngagement', appraisal.section7Data, appraisal.sectionData, fullData, appraisal),
+  }), [appraisal, fullData]);
+
+  const sec8 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section8Data || {}),
+    projectPublications: getFirstPopulatedArray('projectPublications', appraisal.section8Data, appraisal.sectionData, fullData, appraisal),
+    hackathonMentoring: getFirstPopulatedArray('hackathonMentoring', appraisal.section8Data, appraisal.sectionData, fullData, appraisal),
+    startupSupport: getFirstPopulatedArray('startupSupport', appraisal.section8Data, appraisal.sectionData, fullData, appraisal),
+  }), [appraisal, fullData]);
+
+  const sec9 = useMemo(() => ({
+    ...fullData,
+    ...(appraisal.section9Data || {}),
+    deptActivities: getFirstPopulatedArray('deptActivities', appraisal.section9Data, appraisal.sectionData, fullData, appraisal),
+    collegeActivities: getFirstPopulatedArray('collegeActivities', appraisal.section9Data, appraisal.sectionData, fullData, appraisal),
+    adminResponsibilities: getFirstPopulatedArray('adminResponsibilities', appraisal.section9Data, appraisal.sectionData, fullData, appraisal),
+  }), [appraisal, fullData]);
 
   const section3Arrays = [
     { label: "3.1 Patents Published", rows: (sec3.patentsPublished || []).filter(r => !isRowBlank(r)), fields: ["refNumber", "title", "inventors", "datePublished", "evidenceLink"] },
@@ -2069,11 +2194,6 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: "5.5 NIRF Survey", rows: (sec5.nirfSurvey || []).filter(r => !isRowBlank(r)), fields: ["nominationDetails", "evidenceSubmitted", "evidenceLink"] }
   ];
   const isSection5Populated = section5Arrays.some(s => s.rows.length > 0);
-
-  const sec6 = normalizeSection6Data(appraisal.section6Data || {});
-  const sec7 = appraisal.section7Data || {};
-  const sec8 = appraisal.section8Data || {};
-  const sec9 = appraisal.section9Data || {};
 
   const section6Arrays = [
     { label: "6.1 FDP / STTP Attended", rows: (sec6.fdpAttended || []).filter(r => !isRowBlank(r)), fields: ["programName", "organizer", "duration", "dateRange", "evidenceLink"] },
@@ -2160,10 +2280,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                           <td key={field} className="py-1 px-2 text-[11px] text-slate-600 max-w-[180px] truncate">
                             {field === 'evidenceLink' && row[field] ? (
                               <a
-                                href={row[field]}
+                                href={/^https?:\/\//i.test(row[field]) ? row[field] : `https://${row[field]}`}
                                 target="_blank"
-                                rel="noreferrer"
-                                className="text-blue-600 underline hover:text-blue-800"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 underline hover:text-blue-800 font-bold inline-flex items-center gap-0.5"
                               >
                                 Link ↗
                               </a>
@@ -2194,7 +2314,13 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     });
   };
   return (
-    <div className="mt-4 rounded-xl border border-slate-200/80 bg-white/90 backdrop-blur-md p-4 shadow-md shadow-black/5 space-y-4 hover:border-[#4A1519]/20 glass-card-float">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-2 sm:p-4 md:p-6 overflow-hidden animate-in fade-in duration-200"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-6xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col">
       <div className="flex items-start justify-between border-b border-slate-100 pb-3">
         <div>
           <div className="flex items-center gap-2">
@@ -2286,9 +2412,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           <button
             type="button"
             onClick={onClose}
-            className="text-xs py-1 px-2.5 h-7 bg-white border border-slate-300 rounded-md font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition"
+            className="text-xs py-1 px-3 h-7 bg-[#4A1519] hover:bg-[#3B1013] text-white rounded-md font-bold shadow-sm transition flex items-center gap-1 cursor-pointer"
+            title="Close Audit Dossier (Esc)"
           >
-            Close
+            ✕ Close
           </button>
         </div>
       </div>
@@ -2788,8 +2915,23 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           </div>
         </div>
       )}
+
+      {/* Sticky footer with appraisal metadata and Close button */}
+      <div className="pt-3 border-t border-slate-200 flex items-center justify-between sticky bottom-0 bg-white/95 backdrop-blur-xs py-2 mt-4 z-10">
+        <div className="text-xs text-slate-500 font-medium">
+          Appraisal Dossier for <strong className="text-slate-800">{facultyName}</strong> ({appraisal.timeline || 'Academic Session'})
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-1.5 bg-[#4A1519] hover:bg-[#3B1013] text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+        >
+          ✕ Close Audit View
+        </button>
+      </div>
     </div>
-  );
+  </div>
+);
 }
 
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
@@ -4926,8 +5068,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   };
 
   const openInboxRecord = (record) => {
-    setSelectedInboxRecordId(record.id);
-    setHodFeedbackDraft(record.sectionData.hodRemarks || '');
+    if (!record) return;
+    setSelectedInboxRecordId(record.id || record._id || '');
+    setHodFeedbackDraft(record.sectionData?.hodRemarks || record.hodRemarks || '');
   };
 
   const closeInboxRecord = () => {
@@ -5772,16 +5915,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           <div className="flex items-center justify-end space-x-1.5">
                             <button
                               onClick={() => {
-                                const flattened = flattenAppraisalRecord(row);
-                                openInboxRecord(row);
-                                setSelectedAppraisal({ ...row, ...flattened });
-                                setSelectedReviewAppraisal(row);
-                                setHodRemarksInput(row.hodRemarks || '');
-                                setHodSubsectionRemarks(row.subsectionRemarks || {});
-                                setHodSubsectionScores(row.hodSubsectionScores || {});
-                                setIqacRemarksInput(row.iqacAuditRemarks || '');
+                                try {
+                                  const flattened = flattenAppraisalRecord(row);
+                                  openInboxRecord(row);
+                                  setSelectedAppraisal({ ...row, ...flattened });
+                                  setSelectedReviewAppraisal(row);
+                                  setHodRemarksInput(row.hodRemarks || '');
+                                  setHodSubsectionRemarks(row.subsectionRemarks || {});
+                                  setHodSubsectionScores(row.hodSubsectionScores || {});
+                                  setIqacRemarksInput(row.iqacAuditRemarks || '');
+                                } catch (err) {
+                                  console.error("Error opening appraisal record:", err);
+                                }
                               }}
-                              className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1"
+                              className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 cursor-pointer"
                             >
                               <span>🔍</span> {isIQAC ? 'Audit Data' : 'Review Data'}
                             </button>
