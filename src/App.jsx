@@ -2809,6 +2809,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+  const [isManualSaving, setIsManualSaving] = useState(false);
+  const [justSavedDraft, setJustSavedDraft] = useState(false);
+  const [manualSaveToast, setManualSaveToast] = useState(null);
 
   // Auto-dismiss submission toast after 4 seconds
   useEffect(() => {
@@ -2818,6 +2821,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }, 4000);
     return () => clearTimeout(timer);
   }, [submitSuccess]);
+
+  // Auto-dismiss manual save toast after 5 seconds
+  useEffect(() => {
+    if (!manualSaveToast) return;
+    const timer = setTimeout(() => {
+      setManualSaveToast(null);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [manualSaveToast]);
   // Drill-down view: holds the appraisal object the user clicked "View Summary" on.
   const [selectedAppraisal, setSelectedAppraisal] = useState(null);
   // HOD review: the appraisal record currently being evaluated, and the remarks text.
@@ -2947,7 +2959,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     const currentDraft = workspaceByTimeline[selectedTimeline];
     if (!currentDraft) return;
-    if (!hasSectionEntries(currentDraft) && !activeTimelineRecord) return;
+    if (isAuto && !hasSectionEntries(currentDraft) && !activeTimelineRecord) return;
 
     try {
       const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
@@ -3109,15 +3121,51 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         });
       }
 
-      if (!isAuto) {
-        alert("☁️ Draft successfully saved to cloud database! You can now log in on any device (e.g. home laptop) and continue your work.");
-      }
+      return response.data?.data || true;
     } catch (err) {
       console.error("Cloud draft sync failed:", err.message);
       setCloudSyncState('error');
       throw err;
     }
   }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept, isSameUser]);
+
+  // Handler for explicit, manual "Save Draft" action across general & architecture appraisals
+  const handleManualSaveDraft = useCallback(async () => {
+    if (isManualSaving || isSubmitting) return;
+    setIsManualSaving(true);
+    setManualSaveToast(null);
+
+    // Write to local cache first so localStorage stays in lockstep
+    const currentDraft = workspaceByTimeline[selectedTimeline];
+    if (currentDraft) {
+      saveLocalDraft(currentDraft);
+    }
+    if (onWorkspaceSave) {
+      onWorkspaceSave(workspaceByTimeline);
+    }
+
+    try {
+      await saveDraftToCloud(false, false);
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setJustSavedDraft(true);
+      setTimeout(() => setJustSavedDraft(false), 3000);
+      setManualSaveToast({
+        type: 'success',
+        message: `Draft successfully saved to cloud database at ${timeStr}. You can now safely switch devices or log out!`,
+        time: timeStr,
+      });
+    } catch (err) {
+      console.error("Manual save draft failed:", err);
+      const errMsg = err?.response?.data?.message || err?.message || 'Network error';
+      setManualSaveToast({
+        type: 'error',
+        message: `Failed to save draft: ${errMsg}. Please check your internet connection and retry.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    } finally {
+      setIsManualSaving(false);
+    }
+  }, [isManualSaving, isSubmitting, workspaceByTimeline, selectedTimeline, saveLocalDraft, onWorkspaceSave, saveDraftToCloud]);
 
   // Check for local or cloud draft when switching timeline years or logging back in across devices
   useEffect(() => {
@@ -5070,17 +5118,35 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         : 'Draft Status: Not Started | Click button to open self-appraisal sections.')}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleProceedToSectionOne}
-                className={`text-xs py-1.5 px-4 rounded-md font-bold text-white shadow-sm transition flex items-center gap-1.5 ${
-                  isSubmitted
-                    ? 'bg-emerald-700 hover:bg-emerald-800'
-                    : 'bg-[#4A1519] hover:bg-[#5a1c22]'
-                }`}
-              >
-                {isSubmitted ? '👁️ View Submitted Appraisal' : '✏️ Continue / Edit Appraisal'}
-              </button>
+              <div className="flex items-center gap-2">
+                {!isSubmitted && (
+                  <button
+                    type="button"
+                    onClick={handleManualSaveDraft}
+                    disabled={isManualSaving || isSubmitting || !isEditable}
+                    className={`text-xs py-1.5 px-3 rounded-md font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-60 cursor-pointer ${
+                      justSavedDraft
+                        ? 'bg-emerald-600 text-white border border-emerald-600'
+                        : 'text-slate-700 bg-white border border-slate-300 hover:bg-slate-50'
+                    }`}
+                    title="Save current progress immediately to cloud database"
+                  >
+                    <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
+                    <span>{isManualSaving ? 'Saving…' : justSavedDraft ? 'Saved!' : 'Save Draft'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleProceedToSectionOne}
+                  className={`text-xs py-1.5 px-4 rounded-md font-bold text-white shadow-sm transition flex items-center gap-1.5 ${
+                    isSubmitted
+                      ? 'bg-emerald-700 hover:bg-emerald-800'
+                      : 'bg-[#4A1519] hover:bg-[#5a1c22]'
+                  }`}
+                >
+                  {isSubmitted ? '👁️ View Submitted Appraisal' : '✏️ Continue / Edit Appraisal'}
+                </button>
+              </div>
             </div>
           );
         })()}
@@ -7017,14 +7083,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <p className="mt-1 text-xs font-medium text-rose-600">{submitError}</p>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={handleSaveAndSubmit}
-              disabled={isSubmitting || !isEditable}
-              className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
-            >
-              {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleManualSaveDraft}
+                disabled={isManualSaving || isSubmitting || !isEditable}
+                className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-semibold shadow-sm transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
+                  justSavedDraft
+                    ? 'bg-emerald-600 text-white border border-emerald-600'
+                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+                title="Save current progress immediately to cloud database without submitting"
+              >
+                <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
+                <span>{isManualSaving ? 'Saving Draft…' : justSavedDraft ? 'Draft Saved!' : 'Save Draft'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndSubmit}
+                disabled={isSubmitting || !isEditable}
+                className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              >
+                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -7255,6 +7337,29 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <p className="mt-1 text-xs leading-4 text-white/75">
               Current / 200 Max
             </p>
+          </div>
+
+          {/* Quick Draft Actions Card in Sidebar */}
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2 print-hidden">
+            <button
+              type="button"
+              onClick={handleManualSaveDraft}
+              disabled={isManualSaving || isSubmitting || !isEditable}
+              className={`w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${
+                justSavedDraft
+                  ? 'bg-emerald-600 text-white border border-emerald-600'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
+              }`}
+              title="Save current progress immediately to cloud database"
+            >
+              <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
+              <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved to Cloud!' : 'Save Draft to Cloud'}</span>
+            </button>
+            {lastCloudSyncTime ? (
+              <p className="text-[10px] text-center text-slate-500 font-medium">
+                Cloud synced at {lastCloudSyncTime}
+              </p>
+            ) : null}
           </div>
         </div>
       </aside>
@@ -7547,24 +7652,40 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         : '📋 FACULTY APPRAISAL WORKBENCH'}
           </span>
           <div className="flex items-center gap-3">
-            {/* Real-time Cloud Auto-Save Status Pill */}
+            {/* Real-time Cloud Auto-Save Status Pill & Manual Save Button */}
             {!isReviewMode && (
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
-                cloudSyncState === 'saving'
-                  ? 'bg-amber-400/20 text-amber-200 border-amber-300/40 animate-pulse'
-                  : cloudSyncState === 'error'
-                    ? 'bg-rose-500/30 text-rose-200 border-rose-400/40'
-                    : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
-              }`}>
-                <span>{cloudSyncState === 'saving' ? '⏳' : cloudSyncState === 'error' ? '⚠️' : '☁️'}</span>
-                <span>
-                  {cloudSyncState === 'saving'
-                    ? 'Syncing to Cloud...'
+              <>
+                <button
+                  type="button"
+                  onClick={handleManualSaveDraft}
+                  disabled={isManualSaving || isSubmitting || !isEditable}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                    justSavedDraft
+                      ? 'bg-emerald-500 text-white border border-emerald-400'
+                      : 'bg-white text-[#4A1519] hover:bg-red-50 border border-red-200'
+                  }`}
+                  title="Save current appraisal progress immediately to MongoDB Atlas"
+                >
+                  <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
+                  <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved!' : 'Save Draft'}</span>
+                </button>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                  cloudSyncState === 'saving'
+                    ? 'bg-amber-400/20 text-amber-200 border-amber-300/40 animate-pulse'
                     : cloudSyncState === 'error'
-                      ? 'Sync Retrying...'
-                      : `Cloud-Synced ${lastCloudSyncTime ? `(${lastCloudSyncTime})` : ''}`}
+                      ? 'bg-rose-500/30 text-rose-200 border-rose-400/40'
+                      : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+                }`}>
+                  <span>{cloudSyncState === 'saving' ? '⏳' : cloudSyncState === 'error' ? '⚠️' : '☁️'}</span>
+                  <span>
+                    {cloudSyncState === 'saving'
+                      ? 'Syncing to Cloud...'
+                      : cloudSyncState === 'error'
+                        ? 'Sync Retrying...'
+                        : `Cloud-Synced ${lastCloudSyncTime ? `(${lastCloudSyncTime})` : ''}`}
+                  </span>
                 </span>
-              </span>
+              </>
             )}
             <span className="text-[11px] font-semibold text-red-200">
               {isPrincipal || isRegistrar || isIQAC
@@ -7656,6 +7777,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <button
             onClick={() => setSubmitSuccess('')}
             className="ml-3 text-slate-400 hover:text-slate-700 transition p-1"
+            title="Dismiss notification"
+          >
+            ✕
+          </button>
+        </div>
+      ) : null}
+      {manualSaveToast ? (
+        <div className={`fixed right-4 top-16 z-50 rounded-lg border p-3.5 shadow-xl shadow-black/10 text-xs font-semibold flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300 ${
+          manualSaveToast.type === 'error'
+            ? 'border-rose-300 bg-white text-rose-800'
+            : 'border-emerald-300 bg-white text-emerald-800'
+        }`}>
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold ${
+            manualSaveToast.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
+          }`}>
+            {manualSaveToast.type === 'error' ? '⚠️' : '✓'}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-800">{manualSaveToast.type === 'error' ? 'Save Failed' : 'Draft Saved to Cloud'}</span>
+            <span className="text-slate-600 font-medium">{manualSaveToast.message}</span>
+          </div>
+          <button
+            onClick={() => setManualSaveToast(null)}
+            className="ml-3 text-slate-400 hover:text-slate-700 transition p-1 cursor-pointer"
             title="Dismiss notification"
           >
             ✕
