@@ -140,14 +140,34 @@ function isPlaceholderValue(v) {
   return false;
 }
 
-function sanitizeCountInput(val, max = 1000) {
+export const NUMERIC_FIELD_MAX_LIMITS = {
+  attainmentPct: 100,
+  passPercentage: 100,
+  feedbackPct: 100,
+};
+
+export function getNumericFieldMax(columnOrName) {
+  if (!columnOrName) return undefined;
+  if (typeof columnOrName === 'object') {
+    if (columnOrName.max !== undefined) return columnOrName.max;
+    return NUMERIC_FIELD_MAX_LIMITS[columnOrName.name];
+  }
+  return NUMERIC_FIELD_MAX_LIMITS[columnOrName];
+}
+
+function sanitizeCountInput(val, max) {
   if (val === '' || val === null || val === undefined) return '';
-  const digitsOnly = String(val).replace(/[^0-9]/g, '');
-  if (digitsOnly === '') return '';
-  const num = parseInt(digitsOnly, 10);
+  const trimmed = String(val).trim();
+  if (trimmed === '') return '';
+  if (trimmed.startsWith('-')) return '0';
+  const cleaned = trimmed.replace(/[^0-9.]/g, '');
+  if (cleaned === '' || cleaned === '.') return '';
+  const parts = cleaned.split('.');
+  const normalized = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('')}` : parts[0];
+  const num = parseFloat(normalized);
   if (Number.isNaN(num) || num < 0) return '0';
-  if (max !== undefined && num > max) return String(max);
-  return String(num);
+  if (max !== undefined && max !== null && num > max) return String(max);
+  return normalized;
 }
 
 function handleCountKeyDown(e) {
@@ -700,9 +720,10 @@ function getRowValidationErrors(row, columns, allRows = []) {
         errors[column.name] = true;
       } else {
         const num = Number(trimmed);
+        const fieldMax = getNumericFieldMax(column);
         if (Number.isNaN(num) || num < 0) {
           errors[column.name] = 'min_limit';
-        } else if (column.name !== 'amount' && num > 1000) {
+        } else if (fieldMax !== undefined && num > fieldMax) {
           errors[column.name] = 'max_limit';
         }
       }
@@ -1512,7 +1533,10 @@ function DynamicArraySection({
       return '';
     }
 
-    if (propErr === 'max_limit') return 'Maximum value is 1000.';
+    if (propErr === 'max_limit') {
+      const fieldMax = getNumericFieldMax(columnName);
+      return `Maximum value is ${fieldMax ?? ''}.`;
+    }
     if (propErr === 'min_limit') return 'Minimum value is 0.';
 
     if (propErr) {
@@ -1722,12 +1746,13 @@ function DynamicArraySection({
                             {...(column.type === 'date' ? { min: '1990-01-01', max: '2035-12-31' } : {})}
                             {...(column.type === 'number' ? {
                               min: 0,
-                              ...(column.name !== 'amount' ? { max: 1000 } : {}),
+                              ...(getNumericFieldMax(column) !== undefined ? { max: getNumericFieldMax(column) } : {}),
+                              ...(getNumericFieldMax(column) === 100 ? { step: 'any' } : { step: '1' }),
                               onKeyDown: handleCountKeyDown,
                               onPaste: (e) => {
                                 e.preventDefault();
                                 const pasted = e.clipboardData.getData('text');
-                                const sanitized = sanitizeCountInput(pasted, column.name === 'amount' ? undefined : 1000);
+                                const sanitized = sanitizeCountInput(pasted, getNumericFieldMax(column));
                                 onChange(row.id, column.name, sanitized);
                               }
                             } : {})}
@@ -1735,7 +1760,7 @@ function DynamicArraySection({
                             onChange={(event) => {
                               let val = event.target.value;
                               if (column.type === 'number') {
-                                val = sanitizeCountInput(val, column.name === 'amount' ? undefined : 1000);
+                                val = sanitizeCountInput(val, getNumericFieldMax(column));
                               }
                               onChange(row.id, column.name, val);
                             }}
@@ -4267,6 +4292,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       name: 'attainmentPct',
       label: 'CO Attainment % (Single Number 0 - 100)',
       type: 'number',
+      max: 100,
       placeholder: 'Enter Attainment Percentage',
     },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
@@ -4315,6 +4341,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       name: 'passPercentage',
       label: 'Pass %',
       type: 'number',
+      max: 100,
       placeholder: 'Enter Pass Percentage',
     },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
@@ -4359,7 +4386,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const studentFeedbackColumns = [
     { name: 'courseName', label: 'Course Name', placeholder: 'Enter Course Name' },
-    { name: 'feedbackPct', label: 'Feedback Average', type: 'number', placeholder: 'Enter the feedback average' },
+    { name: 'feedbackPct', label: 'Feedback Average', type: 'number', max: 100, placeholder: 'Enter the feedback average' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
   const journalPapersColumns = [
@@ -4800,7 +4827,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       isNonEmpty(currentSectionData.mentoring?.evidenceLink);
     const mentoringErrors = {
       menteeCount:
-        mentoringTouched && (!isNonEmpty(mCount) || Number(mCount) < 0 || Number(mCount) > 1000),
+        mentoringTouched && (!isNonEmpty(mCount) || Number(mCount) < 0),
       batch: mentoringTouched && (!isNonEmpty(mBatch) || isPlaceholderValue(mBatch)),
       description:
         mentoringTouched && !isNonEmpty(currentSectionData.mentoring?.description),
@@ -4989,8 +5016,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               errs.push('Section I (Mentoring): Number of mentees is required.');
             } else {
               const num = Number(m.menteeCount);
-              if (num < 0 || num > 1000) {
-                errs.push('Section I (Mentoring): Number of mentees must be between 0 and 1000.');
+              if (num < 0) {
+                errs.push('Section I (Mentoring): Number of mentees cannot be negative.');
               }
             }
             if (!isNonEmpty(m.batch) || isPlaceholderValue(m.batch)) errs.push('Section I (Mentoring): Mentoring batch is required.');
@@ -5024,15 +5051,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           const cit = data?.citationsReceived?.totalCount;
           if (isNonEmpty(cit)) {
             const num = Number(cit);
-            if (num < 0 || num > 1000) {
-              errs.push('Section II (2.2 Citations Received): Citations count must be between 0 and 1000.');
+            if (num < 0) {
+              errs.push('Section II (2.2 Citations Received): Citations count cannot be negative.');
             }
           }
           const q1Cit = data?.q1Citations?.totalCount;
           if (isNonEmpty(q1Cit)) {
             const num = Number(q1Cit);
-            if (num < 0 || num > 1000) {
-              errs.push('Section II (2.3 Q1 Citations): Q1 citations count must be between 0 and 1000.');
+            if (num < 0) {
+              errs.push('Section II (2.3 Q1 Citations): Q1 citations count cannot be negative.');
             }
           }
           return errs;
@@ -5153,7 +5180,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 const colDef = columns.find(c => c.name === k);
                 const colLabel = colDef ? colDef.label : k;
                 if (errVal === 'max_limit') {
-                  errDetails.push(`${colLabel} cannot exceed 1000`);
+                  const fieldMax = getNumericFieldMax(colDef || k);
+                  errDetails.push(`${colLabel} cannot exceed ${fieldMax}`);
                 } else if (errVal === 'min_limit') {
                   errDetails.push(`${colLabel} cannot be negative`);
                 } else if (colDef && colDef.type === 'select') {
@@ -7182,16 +7210,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <input
                 type="number"
                 min="0"
-                max="1000"
+                step="1"
                 value={currentSectionData.mentoring?.menteeCount || ''}
                 onKeyDown={handleCountKeyDown}
                 onPaste={(event) => {
                   event.preventDefault();
                   const pasted = event.clipboardData.getData('text');
-                  updateMentoringField('menteeCount', sanitizeCountInput(pasted, 1000));
+                  updateMentoringField('menteeCount', sanitizeCountInput(pasted));
                 }}
                 onChange={(event) =>
-                  updateMentoringField('menteeCount', sanitizeCountInput(event.target.value, 1000))
+                  updateMentoringField('menteeCount', sanitizeCountInput(event.target.value))
                 }
                 readOnly={!isEditable || user.role === 'HOD'}
                 placeholder="Enter Mentee Count"
@@ -7436,13 +7464,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     <input
                       type="number"
                       min="0"
-                      max="1000"
+                      step="1"
                       placeholder="Enter Total Citations Count"
                       value={currentSectionData.citationsReceived?.totalCount || ''}
                       onKeyDown={handleCountKeyDown}
                       onPaste={(e) => {
                         e.preventDefault();
-                        const val = sanitizeCountInput(e.clipboardData.getData('text'), 1000);
+                        const val = sanitizeCountInput(e.clipboardData.getData('text'));
                         updateCurrentTimeline((prev) => ({
                           ...prev,
                           citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
@@ -7451,7 +7479,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         }));
                       }}
                       onChange={(e) => {
-                        const val = sanitizeCountInput(e.target.value, 1000);
+                        const val = sanitizeCountInput(e.target.value);
                         updateCurrentTimeline((prev) => ({
                           ...prev,
                           citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
@@ -7491,13 +7519,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     <input
                       type="number"
                       min="0"
-                      max="1000"
+                      step="1"
                       placeholder="Enter Q1 Citations Count"
                       value={currentSectionData.q1Citations?.totalCount || ''}
                       onKeyDown={handleCountKeyDown}
                       onPaste={(e) => {
                         e.preventDefault();
-                        const val = sanitizeCountInput(e.clipboardData.getData('text'), 1000);
+                        const val = sanitizeCountInput(e.clipboardData.getData('text'));
                         updateCurrentTimeline((prev) => ({
                           ...prev,
                           q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
@@ -7506,7 +7534,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         }));
                       }}
                       onChange={(e) => {
-                        const val = sanitizeCountInput(e.target.value, 1000);
+                        const val = sanitizeCountInput(e.target.value);
                         updateCurrentTimeline((prev) => ({
                           ...prev,
                           q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
