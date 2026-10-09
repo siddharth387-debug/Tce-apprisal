@@ -653,15 +653,19 @@ app.post('/api/auth/google', async (request, response) => {
 
     const verifiedEmail = payload.email.toLowerCase().trim();
 
-    // Look up in master faculty directory (matches personal email, HoD departmental email, or aliases)
-    let facultyRecord = await FacultyMember.findOne({
-      $or: [
-        { email: verifiedEmail },
-        { personalEmail: verifiedEmail },
-        { hodEmail: verifiedEmail },
-        { alternateEmails: verifiedEmail }
-      ]
-    });
+    // Look up in master faculty directory (prioritize exact personal/institutional email match)
+    let facultyRecord = await FacultyMember.findOne({ email: verifiedEmail });
+    if (!facultyRecord) {
+      facultyRecord = await FacultyMember.findOne({ personalEmail: verifiedEmail });
+    }
+    if (!facultyRecord) {
+      facultyRecord = await FacultyMember.findOne({
+        $or: [
+          { hodEmail: verifiedEmail },
+          { alternateEmails: verifiedEmail }
+        ]
+      });
+    }
 
     // Fuzzy-match: If not found and user logged in with personal Gmail, match username prefix with staffId or email
     if (!facultyRecord && verifiedEmail.endsWith('@gmail.com')) {
@@ -712,26 +716,32 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'IQAC Quality Coordinator';
-    } else if (facultyRecord) {
-      assignedRole = facultyRecord.role || 'Faculty';
-      assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : (facultyRecord.department || (isGmailLogin ? 'MCA' : 'CSE'));
-      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (facultyRecord.departmentName || (isGmailLogin ? 'Computer Applications' : ''));
-      assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : assignedRole === 'IQAC' ? 'IQAC Quality Coordinator' : 'Assistant Professor');
     } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
+      // Official departmental HOD account (e.g. hodca@tce.edu, hodcse@tce.edu)
       assignedRole = 'HOD';
-      assignedDesignation = 'Professor & Head (HOD)';
+      assignedDesignation = facultyRecord?.designation || 'Professor & Head (HOD)';
       const hodMatch = verifiedEmail.match(/hod([a-z]+)/i);
       if (hodMatch && hodMatch[1]) {
         assignedDept = hodMatch[1].toUpperCase();
+      } else if (facultyRecord?.department) {
+        assignedDept = facultyRecord.department;
       }
+      assignedDeptName = facultyRecord?.departmentName || '';
+    } else if (facultyRecord) {
+      // Individual personal faculty account (e.g. pccse@tce.edu, shalinie@tce.edu, etc.)
+      // Always assign role 'Faculty' when signing in on a personal staff email so they access their individual faculty appraisal workbench
+      assignedRole = (facultyRecord.role === 'HOD') ? 'Faculty' : (facultyRecord.role || 'Faculty');
+      assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : (facultyRecord.department || (isGmailLogin ? 'MCA' : 'CSE'));
+      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (facultyRecord.departmentName || (isGmailLogin ? 'Computer Applications' : ''));
+      assignedDesignation = facultyRecord.designation || 'Assistant Professor';
     }
 
     const canonicalPersonalEmail = facultyRecord?.personalEmail || facultyRecord?.email || verifiedEmail;
     const canonicalHodEmail = facultyRecord?.hodEmail || (assignedRole === 'HOD' ? `hod${assignedDept.toLowerCase()}@tce.edu` : '');
-    const userAliases = facultyRecord?.alternateEmails || [verifiedEmail];
+    const userAliases = (facultyRecord?.alternateEmails || [verifiedEmail]).filter(e => !e.toLowerCase().startsWith('hod') || assignedRole === 'HOD');
     if (!userAliases.includes(verifiedEmail)) userAliases.push(verifiedEmail);
     if (canonicalPersonalEmail && !userAliases.includes(canonicalPersonalEmail)) userAliases.push(canonicalPersonalEmail);
-    if (canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
+    if (assignedRole === 'HOD' && canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
     if (verifiedEmail === 'personalsiddharth387@gmail.com' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu') {
       ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'personalsiddharth387@gmail.com'].forEach(em => {
         if (!userAliases.includes(em)) userAliases.push(em);
@@ -1183,44 +1193,53 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       }
     }
 
-    // Also check FacultyMember master directory if requestEmail belongs to an active HOD
+    // Also check FacultyMember master directory
     let masterRecord = null;
     if (requestEmail) {
-      masterRecord = await FacultyMember.findOne({
-        $or: [
-          { email: requestEmail },
-          { personalEmail: requestEmail },
-          { hodEmail: requestEmail },
-          { alternateEmails: requestEmail }
-        ]
-      });
+      masterRecord = await FacultyMember.findOne({ email: requestEmail });
+      if (!masterRecord) {
+        masterRecord = await FacultyMember.findOne({ personalEmail: requestEmail });
+      }
+      if (!masterRecord) {
+        masterRecord = await FacultyMember.findOne({
+          $or: [
+            { hodEmail: requestEmail },
+            { alternateEmails: requestEmail }
+          ]
+        });
+      }
     }
 
+    // Faculty mode check: If requestRole is explicitly FACULTY, or tokenRole is FACULTY (and not an official hod... account),
+    // then the caller is requesting their individual faculty appraisal, NOT the elevated departmental queue.
+    const isExplicitFacultyRequest = requestRole === 'FACULTY' || (tokenRole === 'FACULTY' && !requestEmail.startsWith('hod'));
+
     // Dynamic Role Check: If user is HOD, Registrar, Principal, IQAC, or Admin, retrieve departmental/campus queue
-    const isElevated = requestRole === 'HOD' || 
-                  requestRole === 'REGISTRAR' ||
-                  requestRole === 'PRINCIPAL' ||
-                  requestRole === 'IQAC' ||
-                  requestRole === 'ADMIN' ||
-                  tokenRole === 'HOD' ||
-                  tokenRole === 'REGISTRAR' ||
-                  tokenRole === 'PRINCIPAL' ||
-                  tokenRole === 'IQAC' ||
-                  tokenRole === 'ADMIN' ||
-                  masterRecord?.role === 'HOD' ||
-                  masterRecord?.role === 'Registrar' ||
-                  masterRecord?.role === 'Principal' ||
-                  masterRecord?.role === 'IQAC' ||
-                  masterRecord?.role === 'Admin' ||
-                  requestEmail === 'siddharthk@student.tce.edu' || 
-                  requestEmail === 'siddharth@student.tce.edu' ||
-                  requestEmail === 'personalsiddharth387@gmail.com' ||
-                  requestEmail === 'registrar@tce.edu' ||
-                  requestEmail === 'principal@tce.edu' ||
-                  requestEmail === 'iqac@tce.edu' ||
-                  requestEmail.includes('iqac') ||
-                  requestEmail.startsWith('hod') ||
-                  requestEmail.includes('hod');
+    const isElevated = !isExplicitFacultyRequest && (
+      requestRole === 'HOD' || 
+      requestRole === 'REGISTRAR' ||
+      requestRole === 'PRINCIPAL' ||
+      requestRole === 'IQAC' ||
+      requestRole === 'ADMIN' ||
+      tokenRole === 'HOD' ||
+      tokenRole === 'REGISTRAR' ||
+      tokenRole === 'PRINCIPAL' ||
+      tokenRole === 'IQAC' ||
+      tokenRole === 'ADMIN' ||
+      (masterRecord?.role === 'HOD' && requestEmail.startsWith('hod')) ||
+      masterRecord?.role === 'Registrar' ||
+      masterRecord?.role === 'Principal' ||
+      masterRecord?.role === 'IQAC' ||
+      masterRecord?.role === 'Admin' ||
+      requestEmail === 'siddharthk@student.tce.edu' || 
+      requestEmail === 'siddharth@student.tce.edu' ||
+      requestEmail === 'personalsiddharth387@gmail.com' ||
+      requestEmail === 'registrar@tce.edu' ||
+      requestEmail === 'principal@tce.edu' ||
+      requestEmail === 'iqac@tce.edu' ||
+      requestEmail.includes('iqac') ||
+      requestEmail.startsWith('hod')
+    );
 
     let queryFilter = {};
 

@@ -155,8 +155,8 @@ async function alignDirectory() {
       hodEntry.personalEmail = hodInfo.personalEmail;
       hodEntry.email = hodInfo.personalEmail; // authoritative personal login
       hodEntry.hodEmail = hodInfo.hodEmail;   // official departmental role email
-      hodEntry.alternateEmails = hodInfo.aliases;
-      hodEntry.role = 'HOD';
+      hodEntry.alternateEmails = (hodInfo.aliases || []).filter(e => !e.toLowerCase().startsWith('hod'));
+      hodEntry.role = 'Faculty';
       hodEntry.designation = hodInfo.designation;
     }
   }
@@ -179,10 +179,10 @@ async function alignDirectory() {
         email: hodConfig.personalEmail,
         personalEmail: hodConfig.personalEmail,
         hodEmail: hodConfig.hodEmail,
-        alternateEmails: hodConfig.aliases,
+        alternateEmails: (hodConfig.aliases || []).filter(e => !e.toLowerCase().startsWith('hod')),
         department: f.department,
         departmentName: f.departmentName,
-        role: 'HOD',
+        role: 'Faculty',
         photo: f.photo || '',
         profileUrl: f.profileUrl || '',
         source: 'tce.edu'

@@ -3249,9 +3249,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   useEffect(() => {
     if (user) {
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? selectedDeptFilter : (user.department || 'ALL');
-      syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+      const isSelfMode = (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal');
+      const roleForSync = isSelfMode ? 'Faculty' : effectiveRole;
+      syncHistoryFromCloud(user, roleForSync, currentDeptParam);
     }
-  }, [user, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, syncHistoryFromCloud]);
+  }, [user, effectiveRole, hodWorkspaceMode, iqacWorkspaceMode, isIQACUser, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, syncHistoryFromCloud]);
 
   const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Approved') => {
     try {
