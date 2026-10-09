@@ -2785,9 +2785,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   // IQAC Score Filtering & Soft Curation State
   const [iqacTargetScoreFilter, setIqacTargetScoreFilter] = useState(100);
-  const [iqacScoreFrom, setIqacScoreFrom] = useState(10);
-  const [iqacScoreTo, setIqacScoreTo] = useState(20);
-  const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('min'); // 'min' (>=) | 'exact' (==) | 'range' (from-to)
+  const [iqacScoreFrom, setIqacScoreFrom] = useState(0);
+  const [iqacScoreTo, setIqacScoreTo] = useState(200);
+  const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('all'); // 'all' | 'min' (>=) | 'exact' (==) | 'range' (from-to)
+  const [iqacStatusWorkflowFilter, setIqacStatusWorkflowFilter] = useState('ALL'); // 'ALL' | 'APPROVED' | 'PENDING'
   const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
   
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
@@ -4741,29 +4742,31 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const iqacExcludedCount = selectedInboxRows.filter(r => r.iqacExcluded).length;
 
     let displayInboxRows = selectedInboxRows;
-    if (isIQAC || isHod || isPrincipal || isRegistrar || isMasterUser) {
+    if (isIQAC) {
       displayInboxRows = selectedInboxRows.filter((row) => {
         const totalScore = row.totalScore || 0;
         const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
         const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
         
-        if (isIQAC) {
-          // IQAC WORKFLOW RULE: IQAC only reviews appraisals that have been approved by the HoD, or audited by IQAC, or ratified
+        // Soft exclusion archive filter (Active Audit List vs Excluded Archive)
+        if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
+        if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
+
+        // Workflow Status filter (optional: 'ALL' | 'APPROVED' | 'PENDING')
+        if (iqacStatusWorkflowFilter === 'APPROVED') {
           const isHodApproved = apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED';
-          const isIqacAudited = iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING')) || iqStatus === 'NEEDS CLARIFICATION';
-          
-          if (!isHodApproved && !isIqacAudited) {
-            return false; // Hide Pending (unapproved by HoD) appraisals from IQAC perspective!
-          }
-          
-          if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
-          if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
+          const isIqacAudited = iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING'));
+          if (!isHodApproved && !isIqacAudited) return false;
+        } else if (iqacStatusWorkflowFilter === 'PENDING') {
+          const isPending = apStatus === 'PENDING' || apStatus === 'DRAFT' || !apStatus;
+          if (!isPending) return false;
         }
-        
+
+        // Score threshold & range filter (applied only when not in 'all' mode)
         if (iqacScoreFilterMode === 'min') {
-          return totalScore >= iqacTargetScoreFilter;
+          return totalScore >= (Number(iqacTargetScoreFilter) || 0);
         } else if (iqacScoreFilterMode === 'exact') {
-          return totalScore === iqacTargetScoreFilter;
+          return totalScore === (Number(iqacTargetScoreFilter) || 0);
         } else if (iqacScoreFilterMode === 'range') {
           const minS = Math.min(Number(iqacScoreFrom) || 0, Number(iqacScoreTo) || 0);
           const maxS = Math.max(Number(iqacScoreFrom) || 0, Number(iqacScoreTo) || 0);
@@ -4910,6 +4913,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300">
                   <button
                     type="button"
+                    onClick={() => setIqacScoreFilterMode('all')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacScoreFilterMode === 'all' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    All Scores
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setIqacScoreFilterMode('min')}
                     className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacScoreFilterMode === 'min' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
@@ -4928,6 +4938,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacScoreFilterMode === 'range' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
                     Range ({iqacScoreFrom}–{iqacScoreTo})
+                  </button>
+                </div>
+
+                <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300">
+                  <button
+                    type="button"
+                    onClick={() => setIqacStatusWorkflowFilter('ALL')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'ALL' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    All Submissions
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIqacStatusWorkflowFilter('APPROVED')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'APPROVED' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    HoD Approved
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIqacStatusWorkflowFilter('PENDING')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'PENDING' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Pending Review
                   </button>
                 </div>
               </div>
@@ -5057,7 +5091,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4 mb-4">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                {isPrincipal ? 'Institutional Executive Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : 'Department Faculty Appraisal Dashboard'}
+                {isPrincipal ? 'Institutional Executive Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : isIQAC ? 'IQAC Accreditation & Quality Audit Dashboard' : 'Department Faculty Appraisal Dashboard'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Showing {displayInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
