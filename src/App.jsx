@@ -1690,7 +1690,7 @@ function DynamicArraySection({
   );
 }
 
-function LandingPage({ googleClientId, onLogin }) {
+function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClearSessionTimedOut = null }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
 
@@ -1793,6 +1793,30 @@ function LandingPage({ googleClientId, onLogin }) {
           <p className="mt-3 text-sm leading-6 text-slate-600 font-medium">
             Authenticate with your official Google account to access your appraisal workspace.
           </p>
+
+          {sessionTimedOut && (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 shadow-sm flex items-start gap-2.5 animate-in fade-in duration-200">
+              <span className="text-base shrink-0">⏳</span>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-amber-950">Session Timed Out (15 min inactivity)</p>
+                  {onClearSessionTimedOut && (
+                    <button 
+                      type="button" 
+                      onClick={onClearSessionTimedOut}
+                      className="text-amber-700 hover:text-amber-950 text-xs font-bold ml-2 cursor-pointer"
+                      title="Dismiss notice"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-amber-800 leading-relaxed text-[11px]">
+                  You were automatically signed out after 15 minutes of inactivity for institutional security. Your in-progress appraisal draft was safely auto-saved.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 rounded-2xl border border-slate-200/90 bg-slate-50/70 backdrop-blur-sm px-4 py-6 shadow-sm hover:bg-white transition-all duration-200">
             <div className="flex justify-center">
@@ -2954,6 +2978,13 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 );
 }
 
+// Maximum continuous idle duration before automatic session timeout (15 minutes max as required)
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000;
+// Grace countdown warning period before automatic logout (2 minutes countdown starting at 13 mins)
+const INACTIVITY_WARNING_MS = 2 * 60 * 1000;
+// Cross-tab synchronization key in localStorage
+const ACTIVITY_STORAGE_KEY = 'tce_appraisal_last_activity';
+
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || 
                        (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu' ||
@@ -3525,6 +3556,128 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       window.removeEventListener('beforeunload', handleUnload);
     };
   }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, isPrincipal, isRegistrar, activeTimelineRecord, saveDraftToCloud]);
+
+  // ── INACTIVITY / SESSION TIMEOUT WATCHDOG (15-Minute Idle Threshold) ──
+  // Automatically logs out inactive faculty/staff sessions after 15 minutes of inactivity.
+  // Displays a 2-minute countdown warning at the 13-minute mark, and executes an emergency
+  // auto-save of current draft changes before cleanly concluding the session.
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const [inactivitySecondsRemaining, setInactivitySecondsRemaining] = useState(120);
+  const lastActivityRef = useRef(Date.now());
+  const isLoggingOutRef = useRef(false);
+
+  const resetActivityTimer = useCallback(() => {
+    const now = Date.now();
+    lastActivityRef.current = now;
+    try {
+      localStorage.setItem(ACTIVITY_STORAGE_KEY, String(now));
+    } catch (e) {}
+    setShowInactivityWarning(false);
+  }, []);
+
+  const handleInactivityTimeout = useCallback(async () => {
+    if (isLoggingOutRef.current) return;
+    isLoggingOutRef.current = true;
+    console.warn("⏳ 15 minutes of inactivity reached. Executing auto-save and signing out...");
+
+    try {
+      // Emergency background cloud draft sync before session cleanup
+      if (typeof saveDraftToCloud === 'function') {
+        await saveDraftToCloud(true, true);
+      }
+    } catch (err) {
+      console.error("Draft save on inactivity timeout:", err);
+    }
+
+    try {
+      localStorage.removeItem(ACTIVITY_STORAGE_KEY);
+    } catch (e) {}
+
+    onSignOut(true);
+  }, [saveDraftToCloud, onSignOut]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const initialNow = Date.now();
+    lastActivityRef.current = initialNow;
+    try {
+      localStorage.setItem(ACTIVITY_STORAGE_KEY, String(initialNow));
+    } catch (e) {}
+
+    let lastThrottle = Date.now();
+    const handleUserInteraction = () => {
+      const now = Date.now();
+      // Throttle event handlers to update at most once every 1.5 seconds
+      if (now - lastThrottle > 1500) {
+        lastThrottle = now;
+        lastActivityRef.current = now;
+        try {
+          localStorage.setItem(ACTIVITY_STORAGE_KEY, String(now));
+        } catch (e) {}
+        if (showInactivityWarning) {
+          setShowInactivityWarning(false);
+        }
+      }
+    };
+
+    const trackedEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    trackedEvents.forEach((evt) => {
+      window.addEventListener(evt, handleUserInteraction, { passive: true });
+    });
+
+    // Cross-tab activity synchronization
+    const handleStorageChange = (e) => {
+      if (e.key === ACTIVITY_STORAGE_KEY && e.newValue) {
+        const remoteTime = Number(e.newValue);
+        if (remoteTime > lastActivityRef.current) {
+          lastActivityRef.current = remoteTime;
+          if (showInactivityWarning) {
+            setShowInactivityWarning(false);
+          }
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    // Watchdog timer running every second to calculate elapsed idle time
+    const watchdogInterval = setInterval(() => {
+      if (isLoggingOutRef.current) return;
+
+      let effectiveLastActivity = lastActivityRef.current;
+      try {
+        const storedTime = Number(localStorage.getItem(ACTIVITY_STORAGE_KEY));
+        if (storedTime && storedTime > effectiveLastActivity) {
+          effectiveLastActivity = storedTime;
+          lastActivityRef.current = storedTime;
+        }
+      } catch (e) {}
+
+      const idleDuration = Date.now() - effectiveLastActivity;
+
+      if (idleDuration >= INACTIVITY_TIMEOUT_MS) {
+        clearInterval(watchdogInterval);
+        handleInactivityTimeout();
+      } else if (idleDuration >= (INACTIVITY_TIMEOUT_MS - INACTIVITY_WARNING_MS)) {
+        const remainingMs = INACTIVITY_TIMEOUT_MS - idleDuration;
+        const remainingSec = Math.max(1, Math.ceil(remainingMs / 1000));
+        setInactivitySecondsRemaining(remainingSec);
+        setShowInactivityWarning(true);
+      } else {
+        if (showInactivityWarning) {
+          setShowInactivityWarning(false);
+        }
+      }
+    }, 1000);
+
+    return () => {
+      trackedEvents.forEach((evt) => {
+        window.removeEventListener(evt, handleUserInteraction);
+      });
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(watchdogInterval);
+    };
+  }, [user, showInactivityWarning, handleInactivityTimeout]);
 
   // Watchdog: syncs appraisal records from MongoDB Atlas
   const syncHistoryFromCloud = useCallback(async (currentUser, roleOverride, deptOverride) => {
@@ -8686,6 +8839,59 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       record={printRecordState?.record || activeTimelineRecord || {}}
       bannerSrc={tceBanner}
     />
+
+    {/* Inactivity Session Timeout Warning Modal (Active at 13 mins of continuous idle time) */}
+    {showInactivityWarning && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="p-3 bg-amber-100 text-amber-900 rounded-xl text-2xl shrink-0">
+              ⏳
+            </div>
+            <div className="flex-1">
+              <h3 className="text-base font-bold text-slate-900">
+                Session Inactivity Warning
+              </h3>
+              <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                You have been inactive for 13 minutes. To protect your appraisal records and institutional account security, you will be automatically signed out in:
+              </p>
+            </div>
+          </div>
+
+          {/* Countdown Display */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+            <span className="text-3xl font-black text-[#4A1519] font-mono tracking-wider">
+              {Math.floor(inactivitySecondsRemaining / 60)}:{(inactivitySecondsRemaining % 60).toString().padStart(2, '0')}
+            </span>
+            <p className="text-[11px] text-amber-800 font-semibold mt-1">
+              remaining before automatic sign out
+            </p>
+          </div>
+
+          <p className="text-[11px] text-slate-500 italic text-center">
+            💡 Moving your mouse, typing, or clicking "Stay Signed In" will keep your session active. All draft changes are automatically saved.
+          </p>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => handleInactivityTimeout()}
+              className="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+            >
+              Sign Out Now
+            </button>
+            <button
+              type="button"
+              onClick={resetActivityTimer}
+              className="px-4 py-2 text-xs font-bold text-white bg-[#4A1519] hover:bg-[#3B1013] rounded-lg shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>✓</span> Stay Signed In
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
   </>
   );
 }
@@ -8836,19 +9042,29 @@ const googleClientId =
 
 export default function App() {
   const [user, setUser] = useState(() => loadUserFromStorage());
+  const [sessionTimedOut, setSessionTimedOut] = useState(false);
 
   const handleLogin = React.useCallback((userProfile) => {
     setUser(userProfile);
     saveUserToStorage(userProfile);
+    setSessionTimedOut(false);
   }, []);
 
-  const handleSignOut = React.useCallback(() => {
+  const handleSignOut = React.useCallback((isTimeout = false) => {
     clearUserFromStorage();
     setUser(null);
+    setSessionTimedOut(Boolean(isTimeout));
   }, []);
 
   if (user === null) {
-    return <LandingPage googleClientId={googleClientId} onLogin={handleLogin} />;
+    return (
+      <LandingPage 
+        googleClientId={googleClientId} 
+        onLogin={handleLogin} 
+        sessionTimedOut={sessionTimedOut}
+        onClearSessionTimedOut={() => setSessionTimedOut(false)}
+      />
+    );
   }
 
   return (
