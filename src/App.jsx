@@ -5086,7 +5086,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         )}
 
-        {!isReviewMode && (() => {
+        {(!isReviewMode || isMasterUser) && (() => {
           const isSubmitted = activeTimelineRecord && ['PENDING', 'APPROVED', 'RATIFIED', 'SUBMITTED', 'HOD APPROVED'].includes((activeTimelineRecord.appraisalStatus || '').toUpperCase().trim());
           return (
             <div className="mt-4 flex min-h-20 items-center justify-between rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
@@ -5123,7 +5123,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <button
                     type="button"
                     onClick={handleManualSaveDraft}
-                    disabled={isManualSaving || isSubmitting || !isEditable}
+                    disabled={isManualSaving || isSubmitting}
                     className={`text-xs py-1.5 px-3 rounded-md font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-60 cursor-pointer ${
                       justSavedDraft
                         ? 'bg-emerald-600 text-white border border-emerald-600'
@@ -5802,29 +5802,61 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </h2>
             </div>
 
-            {/* Export controllers */}
-            <div className="flex items-center gap-1.5 print-hidden">
+            {/* Top Form Controls: Save Draft & Exports */}
+            <div className="flex items-center gap-2 print-hidden">
+              <button
+                type="button"
+                onClick={handleManualSaveDraft}
+                disabled={isManualSaving || isSubmitting}
+                className={`py-1.5 px-4 text-xs rounded-lg font-black transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                  justSavedDraft
+                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : 'bg-[#4A1519] hover:bg-[#3B1013] text-white active:scale-95'
+                }`}
+                title="Immediately save current progress to cloud database"
+              >
+                <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
+                <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved to Cloud!' : 'Save Draft'}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={exportToPDF}
-                className="py-1 px-2.5 text-xs rounded-md font-medium border border-[#4A1519] text-[#4A1519] hover:bg-[#4A1519] hover:text-white transition flex items-center gap-1"
+                className="py-1.5 px-3 text-xs rounded-lg font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 shadow-xs"
               >
-                <span>📄</span> Export as PDF
+                <span>📄</span> PDF
               </button>
               <button
                 type="button"
                 onClick={exportToExcel}
-                className="py-1 px-2.5 text-xs rounded-md font-medium border border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition"
+                className="py-1.5 px-3 text-xs rounded-lg font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-1 shadow-xs"
               >
-                Export as Excel
+                <span>📊</span> Excel
               </button>
             </div>
           </div>
 
-          {/* Auto-save status badge */}
-          <div className="mt-2 flex items-center gap-1.5">
-            <span className="text-[11px] text-slate-400">
-              Scores update instantly · Saved offline
+          {/* Auto-save & Cloud sync status bar */}
+          <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold border transition-all ${
+                cloudSyncState === 'saving'
+                  ? 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                  : cloudSyncState === 'error'
+                    ? 'bg-rose-100 text-rose-800 border-rose-300'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+              }`}>
+                <span>{cloudSyncState === 'saving' ? '⏳' : cloudSyncState === 'error' ? '⚠️' : '☁️'}</span>
+                <span>{cloudSyncState === 'saving' ? 'Saving to Cloud...' : cloudSyncState === 'error' ? 'Sync Retrying...' : 'Cloud Synced'}</span>
+              </span>
+              {lastCloudSyncTime ? (
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Last saved: {lastCloudSyncTime}
+                </span>
+              ) : null}
+            </div>
+            <span className="text-[11px] text-slate-400 font-medium">
+              Multi-device sync enabled · Instant auto-save
             </span>
           </div>
         </div>
@@ -7087,7 +7119,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <button
                 type="button"
                 onClick={handleManualSaveDraft}
-                disabled={isManualSaving || isSubmitting || !isEditable}
+                disabled={isManualSaving || isSubmitting}
                 className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-semibold shadow-sm transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
                   justSavedDraft
                     ? 'bg-emerald-600 text-white border border-emerald-600'
@@ -7344,7 +7376,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <button
               type="button"
               onClick={handleManualSaveDraft}
-              disabled={isManualSaving || isSubmitting || !isEditable}
+              disabled={isManualSaving || isSubmitting}
               className={`w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${
                 justSavedDraft
                   ? 'bg-emerald-600 text-white border border-emerald-600'
@@ -7363,6 +7395,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
       </aside>
+
+      {/* Floating Quick-Save Dock (Always pinned to bottom-right of viewport while editing sections) */}
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-300 shadow-2xl shadow-black/25 print-hidden">
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`w-2.5 h-2.5 rounded-full ${cloudSyncState === 'saving' ? 'bg-amber-400 animate-ping' : cloudSyncState === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
+          <span className="font-semibold text-slate-700 hidden sm:inline">
+            {cloudSyncState === 'saving' ? 'Syncing...' : lastCloudSyncTime ? `Saved (${lastCloudSyncTime})` : 'Cloud Synced'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleManualSaveDraft}
+          disabled={isManualSaving || isSubmitting}
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+            justSavedDraft
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+              : 'bg-[#4A1519] hover:bg-[#3B1013] text-white active:scale-95'
+          }`}
+          title="Immediately save current progress to cloud database"
+        >
+          <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
+          <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved!' : 'Save Draft'}</span>
+        </button>
+      </div>
     </div>
   );
 
@@ -7653,12 +7709,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </span>
           <div className="flex items-center gap-3">
             {/* Real-time Cloud Auto-Save Status Pill & Manual Save Button */}
-            {!isReviewMode && (
+            {(!isReviewMode || activeView === 'section1' || isMasterUser) && (
               <>
                 <button
                   type="button"
                   onClick={handleManualSaveDraft}
-                  disabled={isManualSaving || isSubmitting || !isEditable}
+                  disabled={isManualSaving || isSubmitting}
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                     justSavedDraft
                       ? 'bg-emerald-500 text-white border border-emerald-400'
@@ -7754,7 +7810,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             </div>
           </div>
-        ) : isReviewMode ? (
+        ) : isReviewMode && activeView !== 'section1' ? (
           renderOverview()
         ) : (
           <>
