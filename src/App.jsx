@@ -1531,9 +1531,9 @@ function DynamicArraySection({
                   return (
                     <div
                       key={column.name}
-                      className={`flex flex-col ${
+                      className={`flex flex-col min-w-0 max-w-full ${
                         column.name === 'evidenceLink'
-                          ? 'flex-1 min-w-[280px]'
+                          ? 'flex-1 w-full sm:w-auto sm:min-w-[240px]'
                           : column.name === 'paperTitle' ||
                             column.name === 'title' ||
                             column.name === 'scholarName' ||
@@ -1543,14 +1543,14 @@ function DynamicArraySection({
                             column.name === 'researchArea' ||
                             column.name === 'bodyName' ||
                             column.name === 'courseName'
-                            ? 'flex-1 min-w-[180px]'
+                            ? 'flex-1 w-full sm:w-auto sm:min-w-[160px]'
                             : column.name === 'internalStudents' || column.name === 'externalStudents'
-                              ? 'min-w-[150px] flex-1'
+                              ? 'w-full sm:w-auto sm:min-w-[130px] flex-1'
                               : column.name === 'fromDate' || column.name === 'toDate' || column.name === 'isTillDate'
-                                ? 'min-w-[125px]'
+                                ? 'w-full sm:w-auto sm:min-w-[120px]'
                                 : isTimelineCol
-                                  ? 'min-w-[140px] max-w-[185px] flex-1'
-                                  : ''
+                                  ? 'w-full sm:w-auto sm:min-w-[140px] sm:max-w-[185px] flex-1'
+                                  : 'w-full sm:w-auto flex-1'
                       }`}
                     >
                       {isTimelineCol ? (
@@ -1752,50 +1752,50 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
   };
 
   return (
-    <div className="flex min-h-screen w-full flex-col md:flex-row">
-      <section className="flex basis-full bg-gradient-to-br from-[#4A1519] via-[#3B1013] to-[#2A0B0E] px-6 py-10 text-white md:basis-3/5 md:px-12 md:py-16 lg:px-16 justify-between flex-col">
-        <div className="flex w-full flex-col justify-between h-full">
+    <div className="flex min-h-screen w-full flex-col md:flex-row overflow-x-hidden">
+      <section className="flex basis-full bg-gradient-to-br from-[#4A1519] via-[#3B1013] to-[#2A0B0E] px-4 sm:px-6 py-6 sm:py-10 text-white md:basis-3/5 md:px-12 md:py-16 lg:px-16 justify-between flex-col">
+        <div className="flex w-full flex-col justify-between h-full space-y-6 md:space-y-0">
           {/* Institutional Banner Header */}
-          <div className="flex items-center justify-start border-b border-white/10 pb-6">
-            <div className="inline-flex items-center justify-center rounded-2xl border border-white/30 bg-white px-6 sm:px-8 py-2 sm:py-2.5 shadow-2xl shadow-black/30">
+          <div className="flex items-center justify-start border-b border-white/10 pb-4 sm:pb-6">
+            <div className="inline-flex items-center justify-center rounded-2xl border border-white/30 bg-white px-4 sm:px-8 py-2 sm:py-2.5 shadow-2xl shadow-black/30">
               <img
                 src={tceLogo12}
                 alt="Thiagarajar College of Engineering Logo"
-                className="h-20 sm:h-24 md:h-28 w-auto max-w-full object-contain"
+                className="h-12 sm:h-20 md:h-28 w-auto max-w-full object-contain"
               />
             </div>
           </div>
 
           {/* Main Hero Title */}
-          <div className="my-auto py-12 md:py-16">
+          <div className="my-auto py-4 sm:py-8 md:py-16">
             <div className="max-w-2xl">
-              <h2 className="max-w-xl text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl text-white tracking-tight">
+              <h2 className="max-w-xl text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight text-white tracking-tight">
                 Faculty Performance Evaluation Portal
               </h2>
             </div>
           </div>
 
           {/* Institutional Footer */}
-          <div className="border-t border-white/10 pt-4 text-xs text-white/50 font-medium tracking-wide">
+          <div className="border-t border-white/10 pt-3 sm:pt-4 text-[11px] sm:text-xs text-white/50 font-medium tracking-wide">
             © Thiagarajar College of Engineering • Autonomous Institution Affiliated to Anna University
           </div>
         </div>
       </section>
 
-      <section className="flex basis-full items-center justify-center bg-gradient-to-br from-[#F5F5F5] via-slate-100 to-[#EAE6E5] px-6 py-10 md:basis-2/5 md:px-8 lg:px-10">
-        <div className="w-full max-w-md rounded-2xl bg-white/90 backdrop-blur-md p-8 shadow-2xl shadow-black/10 border border-white/80 sm:p-10 hover:bg-white/95 hover:shadow-3xl transition-all duration-300">
+      <section className="flex basis-full items-center justify-center bg-gradient-to-br from-[#F5F5F5] via-slate-100 to-[#EAE6E5] px-4 sm:px-6 py-8 sm:py-10 md:basis-2/5 md:px-8 lg:px-10">
+        <div className="w-full max-w-md rounded-2xl bg-white/90 backdrop-blur-md p-5 sm:p-8 md:p-10 shadow-2xl shadow-black/10 border border-white/80 hover:bg-white/95 hover:shadow-3xl transition-all duration-300">
           <div className="inline-flex rounded-full bg-[#4A1519]/10 px-3.5 py-1 text-xs font-bold uppercase tracking-[0.25em] text-[#4A1519] border border-[#4A1519]/15">
             Faculty Sign In
           </div>
-          <h3 className="mt-5 text-3xl font-extrabold tracking-tight text-slate-900">
+          <h3 className="mt-4 sm:mt-5 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
             Welcome back
           </h3>
-          <p className="mt-3 text-sm leading-6 text-slate-600 font-medium">
+          <p className="mt-2 sm:mt-3 text-xs sm:text-sm leading-6 text-slate-600 font-medium">
             Authenticate with your official Google account to access your appraisal workspace.
           </p>
 
           {sessionTimedOut && (
-            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 shadow-sm flex items-start gap-2.5 animate-in fade-in duration-200">
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 sm:p-3.5 text-xs text-amber-900 shadow-sm flex items-start gap-2.5 animate-in fade-in duration-200">
               <span className="text-base shrink-0">⏳</span>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
@@ -1818,8 +1818,8 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
             </div>
           )}
 
-          <div className="mt-8 rounded-2xl border border-slate-200/90 bg-slate-50/70 backdrop-blur-sm px-4 py-6 shadow-sm hover:bg-white transition-all duration-200">
-            <div className="flex justify-center">
+          <div className="mt-6 sm:mt-8 rounded-2xl border border-slate-200/90 bg-slate-50/70 backdrop-blur-sm px-3 sm:px-4 py-5 sm:py-6 shadow-sm hover:bg-white transition-all duration-200">
+            <div className="flex justify-center max-w-full overflow-hidden">
               {resolvedClientId ? (
                 <GoogleOAuthProvider clientId={resolvedClientId}>
                   <GoogleLogin
@@ -1833,7 +1833,7 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
                     size="large"
                     text="signin_with"
                     theme="outline"
-                    width="320"
+                    width="280"
                   />
                 </GoogleOAuthProvider>
               ) : (
@@ -2364,9 +2364,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="relative w-full max-w-6xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-y-auto p-4 sm:p-6 space-y-4 flex flex-col">
-      <div className="flex items-start justify-between border-b border-slate-100 pb-3">
-        <div>
+      <div className="relative w-full max-w-6xl max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-y-auto p-3 sm:p-6 space-y-4 flex flex-col">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-3 border-b border-slate-100 pb-3">
+        <div className="w-full sm:w-auto">
           <div className="flex items-center gap-2">
             <p className="text-xs font-bold uppercase tracking-wider text-[#4A1519]">
               Submission Detail View
@@ -2380,7 +2380,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           <p className="mt-0.5 text-sm font-bold text-slate-800">
             {facultyName} <span className="text-xs font-normal text-slate-500">({facultyEmail})</span>
           </p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-3">
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 sm:gap-3">
             <div className="bg-slate-100 px-2.5 py-1 rounded text-xs font-semibold text-slate-700">
               Automated Score: <span className="font-bold text-slate-900">{effectiveScoreObj.autoGrandTotal} / 200</span>
             </div>
@@ -2400,7 +2400,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 self-start">
           <button
             type="button"
             onClick={() => {
@@ -8182,8 +8182,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       </aside>
 
       {/* Floating Quick-Save Dock (Always pinned to bottom-right of viewport while editing sections) */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 sm:gap-3 bg-white/95 backdrop-blur-md px-3 sm:px-4 py-2.5 rounded-2xl border border-slate-300 shadow-2xl shadow-black/25 print-hidden">
-        <div className="flex items-center gap-2 text-xs">
+      <div className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-50 flex items-center gap-1.5 sm:gap-3 bg-white/95 backdrop-blur-md px-2.5 sm:px-4 py-1.5 sm:py-2.5 rounded-2xl border border-slate-300 shadow-2xl shadow-black/25 max-w-[calc(100vw-24px)] print-hidden">
+        <div className="flex items-center gap-1.5 text-xs">
           <span className={`w-2.5 h-2.5 rounded-full ${cloudSyncState === 'saving' ? 'bg-amber-400 animate-ping' : cloudSyncState === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
           <span className="font-semibold text-slate-700 hidden md:inline">
             {cloudSyncState === 'saving' ? 'Syncing...' : lastCloudSyncTime ? `Saved (${lastCloudSyncTime})` : 'Cloud Synced'}
@@ -8193,7 +8193,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           type="button"
           onClick={handleManualSaveDraft}
           disabled={isManualSaving || isSubmitting}
-          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+          className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed shrink-0 ${
             justSavedDraft
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
               : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 active:scale-95'
@@ -8208,7 +8208,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             type="button"
             onClick={handleInitiateSubmit}
             disabled={isSubmitting}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-[#4A1519] hover:bg-[#3B1013] text-white transition-all shadow-md cursor-pointer disabled:opacity-60 active:scale-95"
+            className="inline-flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black bg-[#4A1519] hover:bg-[#3B1013] text-white transition-all shadow-md cursor-pointer disabled:opacity-60 active:scale-95 shrink-0"
             title="Formally submit completed appraisal to HOD"
           >
             <span>📤</span>
@@ -8225,24 +8225,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       <div className="min-h-screen bg-[#F5F3F2] interactive-ui">
       <div className="w-full flex flex-col font-sans">
         {/* Top Banner Row: Full-width Glass Background */}
-        <div className="sticky top-0 z-40 w-full bg-white/85 backdrop-blur-md px-6 py-2 flex items-center justify-between border-b border-slate-200/80 shadow-xs transition-all select-none">
+        <div className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md px-3 sm:px-6 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 shadow-xs transition-all select-none">
           
-          {/* Left Side: Uncompressed Logos */}
-          <img
-            src={tceBanner}
-            alt="TCE Header"
-            onClick={() => setActiveView('overview')}
-            className="h-12 w-auto object-contain object-left cursor-pointer transition-opacity hover:opacity-90 active:scale-[0.98]"
-          />
+          {/* Left Side: Responsive Logos */}
+          <div className="flex items-center">
+            <img
+              src={tceBanner}
+              alt="TCE Header"
+              onClick={() => setActiveView('overview')}
+              className="h-8 sm:h-11 md:h-12 w-auto max-w-[190px] sm:max-w-none object-contain object-left cursor-pointer transition-opacity hover:opacity-90 active:scale-[0.98]"
+            />
+          </div>
           
           {/* Right Side: Controls, Profile & Actions */}
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2.5">
 
             {/* Master Role Switcher Bar (Super-Admin Privilege) */}
             {isSuperAdmin && (
-              <div className="flex items-center bg-amber-50/90 p-1 rounded-xl border border-amber-300 shadow-sm">
-                <span className="text-[10px] font-black uppercase text-amber-900 px-2 flex items-center gap-1">
-                  <span>👑</span> Role:
+              <div className="flex flex-wrap items-center bg-amber-50/90 p-1 rounded-xl border border-amber-300 shadow-sm gap-0.5">
+                <span className="text-[10px] font-black uppercase text-amber-900 px-1.5 sm:px-2 flex items-center gap-1">
+                  <span>👑</span> <span className="hidden sm:inline">Role:</span>
                 </span>
                 <button
                   type="button"
@@ -8252,7 +8254,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setSelectedAppraisal(null);
                     setSelectedReviewAppraisal(null);
                   }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
                     effectiveRole === 'Principal'
                       ? 'bg-[#4A1519] text-white shadow-sm'
                       : 'text-amber-950 hover:bg-amber-100'
@@ -8269,7 +8271,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setSelectedAppraisal(null);
                     setSelectedReviewAppraisal(null);
                   }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
                     effectiveRole === 'Registrar'
                       ? 'bg-[#4A1519] text-white shadow-sm'
                       : 'text-amber-950 hover:bg-amber-100'
@@ -8284,7 +8286,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setAdminActiveRole('IQAC');
                     setActiveView('overview');
                   }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
                     effectiveRole === 'IQAC'
                       ? 'bg-[#4A1519] text-white shadow-sm'
                       : 'text-amber-950 hover:bg-amber-100'
@@ -8300,7 +8302,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setHodWorkspaceMode('hod_inbox');
                     setActiveView('overview');
                   }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
                     effectiveRole === 'HOD'
                       ? 'bg-[#4A1519] text-white shadow-sm'
                       : 'text-amber-950 hover:bg-amber-100'
@@ -8315,7 +8317,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setAdminActiveRole('Faculty');
                     setActiveView('overview');
                   }}
-                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
                     effectiveRole === 'Faculty'
                       ? 'bg-[#4A1519] text-white shadow-sm'
                       : 'text-amber-950 hover:bg-amber-100'
@@ -8330,8 +8332,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {/* Master Appraisal Template Mode Dropdown (Exclusive to siddharthk@student.tce.edu) */}
             {isMasterUser && (
               <div className="flex items-center bg-amber-100/90 p-1 rounded-xl border border-amber-300 shadow-sm">
-                <span className="text-[10px] font-black uppercase text-amber-950 px-2 flex items-center gap-1">
-                  <span>📐</span> Template Mode:
+                <span className="text-[10px] font-black uppercase text-amber-950 px-1.5 sm:px-2 flex items-center gap-1">
+                  <span>📐</span> <span className="hidden sm:inline">Template:</span>
                 </span>
                 <select
                   value={masterAppraisalMode}
@@ -8344,9 +8346,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       setSelectedDeptFilter('ALL');
                     }
                   }}
-                  className="h-7 rounded-lg border border-amber-400 bg-white px-2 text-[11px] font-bold text-[#4A1519] outline-none cursor-pointer focus:ring-1 focus:ring-[#4A1519]"
+                  className="h-7 rounded-lg border border-amber-400 bg-white px-1.5 sm:px-2 text-[10px] sm:text-[11px] font-bold text-[#4A1519] outline-none cursor-pointer focus:ring-1 focus:ring-[#4A1519]"
                 >
-                  <option value="GENERAL">General (Engineering)</option>
+                  <option value="GENERAL">General (Engg)</option>
                   <option value="ARCH">Architecture (TSEDA)</option>
                 </select>
               </div>
@@ -8354,19 +8356,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
             {/* HoD Mode Switcher (HOD Review Queue | Self-Appraisal) */}
             {effectiveRole === 'HOD' && (
-              <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-inner">
+              <div className="flex items-center bg-gray-100 p-0.5 sm:p-1 rounded-xl border border-gray-200 shadow-inner">
                 <button
                   type="button"
                   onClick={() => {
                     setHodWorkspaceMode('hod_inbox');
                     setActiveView('overview');
                   }}
-                  className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                  className={`px-2 sm:px-3 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 sm:gap-1.5 ${
                     hodWorkspaceMode === 'hod_inbox' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   <span>🏢</span>
-                  <span>HOD Review Queue</span>
+                  <span className="hidden sm:inline">HOD</span> Review Queue
                 </button>
 
                 <button
@@ -8375,7 +8377,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setHodWorkspaceMode('self_appraisal');
                     setActiveView('overview');
                   }}
-                  className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                  className={`px-2 sm:px-3 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 sm:gap-1.5 ${
                     hodWorkspaceMode === 'self_appraisal' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
@@ -8387,21 +8389,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
             {/* IQAC Mode Switcher (IQAC Audit | Self-Appraisal) - Strictly restricted to IQAC quality audit */}
             {isIQACUser && (
-              <div className="flex items-center bg-blue-50/90 p-1 rounded-xl border border-blue-200 shadow-inner">
+              <div className="flex items-center bg-blue-50/90 p-0.5 sm:p-1 rounded-xl border border-blue-200 shadow-inner">
                 <button
                   type="button"
                   onClick={() => {
                     setIqacWorkspaceMode('iqac_audit');
                     setActiveView('overview');
                   }}
-                  className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                  className={`px-2 sm:px-3 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 sm:gap-1.5 ${
                     iqacWorkspaceMode === 'iqac_audit'
                       ? 'bg-[#4A1519] text-white shadow-sm'
                       : 'text-blue-900 hover:text-blue-950 font-medium'
                   }`}
                 >
                   <span>📊</span>
-                  <span>IQAC Audit Workbench</span>
+                  <span className="hidden sm:inline">IQAC</span> Audit Workbench
                 </button>
 
                 <button
@@ -8410,7 +8412,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setIqacWorkspaceMode('self_appraisal');
                     setActiveView('overview');
                   }}
-                  className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                  className={`px-2 sm:px-3 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 sm:gap-1.5 ${
                     iqacWorkspaceMode === 'self_appraisal'
                       ? 'bg-[#4A1519] text-white shadow-sm'
                       : 'text-blue-900 hover:text-blue-950 font-medium'
@@ -8427,26 +8429,27 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <button 
                 type="button"
                 onClick={() => setIsLeadershipModalOpen(true)}
-                className="text-[11px] font-bold text-[#4A1519] bg-amber-50 hover:bg-amber-100 border border-amber-300 shadow-sm rounded-full px-3.5 py-1.5 transition-all flex items-center space-x-1.5"
+                className="text-[10px] sm:text-[11px] font-bold text-[#4A1519] bg-amber-50 hover:bg-amber-100 border border-amber-300 shadow-sm rounded-full px-2.5 sm:px-3.5 py-1 sm:py-1.5 transition-all flex items-center space-x-1 sm:space-x-1.5 shrink-0"
               >
                 <span>🏛️</span>
-                <span>Leadership & Handover</span>
+                <span className="hidden sm:inline">Leadership & Handover</span>
+                <span className="sm:hidden">Handover</span>
               </button>
             )}
 
             {/* User Profile Rounded Badge Box */}
-            <div className="flex items-center space-x-3 bg-[#4A1519] px-3 py-1.5 rounded-xl shadow-sm border border-red-950/20 text-left">
-              <div className="w-8 h-8 rounded-xl bg-white/10 text-white font-black text-sm flex items-center justify-center border border-white/20 uppercase shadow-inner">
+            <div className="flex items-center space-x-2 sm:space-x-3 bg-[#4A1519] px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl shadow-sm border border-red-950/20 text-left shrink-0">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-white/10 text-white font-black text-xs sm:text-sm flex items-center justify-center border border-white/20 uppercase shadow-inner shrink-0">
                 {user.name?.charAt(0) || 'U'}
               </div>
-              <div className="leading-tight">
-                <p className="text-xs font-bold text-white tracking-wide">{user.name}</p>
-                <p className="text-[10px] text-red-200/80 font-medium">{user.email}</p>
+              <div className="leading-tight min-w-0">
+                <p className="text-[11px] sm:text-xs font-bold text-white tracking-wide truncate max-w-[100px] sm:max-w-[160px]">{user.name}</p>
+                <p className="text-[9px] sm:text-[10px] text-red-200/80 font-medium hidden sm:block truncate max-w-[150px]">{user.email}</p>
               </div>
             </div>
 
             {/* Role / Designation Capsule Pill */}
-            <span className={`text-[9px] font-black tracking-widest px-3 py-1.5 rounded-full uppercase border shadow-sm ${
+            <span className={`text-[8.5px] sm:text-[9px] font-black tracking-wider px-2 sm:px-3 py-1 sm:py-1.5 rounded-full uppercase border shadow-sm shrink-0 truncate max-w-[140px] sm:max-w-none ${
               isPrincipal
                 ? 'bg-purple-900 text-purple-100 border-purple-800'
                 : isRegistrar
@@ -8462,20 +8465,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 : isRegistrar 
                   ? 'Registrar' 
                   : isIQAC
-                    ? 'IQAC Quality Coordinator'
+                    ? 'IQAC Coordinator'
                     : effectiveRole === 'HOD' 
-                      ? 'Professor & Head (HOD)' 
+                      ? 'HOD' 
                       : (user.designation && user.designation !== 'Registrar' && user.designation !== 'Principal' && user.designation !== 'IQAC Quality Coordinator' ? user.designation : 'Assistant Professor')}
             </span>
 
             {/* Special Condition Correction Badge (Only shows if required) */}
             {effectiveRole === 'Faculty' && activeTimelineRecord?.appraisalStatus === 'Not Approved' && (
-              <span className="text-[9px] font-black bg-rose-50 text-rose-700 px-2.5 py-1.5 rounded-full uppercase border border-rose-200 shadow-sm animate-pulse">
+              <span className="text-[8.5px] sm:text-[9px] font-black bg-rose-50 text-rose-700 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full uppercase border border-rose-200 shadow-sm animate-pulse shrink-0">
                 ⚠ Fix Needed
               </span>
             )}
             {effectiveRole === 'Faculty' && activeTimelineRecord?.appraisalStatus === 'Approved' && (
-              <span className="text-[9px] font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded uppercase border border-emerald-200">
+              <span className="text-[8.5px] sm:text-[9px] font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded uppercase border border-emerald-200 shrink-0">
                 ✔ Approved
               </span>
             )}
@@ -8483,7 +8486,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {/* Distinct White Capsule Sign Out Button */}
             <button 
               onClick={onSignOut} 
-              className="text-[11px] font-bold text-[#4A1519] bg-white border border-gray-200 shadow-md rounded-full px-4 py-1.5 hover:bg-gray-50 hover:border-gray-300 transition-all font-sans"
+              className="text-[10px] sm:text-[11px] font-bold text-[#4A1519] bg-white border border-gray-200 shadow-md rounded-full px-3 sm:px-4 py-1 sm:py-1.5 hover:bg-gray-50 hover:border-gray-300 transition-all font-sans shrink-0 whitespace-nowrap"
             >
               Sign Out
             </button>
@@ -8492,8 +8495,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
 
         {/* Bottom Sub-Header Row: Dark Maroon Control Bar */}
-        <div className="w-full bg-[#4A1519] text-white px-6 py-2 shadow-sm border-b border-red-950/20 flex items-center justify-between">
-          <span className="text-xs font-black tracking-wider uppercase opacity-95 flex items-center gap-2">
+        <div className="w-full bg-[#4A1519] text-white px-3 sm:px-6 py-2 shadow-sm border-b border-red-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+          <span className="text-[10.5px] sm:text-xs font-black tracking-wider uppercase opacity-95 flex items-center gap-1.5 leading-snug break-words">
             {isPrincipal
               ? '🎓 PRINCIPAL APEX EXECUTIVE WORKBENCH (CAMPUS-WIDE ACCREDITATION & ANALYTICS)'
               : isRegistrar
@@ -8508,7 +8511,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
                         : '📋 FACULTY APPRAISAL WORKBENCH'}
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Real-time Cloud Auto-Save Status Pill & Manual Save Button */}
             {(!isPrincipal && !isRegistrar && (!isReviewMode || (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (
               <>
@@ -8516,7 +8519,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   type="button"
                   onClick={handleManualSaveDraft}
                   disabled={isManualSaving || isSubmitting}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 ${
                     justSavedDraft
                       ? 'bg-emerald-500 text-white border border-emerald-400'
                       : 'bg-white text-[#4A1519] hover:bg-red-50 border border-red-200'
@@ -8524,9 +8527,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   title="Save current appraisal progress immediately to MongoDB Atlas"
                 >
                   <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
-                  <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved!' : 'Save Draft'}</span>
+                  <span>{isManualSaving ? 'Saving...' : justSavedDraft ? 'Saved!' : 'Save Draft'}</span>
                 </button>
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                <span className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold border transition-all shrink-0 ${
                   cloudSyncState === 'saving'
                     ? 'bg-amber-400/20 text-amber-200 border-amber-300/40 animate-pulse'
                     : cloudSyncState === 'error'
@@ -8536,26 +8539,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <span>{cloudSyncState === 'saving' ? '⏳' : cloudSyncState === 'error' ? '⚠️' : '☁️'}</span>
                   <span>
                     {cloudSyncState === 'saving'
-                      ? 'Syncing to Cloud...'
+                      ? 'Syncing...'
                       : cloudSyncState === 'error'
-                        ? 'Sync Retrying...'
-                        : `Cloud-Synced ${lastCloudSyncTime ? `(${lastCloudSyncTime})` : ''}`}
+                        ? 'Retrying...'
+                        : `Synced ${lastCloudSyncTime ? `(${lastCloudSyncTime})` : ''}`}
                   </span>
                 </span>
               </>
             )}
-            <span className="text-[11px] font-semibold text-red-200">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-red-200 leading-tight">
               {isPrincipal || isRegistrar || isIQAC
-                ? 'Institution-Wide Oversight • 16 Academic Departments'
+                ? '16 Academic Departments'
                 : user.department
-                  ? `Department of ${user.department} ${user.departmentName ? `• ${user.departmentName}` : ''}`
+                  ? `Dept of ${user.department} ${user.departmentName ? `• ${user.departmentName}` : ''}`
                   : ''}
             </span>
           </div>
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-7xl px-6 py-8 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-8 lg:px-8">
         {effectiveRole === 'Faculty' && user?.isEligibleForAppraisal === false ? (
           <div className="max-w-4xl mx-auto my-8 p-8 bg-white rounded-2xl border border-slate-200 shadow-xl space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
