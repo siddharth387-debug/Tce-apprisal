@@ -822,6 +822,13 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     // Always use the JWT-verified identity as the authoritative email — never trust
     // the client-supplied body field to prevent email spoofing.
     const verifiedEmail = req.user.email.toLowerCase().trim();
+    const userRole = (req.user?.role || '').toUpperCase().trim();
+
+    // Institutional Governance Guard: Principal is an apex executive role and never submits self-appraisals
+    if (userRole === 'PRINCIPAL' || verifiedEmail === 'principal@tce.edu') {
+      console.log('⛔ Principal account is an apex administrative role and does not submit self-appraisals.');
+      return res.status(403).json({ success: false, message: 'Principal account is for institutional review and governance only. Self-appraisal submission is disabled.' });
+    }
 
     if (!timeline || !isValidAcademicTimeline(timeline)) {
       console.log('❌ REJECTED: Timeline missing or invalid:', timeline);

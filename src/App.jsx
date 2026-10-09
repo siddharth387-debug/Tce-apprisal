@@ -2880,6 +2880,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }, 5000);
     return () => clearTimeout(timer);
   }, [manualSaveToast]);
+
+  // Institutional Hierarchy Lock: Principal & Registrar are strictly executive oversight roles and never fill self-appraisals
+  useEffect(() => {
+    if (isPrincipal || isRegistrar) {
+      if (activeView !== 'overview') {
+        setActiveView('overview');
+      }
+    }
+  }, [isPrincipal, isRegistrar, activeView]);
   // Drill-down view: holds the appraisal object the user clicked "View Summary" on.
   const [selectedAppraisal, setSelectedAppraisal] = useState(null);
   // HOD review: the appraisal record currently being evaluated, and the remarks text.
@@ -3027,7 +3036,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   // Helper to save in-progress draft directly to MongoDB Atlas cloud database (enabling cross-device sync from college PC to home laptop)
   const saveDraftToCloud = useCallback(async (isAuto = false, isUnloading = false) => {
-    if (!user || !selectedTimeline) return;
+    if (!user || !selectedTimeline || isPrincipal || isRegistrar) return;
     const activeToken = getAuthToken() || user?.token;
     if (!activeToken) return;
 
@@ -3203,10 +3212,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       setCloudSyncState('error');
       throw err;
     }
-  }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept, isSameUser]);
+  }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept, isSameUser, isPrincipal, isRegistrar]);
 
   // Handler for explicit, manual "Save Draft" action across general & architecture appraisals
   const handleManualSaveDraft = useCallback(async () => {
+    if (isPrincipal || isRegistrar) return;
     if (isManualSaving || isSubmitting) return;
     setIsManualSaving(true);
     setManualSaveToast(null);
@@ -3241,7 +3251,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     } finally {
       setIsManualSaving(false);
     }
-  }, [isManualSaving, isSubmitting, workspaceByTimeline, selectedTimeline, saveLocalDraft, onWorkspaceSave, saveDraftToCloud]);
+  }, [isManualSaving, isSubmitting, workspaceByTimeline, selectedTimeline, saveLocalDraft, onWorkspaceSave, saveDraftToCloud, isPrincipal, isRegistrar]);
 
   // Check for local or cloud draft on timeline switch / mount (prevents typing overwrites & synchronizes cloud drafts across devices)
   useEffect(() => {
@@ -3306,7 +3316,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   // Fully automated background cloud draft sync with retry on network disruption (4s debounce so typing is uninterrupted)
   useEffect(() => {
-    if (!user || !selectedTimeline || isReviewMode) return;
+    if (!user || !selectedTimeline || isReviewMode || isPrincipal || isRegistrar) return;
     const currentData = workspaceByTimeline[selectedTimeline];
     if (!currentData) return;
     if (!hasSectionEntries(currentData) && !activeTimelineRecord) return;
@@ -3352,7 +3362,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       window.removeEventListener('pagehide', handleUnload);
       window.removeEventListener('beforeunload', handleUnload);
     };
-  }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, activeTimelineRecord, saveDraftToCloud]);
+  }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, isPrincipal, isRegistrar, activeTimelineRecord, saveDraftToCloud]);
 
   // Watchdog: syncs appraisal records from MongoDB Atlas
   const syncHistoryFromCloud = useCallback(async (currentUser, roleOverride, deptOverride) => {
@@ -4363,6 +4373,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   }, [selectedTimeline]);
 
   const handleProceedToSectionOne = () => {
+    if (isPrincipal || isRegistrar) return;
     setSubmitError('');
     setSubmitSuccess('');
     if (activeTimelineRecord) {
@@ -5489,7 +5500,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         )}
 
-        {(!isReviewMode || isMasterUser) && (() => {
+        {(!isPrincipal && !isRegistrar && (!isReviewMode || (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (() => {
           const isSubmitted = activeTimelineRecord && ['PENDING', 'APPROVED', 'RATIFIED', 'SUBMITTED', 'HOD APPROVED'].includes((activeTimelineRecord.appraisalStatus || '').toUpperCase().trim());
           return (
             <div className="mt-4 flex min-h-20 items-center justify-between rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
@@ -7908,6 +7919,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   onClick={() => {
                     setAdminActiveRole('Principal');
                     setActiveView('overview');
+                    setSelectedAppraisal(null);
+                    setSelectedReviewAppraisal(null);
                   }}
                   className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
                     effectiveRole === 'Principal'
@@ -7923,6 +7936,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   onClick={() => {
                     setAdminActiveRole('Registrar');
                     setActiveView('overview');
+                    setSelectedAppraisal(null);
+                    setSelectedReviewAppraisal(null);
                   }}
                   className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1 ${
                     effectiveRole === 'Registrar'
@@ -8165,7 +8180,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </span>
           <div className="flex items-center gap-3">
             {/* Real-time Cloud Auto-Save Status Pill & Manual Save Button */}
-            {(!isReviewMode || activeView === 'section1' || isMasterUser) && (
+            {(!isPrincipal && !isRegistrar && (!isReviewMode || (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (
               <>
                 <button
                   type="button"
@@ -8266,6 +8281,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             </div>
           </div>
+        ) : (isPrincipal || isRegistrar) ? (
+          renderOverview()
         ) : isReviewMode && activeView !== 'section1' ? (
           renderOverview()
         ) : (
