@@ -279,6 +279,42 @@ const CRITERIA_SECTION_MAP = [
   { key: '9.2', dataKey: 'collegeActivities', label: '9.2 College Level Activities', fields: ['description', 'category', 'role', 'approval', 'evidenceLink'] },
 ];
 
+function mergeArrayRows(baseRows = [], overlayRows = []) {
+  if (!Array.isArray(baseRows) || baseRows.length === 0) return (overlayRows || []).filter(isMeaningfullyFilledRow);
+  if (!Array.isArray(overlayRows) || overlayRows.length === 0) return (baseRows || []).filter(isMeaningfullyFilledRow);
+
+  const cleanOverlay = overlayRows.filter(isMeaningfullyFilledRow);
+  const cleanBase = baseRows.filter(isMeaningfullyFilledRow);
+
+  if (cleanOverlay.length === 0) return cleanBase;
+  if (cleanBase.length === 0) return cleanOverlay;
+
+  // Track existing row identities from overlay (overlay has freshest edits)
+  const overlayKeys = new Set();
+  cleanOverlay.forEach((row) => {
+    if (row.id) overlayKeys.add(String(row.id));
+    const ident = row.courseCode || row.paperTitle || row.title || row.projectTitle || row.programTitle || row.description;
+    if (ident) overlayKeys.add(String(ident).toLowerCase().trim());
+  });
+
+  const result = [...cleanOverlay];
+
+  // Retain non-duplicate rows from base so no faculty entries from other laptops are lost
+  cleanBase.forEach((row) => {
+    const rowId = row.id ? String(row.id) : null;
+    const ident = (row.courseCode || row.paperTitle || row.title || row.projectTitle || row.programTitle || row.description)
+      ? String(row.courseCode || row.paperTitle || row.title || row.projectTitle || row.programTitle || row.description).toLowerCase().trim()
+      : null;
+
+    const alreadyExists = (rowId && overlayKeys.has(rowId)) || (ident && overlayKeys.has(ident));
+    if (!alreadyExists) {
+      result.push(row);
+    }
+  });
+
+  return result;
+}
+
 function mergeSectionState(baseState, overlayState) {
   if (!baseState) return overlayState || createEmptySectionState();
   if (!overlayState) return baseState || createEmptySectionState();
@@ -287,10 +323,7 @@ function mergeSectionState(baseState, overlayState) {
   Object.keys(overlayState).forEach((key) => {
     const val = overlayState[key];
     if (Array.isArray(val)) {
-      const filledOverlayRows = val.filter(isMeaningfullyFilledRow);
-      if (filledOverlayRows.length > 0) {
-        merged[key] = val;
-      }
+      merged[key] = mergeArrayRows(baseState[key], val);
     } else if (val && typeof val === 'object') {
       merged[key] = {
         ...(merged[key] || {}),
@@ -2713,7 +2746,8 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || 
-                       (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu';
+                       (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu' ||
+                       (user?.email || '').toLowerCase().trim() === 'personalsiddharth387@gmail.com';
   const isSuperAdmin = isMasterUser;
 
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
@@ -2727,10 +2761,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isPrincipal = effectiveRole === 'Principal';
   const isRegistrar = effectiveRole === 'Registrar';
   const [hodWorkspaceMode, setHodWorkspaceMode] = useState('hod_inbox'); // 'hod_inbox' | 'self_appraisal'
+  const [iqacWorkspaceMode, setIqacWorkspaceMode] = useState('iqac_audit'); // 'iqac_audit' | 'self_appraisal'
   
-  const isIQAC = effectiveRole === 'IQAC' || user?.role === 'IQAC';
+  const isIQACUser = effectiveRole === 'IQAC' || user?.role === 'IQAC';
+  const isIQAC = isIQACUser && iqacWorkspaceMode === 'iqac_audit';
   const isHod = effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox';
   const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal;
+
+  const [cloudSyncState, setCloudSyncState] = useState('saved'); // 'saving' | 'saved' | 'error'
+  const [lastCloudSyncTime, setLastCloudSyncTime] = useState('');
   
   const [isLeadershipModalOpen, setIsLeadershipModalOpen] = useState(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
@@ -2822,8 +2861,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       ...(userObj.alternateEmails || [])
     ].filter(Boolean).map(e => String(e).toLowerCase().trim());
 
+    // Master user alias linking
+    if (userObj.email === 'siddharthk@student.tce.edu' || userObj.email === 'siddharth@student.tce.edu' || userObj.email === 'personalsiddharth387@gmail.com') {
+      ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'personalsiddharth387@gmail.com'].forEach(em => {
+        if (!aliases.includes(em)) aliases.push(em);
+      });
+    }
+
     if (target && aliases.some(alias => alias === target || target.includes(alias) || alias.includes(target))) {
       return true;
+    }
+
+    // Prefix match for personal vs institutional email (e.g. abiramiam77@gmail.com vs abiramiam@tce.edu)
+    if (target) {
+      const targetUser = target.split('@')[0].replace(/[0-9]+$/, '');
+      if (targetUser.length >= 4) {
+        if (aliases.some(alias => {
+          const aliasUser = alias.split('@')[0].replace(/[0-9]+$/, '');
+          return aliasUser.length >= 4 && (aliasUser === targetUser || aliasUser.startsWith(targetUser) || targetUser.startsWith(aliasUser));
+        })) {
+          return true;
+        }
+      }
     }
 
     if (targetName && userName && (targetName === userName || targetName.includes(userName) || userName.includes(targetName))) {
@@ -2871,7 +2930,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const saveLocalDraft = useCallback((nextFormDataState) => {
     if (draftUserKey && selectedTimeline && nextFormDataState) {
       try {
-        localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(nextFormDataState));
+        const stamped = { ...nextFormDataState, _savedAt: Date.now() };
+        localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify(stamped));
       } catch (e) {
         console.warn("Failed to write local draft to localStorage:", e);
       }
@@ -2885,7 +2945,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (!activeToken) return;
 
     const currentDraft = workspaceByTimeline[selectedTimeline];
-    if (!currentDraft || !hasSectionEntries(currentDraft)) return;
+    if (!currentDraft) return;
+    if (!hasSectionEntries(currentDraft) && !activeTimelineRecord) return;
 
     try {
       const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
@@ -3002,20 +3063,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       if (isUnloading) {
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        const beaconUrl = `${API_BASE_URL}/appraisals?token=${encodeURIComponent(activeToken)}`;
+        let beaconSent = false;
         if (navigator.sendBeacon) {
-          navigator.sendBeacon(`${API_BASE_URL}/appraisals`, blob);
-        } else {
-          fetch(`${API_BASE_URL}/appraisals`, {
+          try {
+            beaconSent = navigator.sendBeacon(beaconUrl, blob);
+          } catch {
+            beaconSent = false;
+          }
+        }
+        if (!beaconSent) {
+          fetch(beaconUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${activeToken}` },
             body: JSON.stringify(payload),
             keepalive: true,
-          });
+          }).catch(() => {});
         }
         return;
       }
 
-      await axios.post(
+      setCloudSyncState('saving');
+      const response = await axios.post(
         `${API_BASE_URL}/appraisals`,
         payload,
         {
@@ -3023,13 +3092,31 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           headers: { Authorization: `Bearer ${activeToken}` },
         }
       );
+
+      setCloudSyncState('saved');
+      setLastCloudSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+
+      // Immediately keep activeTimelineRecord in sync with cloud
+      if (response.data && response.data.data) {
+        const savedDoc = response.data.data;
+        setAppraisals((prevAppraisals) => {
+          const cleanId = String(savedDoc._id || savedDoc.id || '');
+          const filtered = (prevAppraisals || []).filter(
+            (a) => String(a._id || a.id || '') !== cleanId && !(isSameUser(a.email || a.facultyEmail, user) && a.timeline === selectedTimeline)
+          );
+          return [savedDoc, ...filtered];
+        });
+      }
+
       if (!isAuto) {
         alert("☁️ Draft successfully saved to cloud database! You can now log in on any device (e.g. home laptop) and continue your work.");
       }
     } catch (err) {
       console.error("Cloud draft sync failed:", err.message);
+      setCloudSyncState('error');
+      throw err;
     }
-  }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept]);
+  }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept, isSameUser]);
 
   // Check for local or cloud draft when switching timeline years or logging back in across devices
   useEffect(() => {
@@ -3050,7 +3137,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     let finalData = null;
     if (hasLocal && hasCloud) {
-      finalData = mergeSectionState(cloudData, localData);
+      const localTime = localData._savedAt || 0;
+      const cloudTime = activeTimelineRecord?.updatedAt ? new Date(activeTimelineRecord.updatedAt).getTime() : 0;
+      if (cloudTime > localTime) {
+        // Cloud has fresher edits from another device - merge local edits into cloud as base
+        finalData = mergeSectionState(localData, cloudData);
+      } else {
+        // Local has fresher keystrokes - merge cloud into local
+        finalData = mergeSectionState(cloudData, localData);
+      }
     } else if (hasLocal) {
       finalData = localData;
     } else if (hasCloud) {
@@ -3074,14 +3169,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [workspaceByTimeline, draftUserKey, selectedTimeline, saveLocalDraft]);
 
-  // Fully automated background cloud draft sync (runs 1.5s after user pauses typing, or immediately on tab switch / window close)
+  // Fully automated background cloud draft sync with retry on network disruption
   useEffect(() => {
     if (!user || !selectedTimeline || isReviewMode) return;
     const currentData = workspaceByTimeline[selectedTimeline];
-    if (!currentData || !hasSectionEntries(currentData)) return;
+    if (!currentData) return;
+    if (!hasSectionEntries(currentData) && !activeTimelineRecord) return;
+
+    let retryTimeout = null;
+    let isCancelled = false;
+
+    const executeSave = async (retryCount = 0) => {
+      try {
+        await saveDraftToCloud(true, false);
+      } catch (err) {
+        if (!isCancelled && retryCount < 3) {
+          const nextRetry = (retryCount + 1) * 2000;
+          console.warn(`⏳ Auto-save network hiccup, retrying in ${nextRetry}ms (attempt ${retryCount + 1}/3)...`);
+          retryTimeout = setTimeout(() => executeSave(retryCount + 1), nextRetry);
+        }
+      }
+    };
 
     const timer = setTimeout(() => {
-      saveDraftToCloud(true, false);
+      executeSave(0);
     }, 1500);
 
     const handleUnload = () => {
@@ -3099,12 +3210,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     window.addEventListener('beforeunload', handleUnload);
 
     return () => {
+      isCancelled = true;
       clearTimeout(timer);
+      if (retryTimeout) clearTimeout(retryTimeout);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handleUnload);
       window.removeEventListener('beforeunload', handleUnload);
     };
-  }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, saveDraftToCloud]);
+  }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, activeTimelineRecord, saveDraftToCloud]);
 
   // Watchdog: syncs appraisal records from MongoDB Atlas
   const syncHistoryFromCloud = useCallback(async (currentUser, roleOverride, deptOverride) => {
@@ -4114,10 +4227,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     setSubmitError('');
     setSubmitSuccess('');
     if (activeTimelineRecord) {
-      setWorkspaceByTimeline((prev) => ({
-        ...prev,
-        [selectedTimeline]: flattenAppraisalRecord(activeTimelineRecord),
-      }));
+      const cloudFlattened = flattenAppraisalRecord(activeTimelineRecord);
+      setWorkspaceByTimeline((prev) => {
+        const currentInMemory = prev[selectedTimeline];
+        const merged = currentInMemory ? mergeSectionState(cloudFlattened, currentInMemory) : cloudFlattened;
+        return {
+          ...prev,
+          [selectedTimeline]: merged,
+        };
+      });
     } else {
       updateCurrentTimeline((current) => ({
         ...current,
@@ -4889,8 +5007,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return (
             <div className="mt-4 flex min-h-20 items-center justify-between rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
               <div>
-                <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
-                <p className="text-[11px] text-slate-500">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                    cloudSyncState === 'saving'
+                      ? 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                      : cloudSyncState === 'error'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300'
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  }`}>
+                    <span>{cloudSyncState === 'saving' ? '⏳' : cloudSyncState === 'error' ? '⚠️' : '☁️'}</span>
+                    <span>
+                      {cloudSyncState === 'saving'
+                        ? 'Syncing...'
+                        : cloudSyncState === 'error'
+                          ? 'Sync Retrying...'
+                          : 'Cloud-Synced'}
+                    </span>
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   {isSubmitted
                     ? `Submission Status: ${activeTimelineRecord.appraisalStatus || 'Submitted'} (${activeTimelineRecord.convertedScore || 0} / 200 Marks)`
                     : (activeTimelineRecord
@@ -7218,20 +7354,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             )}
 
-            {/* HoD & IQAC Mode Switcher (HOD Review Queue | Self-Appraisal | IQAC Audit) */}
-            {(effectiveRole === 'HOD' || effectiveRole === 'IQAC' || user?.role === 'IQAC') && (
+            {/* HoD Mode Switcher (HOD Review Queue | Self-Appraisal) */}
+            {effectiveRole === 'HOD' && (
               <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 shadow-inner">
                 <button
                   type="button"
                   onClick={() => {
                     setHodWorkspaceMode('hod_inbox');
-                    setIqacWorkspaceMode('hod_inbox');
                     setActiveView('overview');
                   }}
                   className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
-                    (effectiveRole === 'IQAC' || user?.role === 'IQAC')
-                      ? iqacWorkspaceMode === 'hod_inbox' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                      : hodWorkspaceMode === 'hod_inbox' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                    hodWorkspaceMode === 'hod_inbox' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   <span>🏢</span>
@@ -7242,36 +7375,52 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   type="button"
                   onClick={() => {
                     setHodWorkspaceMode('self_appraisal');
-                    setIqacWorkspaceMode('self_appraisal');
                     setActiveView('overview');
                   }}
                   className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
-                    (effectiveRole === 'IQAC' || user?.role === 'IQAC')
-                      ? iqacWorkspaceMode === 'self_appraisal' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                      : hodWorkspaceMode === 'self_appraisal' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                    hodWorkspaceMode === 'self_appraisal' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   <span>📋</span>
                   <span>Self-Appraisal</span>
                 </button>
+              </div>
+            )}
 
-                {(effectiveRole === 'IQAC' || user?.role === 'IQAC') && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIqacWorkspaceMode('iqac_audit');
-                      setActiveView('overview');
-                    }}
-                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
-                      iqacWorkspaceMode === 'iqac_audit'
-                        ? 'bg-[#4A1519] text-white shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    <span>📊</span>
-                    <span>IQAC Audit</span>
-                  </button>
-                )}
+            {/* IQAC Mode Switcher (IQAC Audit | Self-Appraisal) - Strictly restricted to IQAC quality audit */}
+            {isIQACUser && (
+              <div className="flex items-center bg-blue-50/90 p-1 rounded-xl border border-blue-200 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIqacWorkspaceMode('iqac_audit');
+                    setActiveView('overview');
+                  }}
+                  className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                    iqacWorkspaceMode === 'iqac_audit'
+                      ? 'bg-[#4A1519] text-white shadow-sm'
+                      : 'text-blue-900 hover:text-blue-950 font-medium'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>IQAC Audit Workbench</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIqacWorkspaceMode('self_appraisal');
+                    setActiveView('overview');
+                  }}
+                  className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all flex items-center gap-1.5 ${
+                    iqacWorkspaceMode === 'self_appraisal'
+                      ? 'bg-[#4A1519] text-white shadow-sm'
+                      : 'text-blue-900 hover:text-blue-950 font-medium'
+                  }`}
+                >
+                  <span>📋</span>
+                  <span>Self-Appraisal</span>
+                </button>
               </div>
             )}
 
@@ -7353,19 +7502,42 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 ? '🏛️ REGISTRAR INSTITUTIONAL GOVERNANCE WORKBENCH (CAMPUS-WIDE OVERSIGHT)'
                 : isIQAC
                   ? '📊 IQAC ACCREDITATION & QUALITY AUDIT WORKBENCH (NAAC / NIRF BENCHMARKING)'
-                  : effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal'
-                    ? '📋 HOD SELF-APPRAISAL WORKBENCH (FACULTY MODE)'
-                    : effectiveRole === 'HOD'
-                      ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
-                      : '📋 FACULTY APPRAISAL WORKBENCH'}
+                  : isIQACUser && iqacWorkspaceMode === 'self_appraisal'
+                    ? '📋 IQAC MEMBER SELF-APPRAISAL WORKBENCH (FACULTY MODE)'
+                    : effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal'
+                      ? '📋 HOD SELF-APPRAISAL WORKBENCH (FACULTY MODE)'
+                      : effectiveRole === 'HOD'
+                        ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
+                        : '📋 FACULTY APPRAISAL WORKBENCH'}
           </span>
-          <span className="text-[11px] font-semibold text-red-200">
-            {isPrincipal || isRegistrar || isIQAC
-              ? 'Institution-Wide Oversight • 16 Academic Departments'
-              : user.department
-                ? `Department of ${user.department} ${user.departmentName ? `• ${user.departmentName}` : ''}`
-                : ''}
-          </span>
+          <div className="flex items-center gap-3">
+            {/* Real-time Cloud Auto-Save Status Pill */}
+            {!isReviewMode && (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                cloudSyncState === 'saving'
+                  ? 'bg-amber-400/20 text-amber-200 border-amber-300/40 animate-pulse'
+                  : cloudSyncState === 'error'
+                    ? 'bg-rose-500/30 text-rose-200 border-rose-400/40'
+                    : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+              }`}>
+                <span>{cloudSyncState === 'saving' ? '⏳' : cloudSyncState === 'error' ? '⚠️' : '☁️'}</span>
+                <span>
+                  {cloudSyncState === 'saving'
+                    ? 'Syncing to Cloud...'
+                    : cloudSyncState === 'error'
+                      ? 'Sync Retrying...'
+                      : `Cloud-Synced ${lastCloudSyncTime ? `(${lastCloudSyncTime})` : ''}`}
+                </span>
+              </span>
+            )}
+            <span className="text-[11px] font-semibold text-red-200">
+              {isPrincipal || isRegistrar || isIQAC
+                ? 'Institution-Wide Oversight • 16 Academic Departments'
+                : user.department
+                  ? `Department of ${user.department} ${user.departmentName ? `• ${user.departmentName}` : ''}`
+                  : ''}
+            </span>
+          </div>
         </div>
       </div>
 

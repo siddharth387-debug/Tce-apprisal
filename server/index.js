@@ -663,14 +663,41 @@ app.post('/api/auth/google', async (request, response) => {
       ]
     });
 
+    // Fuzzy-match: If not found and user logged in with personal Gmail, match username prefix with staffId or email
+    if (!facultyRecord && verifiedEmail.endsWith('@gmail.com')) {
+      const emailUser = verifiedEmail.split('@')[0].replace(/[0-9]+$/, '').toLowerCase().trim();
+      if (emailUser.length >= 4) {
+        facultyRecord = await FacultyMember.findOne({
+          $or: [
+            { staffId: new RegExp(`^${emailUser}$`, 'i') },
+            { email: new RegExp(`^${emailUser}@`, 'i') },
+            { personalEmail: new RegExp(`^${emailUser}@`, 'i') }
+          ]
+        });
+      }
+    }
+
+    // Auto-link alternate email in directory so cross-device logins share identical identity
+    if (facultyRecord && verifiedEmail && !facultyRecord.alternateEmails?.includes(verifiedEmail)) {
+      try {
+        await FacultyMember.updateOne(
+          { _id: facultyRecord._id },
+          { $addToSet: { alternateEmails: verifiedEmail } }
+        );
+        facultyRecord.alternateEmails = [...(facultyRecord.alternateEmails || []), verifiedEmail];
+      } catch (linkErr) {
+        console.warn('Auto-link alternate email warning:', linkErr.message);
+      }
+    }
+
     // Determine Role, Department & Designation (Dynamic lookup by email entry)
     const isGmailLogin = verifiedEmail.endsWith('@gmail.com');
     let assignedRole = 'Faculty';
-    let assignedDept = isGmailLogin ? 'MCA' : 'CSE';
-    let assignedDeptName = isGmailLogin ? 'Computer Applications' : 'Computer Science and Engineering';
-    let assignedDesignation = 'Assistant Professor';
+    let assignedDept = isGmailLogin ? (facultyRecord?.department || 'MCA') : (facultyRecord?.department || 'CSE');
+    let assignedDeptName = isGmailLogin ? (facultyRecord?.departmentName || 'Computer Applications') : (facultyRecord?.departmentName || 'Computer Science and Engineering');
+    let assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
 
-    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu') {
+    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu' || verifiedEmail === 'personalsiddharth387@gmail.com') {
       assignedRole = 'Registrar';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
@@ -687,8 +714,8 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDesignation = 'IQAC Quality Coordinator';
     } else if (facultyRecord) {
       assignedRole = facultyRecord.role || 'Faculty';
-      assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : (isGmailLogin ? 'MCA' : (facultyRecord.department || 'CSE'));
-      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (isGmailLogin ? 'Computer Applications' : (facultyRecord.departmentName || ''));
+      assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : (facultyRecord.department || (isGmailLogin ? 'MCA' : 'CSE'));
+      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (facultyRecord.departmentName || (isGmailLogin ? 'Computer Applications' : ''));
       assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : assignedRole === 'IQAC' ? 'IQAC Quality Coordinator' : 'Assistant Professor');
     } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
       assignedRole = 'HOD';
@@ -705,6 +732,11 @@ app.post('/api/auth/google', async (request, response) => {
     if (!userAliases.includes(verifiedEmail)) userAliases.push(verifiedEmail);
     if (canonicalPersonalEmail && !userAliases.includes(canonicalPersonalEmail)) userAliases.push(canonicalPersonalEmail);
     if (canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
+    if (verifiedEmail === 'personalsiddharth387@gmail.com' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu') {
+      ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'personalsiddharth387@gmail.com'].forEach(em => {
+        if (!userAliases.includes(em)) userAliases.push(em);
+      });
+    }
 
     // Calculate 1-Year Service Eligibility (365 Days) — Controlled by feature flag ENABLE_PROBATION_GATE
     const enableProbationGate = process.env.ENABLE_PROBATION_GATE === 'true';
@@ -808,8 +840,29 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       ? 'Department of Architecture (TSEDA)'
       : (facultyRecord?.departmentName || departmentName || req.user?.departmentName || 'Computer Science and Engineering');
 
-    const targetedFilter = { email: canonicalEmail, timeline: timeline.trim(), department: targetDept };
-    const existingDoc = await Appraisal.findOne(targetedFilter);
+    const candidateEmails = [
+      canonicalEmail,
+      verifiedEmail,
+      req.user?.email,
+      req.user?.personalEmail,
+      ...(facultyRecord?.alternateEmails || [])
+    ].filter(Boolean).map(e => String(e).toLowerCase().trim());
+    const uniqueCandidateEmails = Array.from(new Set(candidateEmails));
+
+    const existingFilter = {
+      email: { $in: uniqueCandidateEmails },
+      timeline: timeline.trim(),
+    };
+    if (targetDept === 'ARCH') {
+      existingFilter.department = 'ARCH';
+    }
+
+    const existingDoc = await Appraisal.findOne(existingFilter);
+    const targetedFilter = existingDoc 
+      ? { _id: existingDoc._id }
+      : (targetDept === 'ARCH' 
+          ? { email: canonicalEmail, timeline: timeline.trim(), department: 'ARCH' }
+          : { email: canonicalEmail, timeline: timeline.trim() });
 
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
     const replacementPayload = {
@@ -1161,6 +1214,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
                   masterRecord?.role === 'Admin' ||
                   requestEmail === 'siddharthk@student.tce.edu' || 
                   requestEmail === 'siddharth@student.tce.edu' ||
+                  requestEmail === 'personalsiddharth387@gmail.com' ||
                   requestEmail === 'registrar@tce.edu' ||
                   requestEmail === 'principal@tce.edu' ||
                   requestEmail === 'iqac@tce.edu' ||
@@ -1176,6 +1230,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       const userDept = (tokenDept || masterRecord?.department || '').toUpperCase().trim();
       const isSuperAdminOrRegistrar = requestEmail === 'siddharthk@student.tce.edu' ||
                                      requestEmail === 'siddharth@student.tce.edu' ||
+                                     requestEmail === 'personalsiddharth387@gmail.com' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
                                      requestEmail === 'iqac@tce.edu' ||
