@@ -2839,6 +2839,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('all'); // 'all' | 'min' (>=) | 'exact' (==) | 'range' (from-to)
   const [iqacStatusWorkflowFilter, setIqacStatusWorkflowFilter] = useState('ALL'); // 'ALL' | 'APPROVED' | 'PENDING'
   const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
+  const [leadershipStatusFilter, setLeadershipStatusFilter] = useState('ALL'); // 'ALL' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'IQAC_APPROVED' | 'RATIFIED'
   
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   
@@ -5161,9 +5162,39 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const iqacActiveCount = selectedInboxRows.filter(r => !r.iqacExcluded).length;
     const iqacExcludedCount = selectedInboxRows.filter(r => r.iqacExcluded).length;
 
+    // Tally counts across all workflow concepts for the active department/timeline scope
+    const statusCounts = { ALL: selectedInboxRows.length, DRAFT: 0, PENDING: 0, APPROVED: 0, IQAC_APPROVED: 0, RATIFIED: 0 };
+    selectedInboxRows.forEach((row) => {
+      const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
+      const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
+      const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
+      if (apStatus === 'DRAFT') statusCounts.DRAFT++;
+      else if (apStatus === 'PENDING' || !apStatus) statusCounts.PENDING++;
+
+      if (apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED') statusCounts.APPROVED++;
+      if (iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING'))) statusCounts.IQAC_APPROVED++;
+      if (prStatus === 'RATIFIED' || apStatus === 'RATIFIED') statusCounts.RATIFIED++;
+    });
+
     let displayInboxRows = selectedInboxRows;
+
+    // Leadership Concept Status Filter (All | Drafts | Pending | Approved | IQAC Approved | Ratified)
+    if (leadershipStatusFilter !== 'ALL') {
+      displayInboxRows = displayInboxRows.filter((row) => {
+        const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
+        const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
+        const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
+        if (leadershipStatusFilter === 'DRAFT') return apStatus === 'DRAFT';
+        if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || !apStatus;
+        if (leadershipStatusFilter === 'APPROVED') return apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED';
+        if (leadershipStatusFilter === 'IQAC_APPROVED') return iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING'));
+        if (leadershipStatusFilter === 'RATIFIED') return prStatus === 'RATIFIED' || apStatus === 'RATIFIED';
+        return true;
+      });
+    }
+
     if (isIQAC) {
-      displayInboxRows = selectedInboxRows.filter((row) => {
+      displayInboxRows = displayInboxRows.filter((row) => {
         const totalScore = row.totalScore || 0;
         const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
         const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
@@ -5562,8 +5593,44 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
           
           {activeReviewTab === 'inbox' && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left">
+          <div className="space-y-3">
+            {/* Quick Status Concept Filter Toolbar for Leadership & HoD */}
+            <div className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
+                <span>🎯</span> Status Concept:
+              </span>
+              {[
+                { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
+                { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
+                { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
+                { key: 'APPROVED', label: '✔ Approved by HoD', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
+                { key: 'IQAC_APPROVED', label: '📊 IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
+                { key: 'RATIFIED', label: '🔒 Ratified', count: statusCounts.RATIFIED, color: 'bg-purple-600 text-white' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setLeadershipStatusFilter(tab.key)}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    leadershipStatusFilter === tab.key
+                      ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      leadershipStatusFilter === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
                   <th className="py-2.5 px-3">Faculty Name</th>
@@ -5646,7 +5713,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
                                     <span>🔒</span> Ratified
                                   </span>
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
+                                  <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
                                     <span>📊</span> IQAC Approved
                                   </span>
                                 </div>
@@ -5665,20 +5732,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               );
                             } else if (activeStatus === 'APPROVED') {
                               return (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-green-50 text-green-700 border border-green-200 shadow-sm">
-                                  ✔ Approved
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-green-50 text-green-700 border border-green-200 shadow-sm flex items-center gap-1 w-fit">
+                                  <span>✔</span> Approved by HoD
                                 </span>
                               );
                             } else if (activeStatus === 'NOT APPROVED' || activeStatus === 'FIX NEEDED' || activeStatus === 'REJECTED') {
                               return (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
-                                  ⚠ Fix Needed
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200 shadow-sm flex items-center gap-1 w-fit">
+                                  <span>⚠</span> Fix Needed
+                                </span>
+                              );
+                            } else if (activeStatus === 'DRAFT') {
+                              return (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-700 border border-slate-300 shadow-sm flex items-center gap-1 w-fit">
+                                  <span>📝</span> Draft
                                 </span>
                               );
                             } else {
                               return (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 shadow-sm animate-pulse">
-                                  {activeStatus || 'Pending'}
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
+                                  <span>⏳</span> Pending HoD Review
                                 </span>
                               );
                             }
@@ -5745,7 +5818,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </tbody>
             </table>
           </div>
-          )}
+        </div>
+        )}
           
           {activeReviewTab === 'analytics' && (
             <AnalyticsDashboard data={selectedInboxRows} computeScores={computeSectionScores} />
