@@ -131,13 +131,38 @@ const STARTUP_DURATION_OPTIONS = [
 
 const COURSE_CODE_REGEX = /^[A-Z0-9]{5,7}$/i;
 
+function isPlaceholderValue(v) {
+  if (v === null || v === undefined) return true;
+  const s = String(v).trim();
+  if (s === '') return true;
+  if (/^select\b/i.test(s)) return true;
+  if (s.toLowerCase() === 'semester') return true;
+  return false;
+}
+
+function sanitizeCountInput(val, max = 1000) {
+  if (val === '' || val === null || val === undefined) return '';
+  const digitsOnly = String(val).replace(/[^0-9]/g, '');
+  if (digitsOnly === '') return '';
+  const num = parseInt(digitsOnly, 10);
+  if (Number.isNaN(num) || num < 0) return '0';
+  if (max !== undefined && num > max) return String(max);
+  return String(num);
+}
+
+function handleCountKeyDown(e) {
+  if (['-', '+', 'e', 'E'].includes(e.key)) {
+    e.preventDefault();
+  }
+}
+
 const DEFAULT_ONLY_KEYS = new Set(['id', 'role', 'type', 'category', 'mode', 'status', 'level', 'evidenceSubmitted', 'approval', 'compliance']);
 
 function isMeaningfullyFilledRow(row) {
   if (!row || typeof row !== 'object') return false;
   return Object.entries(row).some(([k, v]) => {
     if (k === 'id') return false;
-    if (v === null || v === undefined || String(v).trim() === '') return false;
+    if (isPlaceholderValue(v)) return false;
     return !DEFAULT_ONLY_KEYS.has(k) || k === 'evidenceLink';
   });
 }
@@ -177,7 +202,7 @@ function createEmptySectionState() {
     academicCollaborations: [],
     mentoring: {
       menteeCount: '',
-      batch: '2024-28',
+      batch: '',
       description: '',
       hodReview: 'Pending',
       evidenceLink: '',
@@ -628,36 +653,63 @@ function isNonEmpty(value) {
   return Boolean((value || '').trim());
 }
 
-function getRowValidationErrors(row, columns) {
+function getRowValidationErrors(row, columns, allRows = []) {
   const errors = {};
 
   columns.forEach((column) => {
     const rawValue = row[column.name];
-    const value = typeof rawValue === 'string' ? rawValue : String(rawValue || '');
+    const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
+    const trimmed = value.trim();
+
     if (column.name === 'courseCode') {
-      if (!isValidCourseCode(value)) {
+      if (!isValidCourseCode(trimmed)) {
         errors[column.name] = true;
+      } else if (allRows && allRows.length > 0) {
+        const norm = trimmed.toLowerCase();
+        const hasDuplicate = allRows.some((other) => {
+          if (other === row) return false;
+          if (other.id && row.id && other.id === row.id) return false;
+          const otherCode = String(other.courseCode || '').trim().toLowerCase();
+          return otherCode === norm;
+        });
+        if (hasDuplicate) {
+          errors[column.name] = 'duplicate';
+        }
       }
       return;
     }
 
     if (column.name === 'evidenceLink' || column.type === 'url' || column.name === 'appointmentLink') {
-      if (!value.trim()) {
+      if (!trimmed) {
         errors[column.name] = true;
-      } else if (!isValidEvidenceLink(value)) {
+      } else if (!isValidEvidenceLink(trimmed)) {
         errors[column.name] = 'invalid_url';
       }
       return;
     }
 
     if (column.type === 'select') {
-      if (!value.trim()) {
+      if (!trimmed || isPlaceholderValue(trimmed)) {
         errors[column.name] = true;
       }
       return;
     }
 
-    if (!value.trim()) {
+    if (column.type === 'number') {
+      if (!trimmed) {
+        errors[column.name] = true;
+      } else {
+        const num = Number(trimmed);
+        if (Number.isNaN(num) || num < 0) {
+          errors[column.name] = 'min_limit';
+        } else if (column.name !== 'amount' && num > 1000) {
+          errors[column.name] = 'max_limit';
+        }
+      }
+      return;
+    }
+
+    if (!trimmed) {
       errors[column.name] = true;
     }
   });
@@ -669,8 +721,8 @@ function getRowValidationErrors(row, columns) {
   return errors;
 }
 
-function isRowValidForScoring(row, columns) {
-  return Object.keys(getRowValidationErrors(row, columns)).length === 0;
+function isRowValidForScoring(row, columns, allRows = []) {
+  return Object.keys(getRowValidationErrors(row, columns, allRows)).length === 0;
 }
 
 function isRowValid(row, requireCourseCode, keyName) {
@@ -1429,24 +1481,54 @@ function DynamicArraySection({
   const safeRows = rows || [];
   const safeColumns = columns || [];
 
+  const isDuplicateCourseCode = (code, rowId) => {
+    if (!code || !isNonEmpty(code)) return false;
+    const norm = String(code).trim().toLowerCase();
+    return safeRows.some((other) => other.id !== rowId && String(other.courseCode || '').trim().toLowerCase() === norm);
+  };
+
   const getFieldErrorText = (row, columnName) => {
-    const err = rowErrors?.[row.id]?.[columnName];
-    if (!err) {
+    const propErr = rowErrors?.[row.id]?.[columnName];
+    if (columnName === 'courseCode') {
+      if (propErr === 'duplicate' || isDuplicateCourseCode(row[columnName], row.id)) {
+        return 'Subject code already used in this section';
+      }
+      if (propErr) {
+        return 'Use 5-7 alphanumeric code (e.g., CS301).';
+      }
+      if (isNonEmpty(row[columnName]) && !isValidCourseCode(row[columnName])) {
+        return 'Use 5-7 alphanumeric code (e.g., CS301).';
+      }
       return '';
     }
 
-    if (columnName === 'courseCode') {
-      return 'Use 5-7 alphanumeric code (e.g., CS301).';
-    }
-
     if (columnName === 'evidenceLink' || columnName === 'appointmentLink') {
-      if (err === 'invalid_url') {
+      if (propErr === 'invalid_url') {
         return 'Please enter a valid link (e.g. Google Drive link https://...)';
       }
-      return 'Supporting link required (e.g. Google Drive link).';
+      if (propErr) {
+        return 'Supporting link required (e.g. Google Drive link).';
+      }
+      return '';
     }
 
-    return 'Required field.';
+    if (propErr === 'max_limit') return 'Maximum value is 1000.';
+    if (propErr === 'min_limit') return 'Minimum value is 0.';
+
+    if (propErr) {
+      return 'Required field.';
+    }
+    return '';
+  };
+
+  const hasRowColumnError = (row, column) => {
+    if (rowErrors?.[row.id]?.[column.name]) return true;
+    if (column.name === 'courseCode' && isNonEmpty(row[column.name])) {
+      if (!isValidCourseCode(row[column.name]) || isDuplicateCourseCode(row[column.name], row.id)) {
+        return true;
+      }
+    }
+    return false;
   };
 
   const addDisabled = Boolean(disabled);
@@ -1597,16 +1679,13 @@ function DynamicArraySection({
                       ) : column.type === 'select' ? (
                         <>
                           <select
-                            value={row[column.name]}
+                            value={row[column.name] || ''}
                             onChange={(event) =>
                               onChange(row.id, column.name, event.target.value)
                             }
                             disabled={disabled}
                             className={`w-full rounded-md border ${
-                              rowErrors?.[row.id]?.[column.name] ||
-                              (column.name === 'courseCode' &&
-                                isNonEmpty(row[column.name]) &&
-                                !isValidCourseCode(row[column.name]))
+                              hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
                             } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed ${
@@ -1617,7 +1696,9 @@ function DynamicArraySection({
                                   : ''
                             }`}
                           >
-                            <option value="">{column.label}</option>
+                            <option value="" disabled>
+                              {column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`)}
+                            </option>
                             {(column.options || []).map((option) => {
                               const optValue = typeof option === 'object' && option !== null ? option.value : option;
                               const optLabel = typeof option === 'object' && option !== null ? option.label : option;
@@ -1639,10 +1720,25 @@ function DynamicArraySection({
                           <input
                             type={column.type || 'text'}
                             {...(column.type === 'date' ? { min: '1990-01-01', max: '2035-12-31' } : {})}
+                            {...(column.type === 'number' ? {
+                              min: 0,
+                              ...(column.name !== 'amount' ? { max: 1000 } : {}),
+                              onKeyDown: handleCountKeyDown,
+                              onPaste: (e) => {
+                                e.preventDefault();
+                                const pasted = e.clipboardData.getData('text');
+                                const sanitized = sanitizeCountInput(pasted, column.name === 'amount' ? undefined : 1000);
+                                onChange(row.id, column.name, sanitized);
+                              }
+                            } : {})}
                             value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
-                            onChange={(event) =>
-                              onChange(row.id, column.name, event.target.value)
-                            }
+                            onChange={(event) => {
+                              let val = event.target.value;
+                              if (column.type === 'number') {
+                                val = sanitizeCountInput(val, column.name === 'amount' ? undefined : 1000);
+                              }
+                              onChange(row.id, column.name, val);
+                            }}
                             disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
                             placeholder={column.name === 'toDate' && Boolean(row.isTillDate) ? 'Present / Ongoing' : (column.placeholder || column.label)}
                             list={
@@ -1657,10 +1753,7 @@ function DynamicArraySection({
                                       : undefined
                             }
                             className={`w-full rounded-md border ${
-                              rowErrors?.[row.id]?.[column.name] ||
-                              (column.name === 'courseCode' &&
-                                isNonEmpty(row[column.name]) &&
-                                !isValidCourseCode(row[column.name]))
+                              hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
                             } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed ${
@@ -4680,7 +4773,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
 
       rows.forEach((row) => {
-        const errors = getRowValidationErrors(row, columns);
+        const errors = getRowValidationErrors(row, columns, rows);
         if (Object.keys(errors).length > 0) {
           rowErrors[key][row.id] = errors;
         }
@@ -4698,15 +4791,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     validateRows('academicCollaborations', academicCollaborationsColumns);
     validateRows('studentFeedback', studentFeedbackColumns);
 
+    const mCount = currentSectionData.mentoring?.menteeCount;
+    const mBatch = currentSectionData.mentoring?.batch;
     const mentoringTouched =
-      isNonEmpty(currentSectionData.mentoring?.menteeCount) ||
-      isNonEmpty(currentSectionData.mentoring?.batch) ||
+      isNonEmpty(mCount) ||
+      (isNonEmpty(mBatch) && !isPlaceholderValue(mBatch)) ||
       isNonEmpty(currentSectionData.mentoring?.description) ||
       isNonEmpty(currentSectionData.mentoring?.evidenceLink);
     const mentoringErrors = {
       menteeCount:
-        mentoringTouched && !isNonEmpty(currentSectionData.mentoring?.menteeCount),
-      batch: mentoringTouched && !isNonEmpty(currentSectionData.mentoring?.batch),
+        mentoringTouched && (!isNonEmpty(mCount) || Number(mCount) < 0 || Number(mCount) > 1000),
+      batch: mentoringTouched && (!isNonEmpty(mBatch) || isPlaceholderValue(mBatch)),
       description:
         mentoringTouched && !isNonEmpty(currentSectionData.mentoring?.description),
       evidenceLink:
@@ -4888,10 +4983,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         checkCustomErrors: (data) => {
           const errs = [];
           const m = data?.mentoring;
-          const touched = m && (isNonEmpty(m.menteeCount) || isNonEmpty(m.batch) || isNonEmpty(m.description) || isNonEmpty(m.evidenceLink));
+          const touched = m && (isNonEmpty(m.menteeCount) || (isNonEmpty(m.batch) && !isPlaceholderValue(m.batch)) || isNonEmpty(m.description) || isNonEmpty(m.evidenceLink));
           if (touched) {
-            if (!isNonEmpty(m.menteeCount) || toNumber(m.menteeCount) <= 0) errs.push('Section I (Mentoring): Number of mentees is required.');
-            if (!isNonEmpty(m.batch)) errs.push('Section I (Mentoring): Mentoring batch is required.');
+            if (!isNonEmpty(m.menteeCount)) {
+              errs.push('Section I (Mentoring): Number of mentees is required.');
+            } else {
+              const num = Number(m.menteeCount);
+              if (num < 0 || num > 1000) {
+                errs.push('Section I (Mentoring): Number of mentees must be between 0 and 1000.');
+              }
+            }
+            if (!isNonEmpty(m.batch) || isPlaceholderValue(m.batch)) errs.push('Section I (Mentoring): Mentoring batch is required.');
             if (!isNonEmpty(m.description)) errs.push('Section I (Mentoring): Mentoring description/activities are required.');
             if (!m.evidenceLink || !isValidEvidenceLink(m.evidenceLink)) {
               errs.push('Section I (Mentoring): Please enter a valid supporting link (e.g. Google Drive link https://...).');
@@ -4916,6 +5018,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           const cit = toNumber(data?.citationsReceived?.totalCount);
           const q1Cit = toNumber(data?.q1Citations?.totalCount);
           return cit > 0 || q1Cit > 0;
+        },
+        checkCustomErrors: (data) => {
+          const errs = [];
+          const cit = data?.citationsReceived?.totalCount;
+          if (isNonEmpty(cit)) {
+            const num = Number(cit);
+            if (num < 0 || num > 1000) {
+              errs.push('Section II (2.2 Citations Received): Citations count must be between 0 and 1000.');
+            }
+          }
+          const q1Cit = data?.q1Citations?.totalCount;
+          if (isNonEmpty(q1Cit)) {
+            const num = Number(q1Cit);
+            if (num < 0 || num > 1000) {
+              errs.push('Section II (2.3 Q1 Citations): Q1 citations count must be between 0 and 1000.');
+            }
+          }
+          return errs;
         }
       },
       {
@@ -5012,7 +5132,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
         rows.forEach((row, idx) => {
           if (isMeaningfullyFilledRow(row)) {
-            const rowValidation = getRowValidationErrors(row, columns);
+            const rowValidation = getRowValidationErrors(row, columns, rows);
             const errKeys = Object.keys(rowValidation);
 
             if (errKeys.length > 0) {
@@ -5022,13 +5142,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               } else if (rowValidation.evidenceLink) {
                 errDetails.push('Supporting document link is required');
               }
-              if (rowValidation.courseCode) {
+              if (rowValidation.courseCode === 'duplicate') {
+                errDetails.push('Subject code already used in this section');
+              } else if (rowValidation.courseCode) {
                 errDetails.push('Use 5-7 alphanumeric course code (e.g., CS301)');
               }
               const otherMissing = errKeys.filter(k => k !== 'evidenceLink' && k !== 'courseCode');
-              if (otherMissing.length > 0) {
-                errDetails.push(`Missing: ${otherMissing.join(', ')}`);
-              }
+              otherMissing.forEach(k => {
+                const errVal = rowValidation[k];
+                const colDef = columns.find(c => c.name === k);
+                const colLabel = colDef ? colDef.label : k;
+                if (errVal === 'max_limit') {
+                  errDetails.push(`${colLabel} cannot exceed 1000`);
+                } else if (errVal === 'min_limit') {
+                  errDetails.push(`${colLabel} cannot be negative`);
+                } else if (colDef && colDef.type === 'select') {
+                  errDetails.push(`Please select an option for ${colLabel}`);
+                } else {
+                  errDetails.push(`Missing: ${colLabel}`);
+                }
+              });
               fieldErrors.push(`${sec.title} → ${label} (Row ${idx + 1}): ${errDetails.join('; ')}`);
             } else {
               sectionHasCompletedEntry = true;
@@ -6961,7 +7094,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               disabled={!isEditable}
               onAdd={() =>
                 addArrayRow('educationalTours', {
-                  tourType: 'Educational Tour (4 marks)',
+                  tourType: '',
                   place: '',
                   batch: '',
                   evidenceLink: '',
@@ -7048,9 +7181,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </span>
               <input
                 type="number"
+                min="0"
+                max="1000"
                 value={currentSectionData.mentoring?.menteeCount || ''}
+                onKeyDown={handleCountKeyDown}
+                onPaste={(event) => {
+                  event.preventDefault();
+                  const pasted = event.clipboardData.getData('text');
+                  updateMentoringField('menteeCount', sanitizeCountInput(pasted, 1000));
+                }}
                 onChange={(event) =>
-                  updateMentoringField('menteeCount', event.target.value)
+                  updateMentoringField('menteeCount', sanitizeCountInput(event.target.value, 1000))
                 }
                 readOnly={!isEditable || user.role === 'HOD'}
                 placeholder="Enter Mentee Count"
@@ -7076,7 +7217,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     : 'border-slate-200'
                 } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:cursor-default disabled:bg-slate-100`}
               >
-                <option value="">Select Batch</option>
+                <option value="" disabled>Select Batch</option>
                 {MENTORING_BATCH_GROUPS.map((group) => (
                   <optgroup key={group.label} label={group.label}>
                     {group.options.map((option) => (
@@ -7259,7 +7400,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   addArrayRow('journalPapers', {
                     paperTitle: '',
                     journalName: '',
-                    tier: 'Q1',
+                    tier: '',
                     evidenceLink: '',
                   })
                 }
@@ -7293,13 +7434,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       Total Citations Count
                     </span>
                     <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
+                      type="number"
+                      min="0"
+                      max="1000"
                       placeholder="Enter Total Citations Count"
                       value={currentSectionData.citationsReceived?.totalCount || ''}
+                      onKeyDown={handleCountKeyDown}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const val = sanitizeCountInput(e.clipboardData.getData('text'), 1000);
+                        updateCurrentTimeline((prev) => ({
+                          ...prev,
+                          citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
+                            ? { ...prev.citationsReceived, totalCount: val }
+                            : { totalCount: val }
+                        }));
+                      }}
                       onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, ''); // Allow only numbers
+                        const val = sanitizeCountInput(e.target.value, 1000);
                         updateCurrentTimeline((prev) => ({
                           ...prev,
                           citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
@@ -7337,13 +7489,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       Q1 Citations Count
                     </span>
                     <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
+                      type="number"
+                      min="0"
+                      max="1000"
                       placeholder="Enter Q1 Citations Count"
                       value={currentSectionData.q1Citations?.totalCount || ''}
+                      onKeyDown={handleCountKeyDown}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const val = sanitizeCountInput(e.clipboardData.getData('text'), 1000);
+                        updateCurrentTimeline((prev) => ({
+                          ...prev,
+                          q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
+                            ? { ...prev.q1Citations, totalCount: val }
+                            : { totalCount: val }
+                        }));
+                      }}
                       onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, ''); // Allow only numbers
+                        const val = sanitizeCountInput(e.target.value, 1000);
                         updateCurrentTimeline((prev) => ({
                           ...prev,
                           q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
@@ -7370,7 +7533,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 onAdd={() =>
                   addArrayRow('bookPublications', {
                     title: '',
-                    type: 'Book (Author)',
+                    type: '',
                     evidenceLink: '',
                   })
                 }
@@ -7417,7 +7580,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   addArrayRow('researchCollaborations', {
                     title: '',
                     partner: '',
-                    type: 'International',
+                    type: '',
                     evidenceLink: '',
                   })
                 }
@@ -7562,7 +7725,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   rows={currentSectionData.designPatents || []}
                   canAdd={canAddDesignPatents(currentSectionData.designPatents || [])}
                   disabled={!isEditable}
-                  onAdd={() => addArrayRow("designPatents", { title: "", registrationNo: "", date: "", status: "Registered", evidenceLink: "" })}
+                  onAdd={() => addArrayRow("designPatents", { title: "", registrationNo: "", date: "", status: "", evidenceLink: "" })}
                   onChange={(rowId, field, value) => updateArrayRow("designPatents", rowId, field, value)}
                   onRemove={(rowId) => removeArrayRow("designPatents", rowId)}
                   columns={designPatentsColumns}
@@ -7592,7 +7755,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.researchProjects || []}
                 canAdd={canAddResearchProjects(currentSectionData.researchProjects || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("researchProjects", { projectName: "", fundingAgency: "", period: "", amount: "", role: "PI", status: "Ongoing", evidenceLink: "" })}
+                onAdd={() => addArrayRow("researchProjects", { projectName: "", fundingAgency: "", period: "", amount: "", role: "", status: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("researchProjects", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("researchProjects", rowId)}
                 columns={researchProjectsColumns}
@@ -7673,7 +7836,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.reputationSurvey || []}
                 canAdd={canAddReputationSurvey(currentSectionData.reputationSurvey || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("reputationSurvey", { surveyName: "", contributionDetails: "", evidenceSubmitted: "Yes", evidenceLink: "" })}
+                onAdd={() => addArrayRow("reputationSurvey", { surveyName: "", contributionDetails: "", evidenceSubmitted: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("reputationSurvey", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("reputationSurvey", rowId)}
                 columns={reputationSurveyColumns}
@@ -7686,7 +7849,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.nirfSurvey || []}
                 canAdd={canAddNirfSurvey(currentSectionData.nirfSurvey || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("nirfSurvey", { nominationDetails: "", evidenceSubmitted: "Yes", evidenceLink: "" })}
+                onAdd={() => addArrayRow("nirfSurvey", { nominationDetails: "", evidenceSubmitted: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("nirfSurvey", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("nirfSurvey", rowId)}
                 columns={nirfSurveyColumns}
@@ -7744,7 +7907,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.programsOrganized || []}
                 canAdd={canAddProgramsOrganized(currentSectionData.programsOrganized || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("programsOrganized", { programName: "", days: "", dateRange: "", endDate: "", role: "Coordinator", participants: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("programsOrganized", { programName: "", days: "", dateRange: "", endDate: "", role: "", participants: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("programsOrganized", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("programsOrganized", rowId)}
                 columns={programsOrganizedColumns}
@@ -7757,7 +7920,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.resourcePerson || []}
                 canAdd={canAddResourcePerson(currentSectionData.resourcePerson || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("resourcePerson", { eventName: "", level: "National", topic: "", date: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("resourcePerson", { eventName: "", level: "", topic: "", date: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("resourcePerson", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("resourcePerson", rowId)}
                 columns={resourcePersonColumns}
@@ -7770,7 +7933,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.professionalMembership || []}
                 canAdd={canAddProfessionalMembership(currentSectionData.professionalMembership || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("professionalMembership", { societyName: "", membershipType: "", status: "Active", evidenceLink: "" })}
+                onAdd={() => addArrayRow("professionalMembership", { societyName: "", membershipType: "", status: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("professionalMembership", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("professionalMembership", rowId)}
                 columns={professionalMembershipColumns}
@@ -7825,7 +7988,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.partialDelivery || []}
                 canAdd={canAddPartialDelivery(currentSectionData.partialDelivery || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("partialDelivery", { courseDetails: "", mode: "Offline", industryName: "", expertDetails: "", duration: "", date: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("partialDelivery", { courseDetails: "", mode: "", industryName: "", expertDetails: "", duration: "", date: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("partialDelivery", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("partialDelivery", rowId)}
                 columns={partialDeliveryColumns}
@@ -7963,7 +8126,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.deptActivities || []}
                 canAdd={canAddDeptActivities(currentSectionData.deptActivities || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("deptActivities", { description: "", type: "Dept. Activity & File Maintenance", role: "Major", approval: "Yes", evidenceLink: "" })}
+                onAdd={() => addArrayRow("deptActivities", { description: "", type: "", role: "", approval: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("deptActivities", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("deptActivities", rowId)}
                 columns={deptActivitiesColumns}
@@ -7976,7 +8139,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.collegeActivities || []}
                 canAdd={canAddCollegeActivities(currentSectionData.collegeActivities || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("collegeActivities", { description: "", category: "Committee Member", role: "Major", approval: "Yes", evidenceLink: "" })}
+                onAdd={() => addArrayRow("collegeActivities", { description: "", category: "", role: "", approval: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("collegeActivities", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("collegeActivities", rowId)}
                 columns={collegeActivitiesColumns}
@@ -7989,7 +8152,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.adminResponsibilities || []}
                 canAdd={canAddAdminResponsibilities(currentSectionData.adminResponsibilities || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("adminResponsibilities", { role: "HoD", evidenceLink: "" })}
+                onAdd={() => addArrayRow("adminResponsibilities", { role: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("adminResponsibilities", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("adminResponsibilities", rowId)}
                 columns={adminResponsibilitiesColumns}
@@ -8908,7 +9071,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   onClick={() => setSubmitModalState(null)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 border border-slate-300 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
                 >
-                  Cancel / Keep Editing
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -8924,7 +9087,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   ) : (
                     <>
                       <span>✓</span>
-                      <span>Yes, Submit Appraisal</span>
+                      <span>Confirm</span>
                     </>
                   )}
                 </button>

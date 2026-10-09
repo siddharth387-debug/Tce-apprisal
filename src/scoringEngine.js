@@ -1,4 +1,25 @@
-const isFilled = (val) => typeof val === 'string' && val.trim().length > 0;
+const isFilled = (val) => {
+  if (typeof val === 'number') return Number.isFinite(val);
+  if (typeof val === 'boolean') return true;
+  if (typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  if (trimmed.length === 0) return false;
+  if (/^select\b/i.test(trimmed)) return false;
+  if (trimmed.toLowerCase() === 'semester') return false;
+  return true;
+};
+
+const isRowFullyFilled = (row, fields) => {
+  if (!row || typeof row !== 'object') return false;
+  return fields.every((f) => {
+    // If the field supports multiple aliases (e.g. ['duration', 'durationDays'])
+    if (Array.isArray(f)) {
+      return f.some((subField) => isFilled(row[subField]));
+    }
+    return isFilled(row[f]);
+  });
+};
+
 const toNum = (val) => {
   const n = Number(val);
   return Number.isFinite(n) ? n : 0;
@@ -61,7 +82,7 @@ export function computeAutomatedScores(sectionData = {}) {
 
   // Section 1
   const validCoursesHandled = (safeData.coursesHandled || []).filter(
-    (r) => isFilled(r.courseCode) && isFilled(r.courseName)
+    (r) => isRowFullyFilled(r, ['courseCode', 'courseName', 'type', 'semester', 'evidenceLink'])
   ).length;
   let s1_1 = 0;
   if (validCoursesHandled === 1) s1_1 = 3;
@@ -70,27 +91,55 @@ export function computeAutomatedScores(sectionData = {}) {
 
   const s1_2 = Math.min(
     (safeData.courseFiles || []).reduce((sum, r) => {
-      if (!isFilled(r.courseCode) || !isFilled(r.compliance) || !isFilled(r.evidenceLink)) return sum;
+      if (!isRowFullyFilled(r, ['courseCode', 'courseName', 'compliance', 'evidenceLink'])) return sum;
       return sum + (r.compliance === 'Full' ? 5 : r.compliance === 'Partial' ? 3 : 0);
     }, 0),
     5
   );
 
-  const s1_3 = Math.min(((safeData.coursesDesigned || []).filter((r) => isFilled(r.courseCode)).length) * 2, 5);
-  const s1_4 = Math.min(((safeData.valueAdded || []).filter((r) => isFilled(r.courseName)).length) * 2, 4);
+  const s1_3 = Math.min(
+    ((safeData.coursesDesigned || []).filter(
+      (r) => isRowFullyFilled(r, ['courseCode', 'courseName', 'remarks', 'evidenceLink'])
+    ).length) * 2,
+    5
+  );
+  const s1_4 = Math.min(
+    ((safeData.valueAdded || []).filter(
+      (r) => isRowFullyFilled(r, ['courseName', 'particulars', 'studentCount', 'evidenceLink'])
+    ).length) * 2,
+    4
+  );
 
-  const validInnovative = (safeData.innovativeMethods || []).filter((r) => isFilled(r.courseCode) && isFilled(r.method)).length;
+  const validInnovative = (safeData.innovativeMethods || []).filter(
+    (r) => isRowFullyFilled(r, ['courseCode', 'method', 'evidenceLink'])
+  ).length;
   let s1_5 = 0;
   if (validInnovative === 1) s1_5 = 2;
   else if (validInnovative === 2) s1_5 = 4;
   else if (validInnovative >= 3) s1_5 = 5;
 
-  const s1_6 = Math.min(((safeData.academicCollaborations || []).filter((r) => isFilled(r.organization)).length) * 4, 4);
-  const s1_7 = safeData.mentoring && toNum(safeData.mentoring.menteeCount) > 0 ? 2 : 0;
-  const s1_8 = Math.min(((safeData.certifications || []).filter((r) => isFilled(r.courseName)).length) * 2, 4);
+  const s1_6 = Math.min(
+    ((safeData.academicCollaborations || []).filter(
+      (r) => isRowFullyFilled(r, ['organization', 'collaborationType', 'evidenceLink'])
+    ).length) * 4,
+    4
+  );
+  const s1_7 =
+    safeData.mentoring &&
+    isRowFullyFilled(safeData.mentoring, ['menteeCount', 'batch', 'description', 'evidenceLink']) &&
+    toNum(safeData.mentoring.menteeCount) > 0
+      ? 2
+      : 0;
+  const s1_8 = Math.min(
+    ((safeData.certifications || []).filter(
+      (r) => isRowFullyFilled(r, ['courseName', 'platform', 'certType', 'evidenceLink'])
+    ).length) * 2,
+    4
+  );
 
   const s1_9 = Math.min(
     (safeData.studentFeedback || []).reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['courseName', 'feedbackPct', 'evidenceLink'])) return sum;
       const v = toNum(r.feedbackPct);
       if (v > 90) return sum + 4;
       if (v >= 80) return sum + 3;
@@ -102,6 +151,7 @@ export function computeAutomatedScores(sectionData = {}) {
 
   const s1_10 = Math.min(
     (safeData.resultAnalysis || []).reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])) return sum;
       const v = toNum(r.passPercentage);
       if (v >= 90) return sum + 5;
       if (v >= 80) return sum + 4;
@@ -115,6 +165,7 @@ export function computeAutomatedScores(sectionData = {}) {
 
   const s1_11 = Math.min(
     (safeData.coAttainment || []).reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['courseCode', 'courseName', 'attainmentPct', 'evidenceLink'])) return sum;
       const v = toNum(r.attainmentPct);
       if (v >= 70) return sum + 4;
       if (v >= 60) return sum + 3;
@@ -127,7 +178,7 @@ export function computeAutomatedScores(sectionData = {}) {
   // Section 2
   const s2_1 = Math.min(
     (safeData.journalPapers || []).reduce((sum, r) => {
-      if (!isFilled(r.paperTitle) && !isFilled(r.journalName)) return sum;
+      if (!isRowFullyFilled(r, ['paperTitle', 'journalName', 'tier', 'evidenceLink'])) return sum;
       const t = String(r.tier || r.quartile || '').toUpperCase().trim();
       if (t.includes('Q1')) return sum + 6;
       if (t.includes('Q2')) return sum + 4;
@@ -137,7 +188,7 @@ export function computeAutomatedScores(sectionData = {}) {
     15
   );
 
-  const citVal = toNum(safeData.citationsReceived?.totalCount);
+  const citVal = isFilled(safeData.citationsReceived?.totalCount) ? toNum(safeData.citationsReceived?.totalCount) : 0;
   let s2_2 = 0;
   if (citVal >= 50) s2_2 = 8;
   else if (citVal >= 25) s2_2 = 5;
@@ -145,7 +196,7 @@ export function computeAutomatedScores(sectionData = {}) {
   else if (citVal >= 5) s2_2 = 3;
   else if (citVal >= 1) s2_2 = 1;
 
-  const q1CitVal = toNum(safeData.q1Citations?.totalCount);
+  const q1CitVal = isFilled(safeData.q1Citations?.totalCount) ? toNum(safeData.q1Citations?.totalCount) : 0;
   let s2_3 = 0;
   if (q1CitVal >= 25) s2_3 = 7;
   else if (q1CitVal >= 15) s2_3 = 5;
@@ -154,7 +205,7 @@ export function computeAutomatedScores(sectionData = {}) {
 
   const s2_4 = Math.min(
     (safeData.bookPublications || []).reduce((sum, r) => {
-      if (!isFilled(r.title)) return sum;
+      if (!isRowFullyFilled(r, ['title', 'type', 'evidenceLink'])) return sum;
       if (r.type === 'Book (Author)') return sum + 5;
       if (r.type === 'Chapter' || r.type === 'Editor') return sum + 2;
       return sum;
@@ -162,30 +213,70 @@ export function computeAutomatedScores(sectionData = {}) {
     5
   );
 
-  const s2_5 = Math.min((safeData.conferencePapers || []).filter((r) => isFilled(r.paperTitle) || isFilled(r.proceedingName)).length * 1, 4);
+  const s2_5 = Math.min(
+    (safeData.conferencePapers || []).filter(
+      (r) => isRowFullyFilled(r, ['paperTitle', 'proceedingName', 'evidenceLink'])
+    ).length * 1,
+    4
+  );
   const s2_6 = Math.min(
     (safeData.researchCollaborations || []).reduce((sum, r) => {
-      if (!isFilled(r.title) || !isFilled(r.partner)) return sum;
+      if (!isRowFullyFilled(r, ['title', 'partner', 'type', 'evidenceLink'])) return sum;
       if (r.type === 'International') return sum + 3;
       if (r.type === 'National' || r.type === 'Industry') return sum + 2;
       return sum;
     }, 0),
     5
   );
-  const s2_7 = Math.min((safeData.phdRegistered || []).filter((r) => isFilled(r.scholarName) && isFilled(r.researchArea)).length * 1, 5);
-  const s2_8 = Math.min((safeData.phdAwarded || []).filter((r) => isFilled(r.scholarName) && isFilled(r.researchArea)).length * 3, 6);
+  const s2_7 = Math.min(
+    (safeData.phdRegistered || []).filter(
+      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'evidenceLink'])
+    ).length * 1,
+    5
+  );
+  const s2_8 = Math.min(
+    (safeData.phdAwarded || []).filter(
+      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'evidenceLink'])
+    ).length * 3,
+    6
+  );
 
   // Section 3
-  const s3_1 = Math.min((safeData.patentsPublished || []).filter((r) => isFilled(r.title) || isFilled(r.refNumber) || isFilled(r.appNumber)).length * 1, 2);
-  const s3_2 = Math.min((safeData.patentsGranted || []).filter((r) => isFilled(r.title) || isFilled(r.refNumber)).length * 3, 6);
-  const s3_3 = Math.min((safeData.transferOfTechnology || []).filter((r) => isFilled(r.title) && isFilled(r.industryPartner)).length * 3, 3);
-  const s3_4 = Math.min((safeData.prototypesDeveloped || []).filter((r) => isFilled(r.title)).length * 1, 2);
-  const s3_5 = Math.min((safeData.hackathonPrizes || []).filter((r) => isFilled(r.eventName) && isFilled(r.prize)).length * 2, 2);
+  const s3_1 = Math.min(
+    (safeData.patentsPublished || []).filter(
+      (r) => isRowFullyFilled(r, [['refNumber', 'appNumber'], 'title', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
+  const s3_2 = Math.min(
+    (safeData.patentsGranted || []).filter(
+      (r) => isRowFullyFilled(r, ['refNumber', 'title', 'evidenceLink'])
+    ).length * 3,
+    6
+  );
+  const s3_3 = Math.min(
+    (safeData.transferOfTechnology || []).filter(
+      (r) => isRowFullyFilled(r, ['title', 'industryPartner', 'evidenceLink'])
+    ).length * 3,
+    3
+  );
+  const s3_4 = Math.min(
+    (safeData.prototypesDeveloped || []).filter(
+      (r) => isRowFullyFilled(r, ['title', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
+  const s3_5 = Math.min(
+    (safeData.hackathonPrizes || []).filter(
+      (r) => isRowFullyFilled(r, ['eventName', 'prize', 'evidenceLink'])
+    ).length * 2,
+    2
+  );
 
   // Section 4
   const s4_1 = Math.min(
     (safeData.researchProjects || []).reduce((sum, r) => {
-      if (!isFilled(r.projectName)) return sum;
+      if (!isRowFullyFilled(r, ['projectName', 'fundingAgency', 'amount', 'role', 'status', 'evidenceLink'])) return sum;
       const v = toNum(r.amount);
       if (v >= 2000000) return sum + 8;
       if (v >= 1500000) return sum + 5;
@@ -199,7 +290,7 @@ export function computeAutomatedScores(sectionData = {}) {
 
   const s4_2 = Math.min(
     (safeData.consultancyProjects || []).reduce((sum, r) => {
-      if (!isFilled(r.title)) return sum;
+      if (!isRowFullyFilled(r, ['title', 'clientDetails', 'amount', 'evidenceLink'])) return sum;
       const v = toNum(r.amount);
       if (v >= 500000) return sum + 7;
       if (v >= 300000) return sum + 5;
@@ -211,10 +302,15 @@ export function computeAutomatedScores(sectionData = {}) {
   );
 
   // Section 5
-  const s5_1 = Math.min((safeData.internationalEngagement || []).filter((r) => isFilled(r.institution) && isFilled(r.country)).length * 1, 2);
+  const s5_1 = Math.min(
+    (safeData.internationalEngagement || []).filter(
+      (r) => isRowFullyFilled(r, ['institution', 'country', 'nature', 'status', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
   const s5_2 = Math.min(
     (safeData.visitingPositions || []).reduce((sum, r) => {
-      if (!isFilled(r.institution)) return sum;
+      if (!isRowFullyFilled(r, ['institution', 'country', ['duration', 'durationDays'], 'evidenceLink'])) return sum;
       const v = toNum(r.duration || r.durationDays);
       if (v >= 30) return sum + 4;
       if (v >= 15) return sum + 3;
@@ -223,16 +319,38 @@ export function computeAutomatedScores(sectionData = {}) {
     }, 0),
     4
   );
-  const s5_3 = Math.min((safeData.foreignFaculty || []).filter((r) => isFilled(r.name) && isFilled(r.institution)).length * 1, 2);
-  const s5_4 = Math.min((safeData.reputationSurvey || []).filter((r) => isFilled(r.surveyName) && (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes').length * 1, 1);
-  const s5_5 = Math.min((safeData.nirfSurvey || []).filter((r) => isFilled(r.nominationDetails) && (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes').length * 1, 1);
+  const s5_3 = Math.min(
+    (safeData.foreignFaculty || []).filter(
+      (r) => isRowFullyFilled(r, ['name', 'institution', 'engagementType', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
+  const s5_4 = Math.min(
+    (safeData.reputationSurvey || []).filter(
+      (r) => isRowFullyFilled(r, ['surveyName', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
+        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+    ).length * 1,
+    1
+  );
+  const s5_5 = Math.min(
+    (safeData.nirfSurvey || []).filter(
+      (r) => isRowFullyFilled(r, ['nominationDetails', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
+        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+    ).length * 1,
+    1
+  );
 
   // Section 6
-  const s6_1 = Math.min((safeData.fdpAttended || []).filter((r) => isFilled(r.programName) && isFilled(r.organizer)).length * 2, 3);
+  const s6_1 = Math.min(
+    (safeData.fdpAttended || []).filter(
+      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink'])
+    ).length * 2,
+    3
+  );
   const s6_2 = Math.min(
     (safeData.programsOrganized || []).reduce((sum, r) => {
-      if (!isFilled(r.programName)) return sum;
-      const d = toNum(r.days);
+      if (!isRowFullyFilled(r, ['programName', ['days', 'numberOfDays'], 'role', 'evidenceLink'])) return sum;
+      const d = toNum(r.days || r.numberOfDays);
       if (d >= 5) return sum + 2;
       if (d >= 2) return sum + 1;
       return sum;
@@ -241,21 +359,37 @@ export function computeAutomatedScores(sectionData = {}) {
   );
   const s6_3 = Math.min(
     (safeData.resourcePerson || []).reduce((sum, r) => {
-      if (!isFilled(r.eventName) || !isFilled(r.topic)) return sum;
+      if (!isRowFullyFilled(r, ['eventName', 'level', 'topic', 'evidenceLink'])) return sum;
       if (r.level === 'International') return sum + 2;
       if (r.level === 'National') return sum + 1;
       return sum;
     }, 0),
     4
   );
-  const s6_4 = Math.min((safeData.professionalMembership || []).filter((r) => isFilled(r.societyName) && (r.status || '').toLowerCase() === 'active').length * 1, 1);
-  const s6_5 = Math.min((safeData.editorialBoard || []).filter((r) => isFilled(r.bodyName) && isFilled(r.position)).length > 0 ? 2 : 0, 2);
-  const s6_6 = Math.min((safeData.moocDeveloped || []).filter((r) => isFilled(r.courseName)).length * 3, 6);
+  const s6_4 = Math.min(
+    (safeData.professionalMembership || []).filter(
+      (r) => isRowFullyFilled(r, ['societyName', 'membershipType', 'status', 'evidenceLink']) &&
+        (r.status || '').toLowerCase() === 'active'
+    ).length * 1,
+    1
+  );
+  const s6_5 = Math.min(
+    (safeData.editorialBoard || []).filter(
+      (r) => isRowFullyFilled(r, ['bodyName', 'position', 'evidenceLink'])
+    ).length > 0 ? 2 : 0,
+    2
+  );
+  const s6_6 = Math.min(
+    (safeData.moocDeveloped || []).filter(
+      (r) => isRowFullyFilled(r, ['courseName', 'weeks', 'evidenceLink'])
+    ).length * 3,
+    6
+  );
 
   // Section 7
   const s7_1 = Math.min(
     (safeData.partialDelivery || []).reduce((sum, r) => {
-      if (!isFilled(r.courseDetails) || !isFilled(r.industryName)) return sum;
+      if (!isRowFullyFilled(r, ['courseDetails', 'mode', 'industryName', 'expertDetails', ['duration', 'hoursDelivered'], 'evidenceLink'])) return sum;
       const h = parseFloat(r.duration || r.hoursDelivered || 0);
       if (h >= 6) return sum + 3;
       if (h >= 3) return sum + 2;
@@ -264,10 +398,15 @@ export function computeAutomatedScores(sectionData = {}) {
     }, 0),
     4
   );
-  const s7_2 = Math.min((safeData.industrialVisits || []).filter((r) => isFilled(r.visitDetails) && isFilled(r.industry || r.industryName)).length * 1, 2);
+  const s7_2 = Math.min(
+    (safeData.industrialVisits || []).filter(
+      (r) => isRowFullyFilled(r, ['visitDetails', ['industry', 'industryName'], 'studentsCount', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
   const s7_3 = Math.min(
     (safeData.facultyInternships || []).reduce((sum, r) => {
-      if (!isFilled(r.industryName)) return sum;
+      if (!isRowFullyFilled(r, ['industryName', ['duration', 'durationDays'], 'purpose', 'evidenceLink'])) return sum;
       const d = toNum(r.duration || r.durationDays);
       if (d >= 10) return sum + 3;
       if (d >= 5) return sum + 2;
@@ -276,17 +415,37 @@ export function computeAutomatedScores(sectionData = {}) {
     }, 0),
     3
   );
-  const s7_4 = Math.min((safeData.employerEngagement || []).filter((r) => isFilled(r.activityName) && isFilled(r.involvedParty || r.companyName)).length * 1, 1);
+  const s7_4 = Math.min(
+    (safeData.employerEngagement || []).filter(
+      (r) => isRowFullyFilled(r, ['activityName', ['involvedParty', 'companyName'], 'evidenceLink'])
+    ).length * 1,
+    1
+  );
 
   // Section 8
-  const s8_1 = Math.min((safeData.projectPublications || []).filter((r) => isFilled(r.title) && isFilled(r.students)).length * 2, 2);
-  const s8_2 = Math.min((safeData.hackathonMentoring || []).filter((r) => isFilled(r.eventName) && (isFilled(r.students) || isFilled(r.teamName))).length * 1, 2);
-  const s8_3 = Math.min((safeData.startupSupport || []).filter((r) => isFilled(r.startupName) && isFilled(r.role)).length > 0 ? 1 : 0, 1);
+  const s8_1 = Math.min(
+    (safeData.projectPublications || []).filter(
+      (r) => isRowFullyFilled(r, ['title', ['students', 'studentNames'], 'evidenceLink'])
+    ).length * 2,
+    2
+  );
+  const s8_2 = Math.min(
+    (safeData.hackathonMentoring || []).filter(
+      (r) => isRowFullyFilled(r, ['eventName', ['students', 'studentsMentored', 'teamName'], 'outcome', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
+  const s8_3 = Math.min(
+    (safeData.startupSupport || []).filter(
+      (r) => isRowFullyFilled(r, ['startupName', 'role', 'duration', 'evidenceLink'])
+    ).length > 0 ? 1 : 0,
+    1
+  );
 
   // Section 9
   const s9_1 = Math.min(
     (safeData.deptActivities || []).reduce((sum, r) => {
-      if (!isFilled(r.description)) return sum;
+      if (!isRowFullyFilled(r, ['description', 'type', 'role', 'approval', 'evidenceLink'])) return sum;
       if (r.type === 'DLCs and File Maintenance' || r.activityType === 'DLCs and File Maintenance') return sum + 5;
       if (r.type === 'Dept. Activity & File Maintenance' || r.activityType === 'Dept. Activity & File Maintenance') return sum + 2;
       return sum;
@@ -295,7 +454,7 @@ export function computeAutomatedScores(sectionData = {}) {
   );
   const s9_2 = Math.min(
     (safeData.collegeActivities || []).reduce((sum, r) => {
-      if (!isFilled(r.description)) return sum;
+      if (!isRowFullyFilled(r, ['description', ['category', 'committeeLevel'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = r.category || r.committeeLevel;
       if (cat === 'Committee Member') return sum + 3;
       if (cat === 'Internal Review Committee') return sum + 5;
@@ -305,7 +464,12 @@ export function computeAutomatedScores(sectionData = {}) {
     }, 0),
     10
   );
-  const s9_3 = Math.min((safeData.adminResponsibilities || []).filter((r) => isFilled(r.role) && (isFilled(r.evidenceLink) || isFilled(r.appointmentLink))).length > 0 ? 20 : 0, 20);
+  const s9_3 = Math.min(
+    (safeData.adminResponsibilities || []).filter(
+      (r) => isRowFullyFilled(r, ['role', ['evidenceLink', 'appointmentLink']])
+    ).length > 0 ? 20 : 0,
+    20
+  );
 
   return {
     '1.1': s1_1, '1.2': s1_2, '1.3': s1_3, '1.4': s1_4, '1.5': s1_5, '1.6': s1_6, '1.7': s1_7, '1.8': s1_8, '1.9': s1_9, '1.10': s1_10, '1.11': s1_11,
@@ -338,7 +502,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   // Section 1 (Architecture Rubrics)
   const validCoursesHandled = (safeData.coursesHandled || []).filter(
-    (r) => isFilled(r.courseCode) && isFilled(r.courseName)
+    (r) => isRowFullyFilled(r, ['courseCode', 'courseName', 'type', 'semester', 'evidenceLink'])
   ).length;
   let s1_1 = 0;
   if (validCoursesHandled === 1) s1_1 = 3;
@@ -347,18 +511,28 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   const s1_2 = Math.min(
     (safeData.courseFiles || []).reduce((sum, r) => {
-      if (!isFilled(r.courseCode) || !isFilled(r.compliance) || !isFilled(r.evidenceLink)) return sum;
+      if (!isRowFullyFilled(r, ['courseCode', ['compliance', 'completed'], 'evidenceLink'])) return sum;
       return sum + (r.compliance === 'Full' || r.completed === 'Yes' ? 5 : 3);
     }, 0),
     5
   );
 
-  const s1_3 = Math.min(((safeData.coursesDesigned || []).filter((r) => isFilled(r.courseCode) || isFilled(r.courseName)).length) * 2, 5);
-  const s1_4 = Math.min(((safeData.valueAdded || []).filter((r) => isFilled(r.courseName) || isFilled(r.particulars)).length) * 2, 4);
+  const s1_3 = Math.min(
+    ((safeData.coursesDesigned || []).filter(
+      (r) => isRowFullyFilled(r, ['courseCode', 'remarks', 'evidenceLink'])
+    ).length) * 2,
+    5
+  );
+  const s1_4 = Math.min(
+    ((safeData.valueAdded || []).filter(
+      (r) => isRowFullyFilled(r, ['courseName', 'particulars', 'studentCount', 'evidenceLink'])
+    ).length) * 2,
+    4
+  );
 
   // 1.5.1 Innovative Teaching Methods (Pedagogy, Community, Design Thinking, Urban Field, Climate Sim)
   const validInnovative1 = (safeData.innovativePedagogy || safeData.innovativeMethods || []).filter(
-    (r) => isFilled(r.courseCode) && isFilled(r.innovativeTeachingMethod || r.method)
+    (r) => isRowFullyFilled(r, ['courseCode', ['innovativeTeachingMethod', 'method'], 'evidenceLink'])
   ).length;
   let s1_5_1 = 0;
   if (validInnovative1 === 1) s1_5_1 = 2;
@@ -367,15 +541,17 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   // 1.5.2 Studio Based Teaching & Design Education
   const s1_5_2 = Math.min(
-    ((safeData.studioTeaching || []).filter((r) => isFilled(r.courseName) && isFilled(r.activity)).length) * 2,
+    ((safeData.studioTeaching || safeData.studioPedagogy || []).filter(
+      (r) => isRowFullyFilled(r, [['courseName', 'activityName'], ['activity', 'outcomes'], 'evidenceLink'])
+    ).length) * 2,
     3
   );
 
   // 1.6 Educational Tour and Case Study Visits (Tour = 4 | Case Study = 2)
   const s1_6 = Math.min(
     (safeData.educationalTours || safeData.academicCollaborations || []).reduce((sum, r) => {
-      if (!isFilled(r.placesOfVisit) && !r.activity) return sum;
-      const type = (r.activityType || r.activity || '').toLowerCase();
+      if (!isRowFullyFilled(r, [['placesOfVisit', 'place'], 'evidenceLink'])) return sum;
+      const type = (r.activityType || r.activity || r.tourType || '').toLowerCase();
       if (type.includes('tour')) return sum + 4;
       return sum + 2;
     }, 0),
@@ -385,6 +561,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   // 1.7 Mentoring System Effectiveness (Good = 2 | Avg = 1)
   const s1_7 = Math.min(
     (safeData.mentoringSystem || [safeData.mentoring || {}]).reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['menteeCount', 'batch', 'description', 'evidenceLink'])) return sum;
       const rev = (r.hodReview || '').toLowerCase();
       if (rev === 'good' || rev === 'excellent') return sum + 2;
       if (rev === 'average' || rev === 'avg') return sum + 1;
@@ -393,11 +570,17 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     2
   );
 
-  const s1_8 = Math.min(((safeData.certifications || []).filter((r) => isFilled(r.courseName)).length) * 2, 4);
+  const s1_8 = Math.min(
+    ((safeData.certifications || []).filter(
+      (r) => isRowFullyFilled(r, ['courseName', 'platform', 'certType', 'evidenceLink'])
+    ).length) * 2,
+    4
+  );
 
   // 1.9 Feedback (>90% = 4, 80-90% = 3, 75-80% = 1)
   const s1_9 = Math.min(
     (safeData.studentFeedback || []).reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['courseName', ['score', 'feedbackPct'], 'evidenceLink'])) return sum;
       const v = toNum(r.score || r.feedbackPct);
       if (v > 90) return sum + 4;
       if (v >= 80) return sum + 3;
@@ -410,6 +593,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   // 1.10 Result Analysis — Pass % (>=90% = 3, 70-89% = 2, 60-69% = 1) -> Max 3 for Arch!
   const s1_10 = Math.min(
     (safeData.resultAnalysis || []).reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])) return sum;
       const v = toNum(r.passPercentage);
       if (v >= 90) return sum + 3;
       if (v >= 70) return sum + 2;
@@ -422,6 +606,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   // 1.11 CO Attainment (>=70% = 3, 60-69% = 2, 50-59% = 1) -> Max 3 for Arch!
   const s1_11 = Math.min(
     (safeData.coAttainment || []).reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['courseCode', 'courseName', ['avgCoAttainment', 'attainmentPct'], 'evidenceLink'])) return sum;
       const v = toNum(r.avgCoAttainment || r.attainmentPct);
       if (v >= 70) return sum + 3;
       if (v >= 60) return sum + 2;
@@ -434,7 +619,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   // Section 2 (Architecture Research & Book Publications)
   const s2_1 = Math.min(
     (safeData.journalPapers || []).reduce((sum, r) => {
-      if (!isFilled(r.paperTitle) && !isFilled(r.journalName)) return sum;
+      if (!isRowFullyFilled(r, ['paperTitle', 'journalName', 'tier', 'evidenceLink'])) return sum;
       const t = String(r.tier || r.quartile || '').toUpperCase().trim();
       if (t.includes('Q1')) return sum + 6;
       if (t.includes('Q2')) return sum + 4;
@@ -444,7 +629,9 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     15
   );
 
-  const citVal = toNum(safeData.scopusCitations?.totalCitations || safeData.citationsReceived?.totalCount);
+  const citVal = isFilled(safeData.scopusCitations?.totalCitations || safeData.citationsReceived?.totalCount)
+    ? toNum(safeData.scopusCitations?.totalCitations || safeData.citationsReceived?.totalCount)
+    : 0;
   let s2_2 = 0;
   if (citVal >= 50) s2_2 = 8;
   else if (citVal >= 25) s2_2 = 5;
@@ -452,7 +639,9 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   else if (citVal >= 5) s2_2 = 3;
   else if (citVal >= 1) s2_2 = 1;
 
-  const q1CitVal = toNum(safeData.q1Citations?.totalCitations || safeData.q1Citations?.totalCount);
+  const q1CitVal = isFilled(safeData.q1Citations?.totalCitations || safeData.q1Citations?.totalCount)
+    ? toNum(safeData.q1Citations?.totalCitations || safeData.q1Citations?.totalCount)
+    : 0;
   let s2_3 = 0;
   if (q1CitVal >= 25) s2_3 = 7;
   else if (q1CitVal >= 15) s2_3 = 5;
@@ -461,33 +650,83 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   const s2_4 = Math.min(
     (safeData.bookPublications || []).reduce((sum, r) => {
-      if (!isFilled(r.title)) return sum;
+      if (!isRowFullyFilled(r, ['title', ['publicationType', 'type'], 'evidenceLink'])) return sum;
       if ((r.publicationType || r.type || '').includes('Book')) return sum + 5;
       return sum + 2;
     }, 0),
     4
   );
 
-  const s2_5 = Math.min((safeData.conferencePapers || []).filter((r) => isFilled(r.paperTitle) || isFilled(r.conferenceName)).length * 1, 4);
+  const s2_5 = Math.min(
+    (safeData.conferencePapers || []).filter(
+      (r) => isRowFullyFilled(r, ['paperTitle', ['proceedingName', 'conferenceName'], 'evidenceLink'])
+    ).length * 1,
+    4
+  );
   
   // 2.6 Creative Scholarship and Professional Writing (Per writing = 2 | Max 6)
-  const s2_6 = Math.min((safeData.creativeScholarship || safeData.researchCollaborations || []).filter((r) => isFilled(r.paperTitle) || isFilled(r.journalName) || isFilled(r.title)).length * 2, 6);
+  const s2_6 = Math.min(
+    (safeData.creativeScholarship || safeData.researchCollaborations || []).filter(
+      (r) => isRowFullyFilled(r, ['title', ['publisher', 'partner'], 'evidenceLink'])
+    ).length * 2,
+    6
+  );
 
-  const s2_7 = Math.min((safeData.phdRegistered || []).filter((r) => isFilled(r.scholarName)).length * 1, 5);
-  const s2_8 = Math.min((safeData.phdAwarded || []).filter((r) => isFilled(r.scholarName)).length * 3, 6);
+  const s2_7 = Math.min(
+    (safeData.phdRegistered || []).filter(
+      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'evidenceLink'])
+    ).length * 1,
+    5
+  );
+  const s2_8 = Math.min(
+    (safeData.phdAwarded || []).filter(
+      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'evidenceLink'])
+    ).length * 3,
+    6
+  );
 
   // Section 3 (Patents & Architecture Innovation)
-  const s3_1 = Math.min((safeData.patentsPublished || []).filter((r) => isFilled(r.title) || isFilled(r.patentRefNumber)).length * 1, 1);
-  const s3_2 = Math.min((safeData.patentsGranted || []).filter((r) => isFilled(r.title) || isFilled(r.patentRefNumber)).length * 3, 3);
-  const s3_3 = Math.min((safeData.transferOfTechnology || []).filter((r) => isFilled(r.title) && isFilled(r.industryPartner)).length * 2, 2);
-  const s3_4 = Math.min((safeData.prototypesDeveloped || []).filter((r) => isFilled(r.titleOfProduct || r.title)).length * 1, 3);
-  const s3_5 = Math.min((safeData.hackathonPrizes || []).filter((r) => isFilled(r.eventName) || isFilled(r.achievement)).length * 1, 2);
-  const s3_6 = Math.min((safeData.designPatents || []).filter((r) => isFilled(r.title) || isFilled(r.patentRefNumber)).length * 2, 4);
+  const s3_1 = Math.min(
+    (safeData.patentsPublished || []).filter(
+      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber'], 'title', 'evidenceLink'])
+    ).length * 1,
+    1
+  );
+  const s3_2 = Math.min(
+    (safeData.patentsGranted || []).filter(
+      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber'], 'title', 'evidenceLink'])
+    ).length * 3,
+    3
+  );
+  const s3_3 = Math.min(
+    (safeData.transferOfTechnology || []).filter(
+      (r) => isRowFullyFilled(r, ['title', 'industryPartner', 'evidenceLink'])
+    ).length * 2,
+    2
+  );
+  const s3_4 = Math.min(
+    (safeData.prototypesDeveloped || []).filter(
+      (r) => isRowFullyFilled(r, [['titleOfProduct', 'title'], 'evidenceLink'])
+    ).length * 1,
+    3
+  );
+  const s3_5 = Math.min(
+    (safeData.hackathonPrizes || []).filter(
+      (r) => isRowFullyFilled(r, ['eventName', ['prize', 'achievement'], 'evidenceLink'])
+    ).length * 1,
+    2
+  );
+  const s3_6 = Math.min(
+    (safeData.designPatents || []).filter(
+      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber', 'registrationNo'], 'title', 'evidenceLink'])
+    ).length * 2,
+    4
+  );
 
   // Section 4 (Sponsored Research & Consultancy - Arch Rubrics)
   const s4_1 = Math.min(
     (safeData.researchProjects || []).reduce((sum, r) => {
-      if (!isFilled(r.projectName)) return sum;
+      if (!isRowFullyFilled(r, ['projectName', 'fundingAgency', ['sanctionedAmount', 'amount'], 'evidenceLink'])) return sum;
       const v = toNum(r.sanctionedAmount || r.amount);
       if (v >= 2000000) return sum + 8;
       if (v >= 1500000) return sum + 5;
@@ -501,7 +740,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   const s4_2 = Math.min(
     (safeData.consultancyProjects || []).reduce((sum, r) => {
-      if (!isFilled(r.titleOfConsultancy || r.title)) return sum;
+      if (!isRowFullyFilled(r, [['titleOfConsultancy', 'title'], ['clientDetails', 'organization'], ['amountGenerated', 'amount'], 'evidenceLink'])) return sum;
       const v = toNum(r.amountGenerated || r.amount);
       if (v >= 500000) return sum + 7;
       if (v >= 300000) return sum + 5;
@@ -513,10 +752,15 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
 
   // Section 5 (International Engagement & Architecture Collaborations)
-  const s5_1 = Math.min((safeData.internationalEngagement || []).filter((r) => isFilled(r.partnerInstitution) || isFilled(r.country)).length * 1, 1);
+  const s5_1 = Math.min(
+    (safeData.internationalEngagement || []).filter(
+      (r) => isRowFullyFilled(r, [['partnerInstitution', 'institution'], 'country', 'evidenceLink'])
+    ).length * 1,
+    1
+  );
   const s5_2 = Math.min(
     (safeData.visitingPositions || []).reduce((sum, r) => {
-      if (!isFilled(r.institution)) return sum;
+      if (!isRowFullyFilled(r, ['institution', 'country', ['durationDays', 'duration'], 'evidenceLink'])) return sum;
       const v = toNum(r.durationDays || r.duration);
       if (v >= 30) return sum + 2;
       if (v >= 1) return sum + 1;
@@ -524,16 +768,43 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     }, 0),
     2
   );
-  const s5_3 = Math.min((safeData.foreignFaculty || []).filter((r) => isFilled(r.name) || isFilled(r.institution)).length * 1, 1);
-  const s5_4 = Math.min((safeData.reputationSurvey || []).filter((r) => isFilled(r.surveyName) && (r.evidenceSubmitted || '').toLowerCase() === 'yes').length * 1, 1);
-  const s5_5 = Math.min((safeData.nirfSurvey || []).filter((r) => isFilled(r.nominationDetails) && (r.evidenceSubmitted || '').toLowerCase() === 'yes').length * 1, 1);
-  const s5_6 = Math.min((safeData.internationalDesignStudios || []).filter((r) => isFilled(r.institution) || isFilled(r.country)).length * 2, 4);
+  const s5_3 = Math.min(
+    (safeData.foreignFaculty || []).filter(
+      (r) => isRowFullyFilled(r, ['name', 'institution', 'engagementType', 'evidenceLink'])
+    ).length * 1,
+    1
+  );
+  const s5_4 = Math.min(
+    (safeData.reputationSurvey || []).filter(
+      (r) => isRowFullyFilled(r, ['surveyName', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
+        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+    ).length * 1,
+    1
+  );
+  const s5_5 = Math.min(
+    (safeData.nirfSurvey || []).filter(
+      (r) => isRowFullyFilled(r, ['nominationDetails', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
+        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+    ).length * 1,
+    1
+  );
+  const s5_6 = Math.min(
+    (safeData.internationalDesignStudios || safeData.internationalDesignStudio || []).filter(
+      (r) => isRowFullyFilled(r, ['institution', 'country', 'evidenceLink'])
+    ).length * 2,
+    4
+  );
 
   // Section 6 (FDP & Professional Activities)
-  const s6_1 = Math.min((safeData.fdpAttended || []).filter((r) => isFilled(r.programName) || isFilled(r.organizer)).length * 2, 3);
+  const s6_1 = Math.min(
+    (safeData.fdpAttended || []).filter(
+      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink'])
+    ).length * 2,
+    3
+  );
   const s6_2 = Math.min(
     (safeData.programsOrganized || []).reduce((sum, r) => {
-      if (!isFilled(r.programName)) return sum;
+      if (!isRowFullyFilled(r, ['programName', ['days', 'numberOfDays'], 'role', 'evidenceLink'])) return sum;
       const d = toNum(r.numberOfDays || r.days);
       if (d >= 5) return sum + 2;
       if (d >= 2) return sum + 1;
@@ -543,20 +814,36 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   const s6_3 = Math.min(
     (safeData.resourcePerson || []).reduce((sum, r) => {
-      if (!isFilled(r.eventName) && !isFilled(r.topic)) return sum;
+      if (!isRowFullyFilled(r, ['eventName', 'level', 'topic', 'evidenceLink'])) return sum;
       if ((r.level || '').toLowerCase() === 'international') return sum + 2;
       return sum + 1;
     }, 0),
     4
   );
-  const s6_4 = Math.min((safeData.professionalMembership || []).filter((r) => isFilled(r.societyName) && (r.status || '').toLowerCase() === 'active').length * 1, 1);
-  const s6_5 = Math.min((safeData.editorialBoard || []).filter((r) => isFilled(r.bodyName) || isFilled(r.position)).length > 0 ? 2 : 0, 2);
-  const s6_6 = Math.min((safeData.moocDeveloped || []).filter((r) => isFilled(r.courseName)).length * 3, 6);
+  const s6_4 = Math.min(
+    (safeData.professionalMembership || []).filter(
+      (r) => isRowFullyFilled(r, ['societyName', 'membershipType', 'status', 'evidenceLink']) &&
+        (r.status || '').toLowerCase() === 'active'
+    ).length * 1,
+    1
+  );
+  const s6_5 = Math.min(
+    (safeData.editorialBoard || []).filter(
+      (r) => isRowFullyFilled(r, ['bodyName', 'position', 'evidenceLink'])
+    ).length > 0 ? 2 : 0,
+    2
+  );
+  const s6_6 = Math.min(
+    (safeData.moocDeveloped || []).filter(
+      (r) => isRowFullyFilled(r, ['courseName', 'weeks', 'evidenceLink'])
+    ).length * 3,
+    6
+  );
 
   // Section 7 (Industry Interaction & Internship - Arch Rubrics)
   const s7_1 = Math.min(
     (safeData.partialDelivery || []).reduce((sum, r) => {
-      if (!isFilled(r.courseDetails) && !isFilled(r.expertName)) return sum;
+      if (!isRowFullyFilled(r, ['courseDetails', 'mode', ['industryName', 'expertName'], ['duration', 'hoursDelivered'], 'evidenceLink'])) return sum;
       const h = parseFloat(r.duration || r.hoursDelivered || 0);
       if (h >= 6) return sum + 3;
       if (h >= 3) return sum + 2;
@@ -565,10 +852,15 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     }, 0),
     4
   );
-  const s7_2 = Math.min((safeData.industrialVisits || []).filter((r) => isFilled(r.visitDetails) || isFilled(r.industry)).length * 1, 2);
+  const s7_2 = Math.min(
+    (safeData.industrialVisits || []).filter(
+      (r) => isRowFullyFilled(r, ['visitDetails', ['industry', 'industryName'], 'studentsCount', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
   const s7_3 = Math.min(
     (safeData.facultyInternships || []).reduce((sum, r) => {
-      if (!isFilled(r.industryName)) return sum;
+      if (!isRowFullyFilled(r, ['industryName', ['duration', 'durationDays'], 'purpose', 'evidenceLink'])) return sum;
       const d = toNum(r.durationDays || r.duration);
       if (d >= 10) return sum + 3;
       if (d >= 5) return sum + 2;
@@ -577,18 +869,43 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     }, 0),
     3
   );
-  const s7_4 = Math.min((safeData.employerEngagement || []).filter((r) => isFilled(r.activityName) || isFilled(r.employerInvolved)).length * 1, 1);
+  const s7_4 = Math.min(
+    (safeData.employerEngagement || []).filter(
+      (r) => isRowFullyFilled(r, ['activityName', ['employerInvolved', 'involvedParty'], 'evidenceLink'])
+    ).length * 1,
+    1
+  );
 
   // Section 8 (Student Development Activities & Exhibitions)
-  const s8_1 = Math.min((safeData.projectPublications || []).filter((r) => isFilled(r.title) || isFilled(r.studentNames)).length * 1, 1);
-  const s8_2 = Math.min((safeData.hackathonMentoring || []).filter((r) => isFilled(r.eventName) || isFilled(r.studentsMentored)).length * 1, 2);
-  const s8_3 = Math.min((safeData.startupSupport || []).filter((r) => isFilled(r.startupName) || isFilled(r.role)).length > 0 ? 1 : 0, 1);
-  const s8_4 = Math.min((safeData.studentExhibitions || []).filter((r) => isFilled(r.eventName) || isFilled(r.outcome)).length * 1, 1);
+  const s8_1 = Math.min(
+    (safeData.projectPublications || []).filter(
+      (r) => isRowFullyFilled(r, ['title', ['students', 'studentNames'], 'evidenceLink'])
+    ).length * 1,
+    1
+  );
+  const s8_2 = Math.min(
+    (safeData.hackathonMentoring || []).filter(
+      (r) => isRowFullyFilled(r, ['eventName', ['students', 'studentsMentored'], 'outcome', 'evidenceLink'])
+    ).length * 1,
+    2
+  );
+  const s8_3 = Math.min(
+    (safeData.startupSupport || []).filter(
+      (r) => isRowFullyFilled(r, ['startupName', 'role', 'duration', 'evidenceLink'])
+    ).length > 0 ? 1 : 0,
+    1
+  );
+  const s8_4 = Math.min(
+    (safeData.studentExhibitions || []).filter(
+      (r) => isRowFullyFilled(r, ['title', 'venue', 'evidenceLink'])
+    ).length * 1,
+    1
+  );
 
   // Section 9 (Institutional Contribution)
   const s9_1 = Math.min(
     (safeData.deptActivities || []).reduce((sum, r) => {
-      if (!isFilled(r.description)) return sum;
+      if (!isRowFullyFilled(r, ['description', 'type', 'role', 'approval', 'evidenceLink'])) return sum;
       if ((r.activityDescription || r.description || '').includes('DLC')) return sum + 5;
       return sum + 2;
     }, 0),
@@ -596,7 +913,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   const s9_2 = Math.min(
     (safeData.collegeActivities || []).reduce((sum, r) => {
-      if (!isFilled(r.description)) return sum;
+      if (!isRowFullyFilled(r, ['description', ['category', 'description'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = (r.category || r.description || '').toLowerCase();
       if (cat.includes('associate dean') || cat.includes('warden')) return sum + 10;
       if (cat.includes('clc')) return sum + 7;
@@ -605,7 +922,12 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     }, 0),
     10
   );
-  const s9_3 = Math.min((safeData.adminResponsibilities || []).filter((r) => isFilled(r.role) || isFilled(r.description)).length > 0 ? 20 : 0, 20);
+  const s9_3 = Math.min(
+    (safeData.adminResponsibilities || []).filter(
+      (r) => isRowFullyFilled(r, ['role', ['evidenceLink', 'appointmentLink']])
+    ).length > 0 ? 20 : 0,
+    20
+  );
 
   return {
     '1.1': s1_1, '1.2': s1_2, '1.3': s1_3, '1.4': s1_4, '1.5.1': s1_5_1, '1.5.2': s1_5_2, '1.6': s1_6, '1.7': s1_7, '1.8': s1_8, '1.9': s1_9, '1.10': s1_10, '1.11': s1_11,
