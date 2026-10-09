@@ -41,6 +41,27 @@ const isValidAcademicTimeline = (tl) => {
   const end = parseInt(match[2], 10);
   return end > start && end <= start + 15 && start >= 2000 && start <= 2100;
 };
+
+const normalizeDepartmentCode = (rawDept) => {
+  if (!rawDept) return '';
+  const d = String(rawDept).toUpperCase().trim();
+  const map = {
+    'CA': 'MCA',
+    'CIV': 'CIVIL',
+    'MATHS': 'MATH',
+    'MAT': 'MATH',
+    'CHEMISTRY': 'CHEM',
+    'CHM': 'CHEM',
+    'PHYSICS': 'PHY',
+    'MCT': 'MECT',
+    'AIDS': 'AI',
+    'COMPUTER APPLICATIONS': 'MCA',
+    'CIVIL ENGINEERING': 'CIVIL',
+    'MATHEMATICS': 'MATH',
+  };
+  return map[d] || d;
+};
+
 const mentoringBatchOptions = [
   '2021 - 2025', '2022 - 2026', '2023 - 2027', '2024 - 2028', '2025 - 2029',
   '2023 - 2025', '2024 - 2026', '2025 - 2027', '2026 - 2028',
@@ -721,19 +742,16 @@ app.post('/api/auth/google', async (request, response) => {
       assignedRole = 'HOD';
       assignedDesignation = facultyRecord?.designation || 'Professor & Head (HOD)';
       const hodMatch = verifiedEmail.match(/hod([a-z]+)/i);
-      if (hodMatch && hodMatch[1]) {
-        assignedDept = hodMatch[1].toUpperCase();
-      } else if (facultyRecord?.department) {
-        assignedDept = facultyRecord.department;
-      }
+      let rawDept = facultyRecord?.department || (hodMatch ? hodMatch[1].toUpperCase() : 'CSE');
+      assignedDept = normalizeDepartmentCode(rawDept);
       assignedDeptName = facultyRecord?.departmentName || '';
     } else if (facultyRecord) {
       // Individual personal faculty account (e.g. pccse@tce.edu, shalinie@tce.edu, etc.)
-      // Always assign role 'Faculty' when signing in on a personal staff email so they access their individual faculty appraisal workbench
-      assignedRole = (facultyRecord.role === 'HOD') ? 'Faculty' : (facultyRecord.role || 'Faculty');
-      assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : (facultyRecord.department || (isGmailLogin ? 'MCA' : 'CSE'));
+      assignedRole = facultyRecord.role || 'Faculty';
+      let rawDept = facultyRecord.department || (isGmailLogin ? 'MCA' : 'CSE');
+      assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : normalizeDepartmentCode(rawDept);
       assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (facultyRecord.departmentName || (isGmailLogin ? 'Computer Applications' : ''));
-      assignedDesignation = facultyRecord.designation || 'Assistant Professor';
+      assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
     }
 
     const canonicalPersonalEmail = facultyRecord?.personalEmail || facultyRecord?.email || verifiedEmail;
@@ -1224,7 +1242,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       tokenRole === 'PRINCIPAL' ||
       tokenRole === 'IQAC' ||
       tokenRole === 'ADMIN' ||
-      (masterRecord?.role === 'HOD' && requestEmail.startsWith('hod')) ||
+      (masterRecord?.role === 'HOD') ||
       masterRecord?.role === 'Registrar' ||
       masterRecord?.role === 'Principal' ||
       masterRecord?.role === 'IQAC' ||
@@ -1272,10 +1290,21 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       } else {
         const targetDept = deptQuery || userDept;
         if (targetDept && targetDept !== 'ALL') {
-          console.log(`🏢 Scoped Access: Fetching submissions for department [${targetDept}]`);
+          const normTarget = normalizeDepartmentCode(targetDept);
+          const deptAliases = [targetDept, normTarget];
+          if (normTarget === 'MCA') deptAliases.push('CA', 'Computer Applications');
+          if (normTarget === 'CIVIL') deptAliases.push('CIV', 'Civil Engineering');
+          if (normTarget === 'MATH') deptAliases.push('MAT', 'MATHS', 'Mathematics');
+          if (normTarget === 'CHEM') deptAliases.push('CHEMISTRY', 'CHM');
+          if (normTarget === 'PHY') deptAliases.push('PHYSICS');
+          if (normTarget === 'AI') deptAliases.push('AIDS');
+          if (normTarget === 'MECT') deptAliases.push('MCT');
+
+          const deptRegexes = Array.from(new Set(deptAliases)).map(d => new RegExp(`^${d}$`, 'i'));
+          console.log(`🏢 Scoped Access: Fetching submissions for department [${targetDept}] with aliases:`, deptAliases);
           queryFilter = {
             $or: [
-              { department: targetDept },
+              { department: { $in: deptRegexes } },
               { department: { $exists: false } },
               { department: null },
               { department: '' }
@@ -1786,9 +1815,13 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
     );
 
     const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
-    if (targetEmail) {
+    const targetTimeline = targetRecord.timeline || timeline;
+    if (targetEmail && targetTimeline) {
       await Appraisal.updateMany(
-        { $or: [{ email: targetEmail }, { facultyEmail: targetEmail }] },
+        { 
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
+          timeline: targetTimeline
+        },
         { $set: updateFields }
       );
     }

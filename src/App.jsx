@@ -507,6 +507,26 @@ function buildHodInboxState() {
   return {};
 }
 
+function normalizeDepartmentCode(rawDept) {
+  if (!rawDept) return '';
+  const d = String(rawDept).toUpperCase().trim();
+  const map = {
+    'CA': 'MCA',
+    'CIV': 'CIVIL',
+    'MATHS': 'MATH',
+    'MAT': 'MATH',
+    'CHEMISTRY': 'CHEM',
+    'CHM': 'CHEM',
+    'PHYSICS': 'PHY',
+    'MCT': 'MECT',
+    'AIDS': 'AI',
+    'COMPUTER APPLICATIONS': 'MCA',
+    'CIVIL ENGINEERING': 'CIVIL',
+    'MATHEMATICS': 'MATH',
+  };
+  return map[d] || d;
+}
+
 const TCE_DEPARTMENTS = [
   { code: 'ALL', name: 'All 16 Academic Departments' },
   { code: 'CSE', name: 'Computer Science and Engineering' },
@@ -3513,7 +3533,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     try {
       const userRole = roleOverride !== undefined ? roleOverride : (currentUser.role || user?.role || "");
-      const userDept = deptOverride !== undefined ? deptOverride : (currentUser.department || user?.department || "");
+      let userDept = deptOverride !== undefined ? deptOverride : (currentUser.department || user?.department || "");
+      if (userRole === 'HOD' && userDept && userDept !== 'ALL') {
+        userDept = normalizeDepartmentCode(userDept);
+      }
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
       const response = await axios.get(
         `${API_BASE_URL}/appraisals?email=${encodeURIComponent(currentUser.email.trim())}&role=${encodeURIComponent(userRole)}&department=${encodeURIComponent(userDept)}`, 
@@ -3537,7 +3560,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   // Trigger the sync whenever the authenticated user session, effective role, or department filter changes.
   useEffect(() => {
     if (user) {
-      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? selectedDeptFilter : (user.department || 'ALL');
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) 
+        ? selectedDeptFilter 
+        : (effectiveRole === 'HOD' ? normalizeDepartmentCode(user.department) : (user.department || 'ALL'));
       const isSelfMode = (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal');
       const roleForSync = isSelfMode ? 'Faculty' : effectiveRole;
       syncHistoryFromCloud(user, roleForSync, currentDeptParam);
@@ -4294,12 +4319,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     // Department filtering:
     if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
       if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
-        rows = rows.filter(r => (r.department || '').toUpperCase() === selectedDeptFilter.toUpperCase());
+        const normSelected = normalizeDepartmentCode(selectedDeptFilter);
+        rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === normSelected);
       }
     } else if (effectiveRole === 'HOD') {
-      const hodDept = (user.department || '').toUpperCase();
+      const hodDept = normalizeDepartmentCode(user?.department || '');
       if (hodDept && hodDept !== 'ALL') {
-        rows = rows.filter(r => (r.department || '').toUpperCase() === hodDept);
+        rows = rows.filter(r => {
+          const rowDept = normalizeDepartmentCode(r.department || '');
+          return !rowDept || rowDept === hodDept;
+        });
       }
     }
 
@@ -4314,6 +4343,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const calculatedTotalScore = record.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
 
       return {
+        ...record,
         id: record._id || `${record.email}-${record.timeline}`,
         _id: record._id,
         timeline: record.timeline,
@@ -4345,7 +4375,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         sectionData: flattenedData,
       };
     });
-  }, [appraisals, isPrincipal, isRegistrar, isIQAC, isMasterUser, selectedDeptFilter, effectiveRole, user.department, selectedTimeline, computeSectionScores]);
+  }, [appraisals, isPrincipal, isRegistrar, isIQAC, isMasterUser, selectedDeptFilter, effectiveRole, user?.department, selectedTimeline, computeSectionScores]);
 
   const selectedInboxRecord = selectedInboxRows.find(
     (row) => row.id === selectedInboxRecordId
