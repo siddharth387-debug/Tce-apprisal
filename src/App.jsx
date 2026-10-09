@@ -1690,9 +1690,19 @@ function DynamicArraySection({
   );
 }
 
-function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClearSessionTimedOut = null }) {
+function LandingPage({
+  googleClientId,
+  onLogin,
+  sessionTimedOut = false,
+  onClearSessionTimedOut = null,
+  sessionTerminatedNotice = false,
+  onClearSessionTerminatedNotice = null
+}) {
   const [errorMessage, setErrorMessage] = useState('');
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
+  const [sessionConflictData, setSessionConflictData] = useState(null);
+  const [pendingCredential, setPendingCredential] = useState(null);
+  const [isTerminatingOther, setIsTerminatingOther] = useState(false);
 
   const resolvedClientId = useMemo(
     () =>
@@ -1701,18 +1711,23 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
     [googleClientId]
   );
 
-  const handleGoogleSuccess = async (credentialResponse) => {
+  const handleGoogleSuccess = async (credentialResponse, forceTerminateOther = false) => {
     setErrorMessage('');
+    setSessionConflictData(null);
 
-    if (!credentialResponse.credential) {
+    const credentialToken = credentialResponse?.credential || pendingCredential;
+    if (!credentialToken) {
       setErrorMessage('Google sign-in did not return a valid credential token.');
       return;
     }
 
     try {
+      if (forceTerminateOther) {
+        setIsTerminatingOther(true);
+      }
       const authResponse = await axios.post(
         `${API_BASE_URL}/auth/google`,
-        { credential: credentialResponse.credential },
+        { credential: credentialToken, forceTerminateOther },
         { withCredentials: true }
       );
       const backendUser = authResponse.data?.user;
@@ -1724,6 +1739,9 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
         setErrorMessage('Authentication succeeded but no active session token was issued.');
         return;
       }
+
+      setPendingCredential(null);
+      setSessionConflictData(null);
 
       onLogin({
         id: backendUser?.id || '',
@@ -1741,6 +1759,11 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
       });
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        if (error.response?.status === 409 && error.response?.data?.sessionConflict) {
+          setPendingCredential(credentialToken);
+          setSessionConflictData(error.response.data);
+          return;
+        }
         setErrorMessage(
           error.response?.data?.message || 'Google authentication failed. Please try again.'
         );
@@ -1748,6 +1771,8 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
       }
 
       setErrorMessage(error instanceof Error ? error.message : 'Google sign-in failed.');
+    } finally {
+      setIsTerminatingOther(false);
     }
   };
 
@@ -1794,6 +1819,7 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
             Authenticate with your official Google account to access your appraisal workspace.
           </p>
 
+          {/* Session Inactivity Timeout Alert */}
           {sessionTimedOut && (
             <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3 sm:p-3.5 text-xs text-amber-900 shadow-sm flex items-start gap-2.5 animate-in fade-in duration-200">
               <span className="text-base shrink-0">⏳</span>
@@ -1814,6 +1840,69 @@ function LandingPage({ googleClientId, onLogin, sessionTimedOut = false, onClear
                 <p className="mt-1 text-amber-800 leading-relaxed text-[11px]">
                   You were automatically signed out after 15 minutes of inactivity for institutional security. Your in-progress appraisal draft was safely auto-saved.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Concurrent Device Session Terminated Alert */}
+          {sessionTerminatedNotice && (
+            <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 sm:p-3.5 text-xs text-rose-950 shadow-sm flex items-start gap-2.5 animate-in fade-in duration-200">
+              <span className="text-base shrink-0">🔒</span>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-rose-950">Account Active on Another Device</p>
+                  {onClearSessionTerminatedNotice && (
+                    <button 
+                      type="button" 
+                      onClick={onClearSessionTerminatedNotice}
+                      className="text-rose-700 hover:text-rose-950 text-xs font-bold ml-2 cursor-pointer"
+                      title="Dismiss notice"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-rose-800 leading-relaxed text-[11px]">
+                  You were signed out because your account was opened on another device or browser window. Institutional governance strictly permits one active login session at a time.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Live Session Conflict Warning with Override Button */}
+          {sessionConflictData && (
+            <div className="mt-4 rounded-xl border-2 border-[#4A1519]/30 bg-amber-50 p-4 text-xs text-amber-950 shadow-md animate-in fade-in duration-200 space-y-2.5">
+              <div className="flex items-start gap-2.5">
+                <span className="text-xl shrink-0">🚫</span>
+                <div className="flex-1">
+                  <p className="font-black text-sm text-[#4A1519]">Live Session Active Elsewhere</p>
+                  <p className="mt-1 text-amber-900 leading-relaxed text-[11.5px]">
+                    {sessionConflictData.message || 'You currently have an active session live on another device. Only 1 active window is allowed.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-amber-200/80 flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={isTerminatingOther}
+                  onClick={() => handleGoogleSuccess(null, true)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 bg-[#4A1519] hover:bg-[#3B1013] text-white text-xs font-bold rounded-lg shadow-sm transition active:scale-98 cursor-pointer disabled:opacity-60"
+                >
+                  <span>{isTerminatingOther ? '⏳' : '🔄'}</span>
+                  <span>{isTerminatingOther ? 'Terminating & Signing In...' : 'Terminate Other Device & Sign In Here'}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={isTerminatingOther}
+                  onClick={() => {
+                    setSessionConflictData(null);
+                    setPendingCredential(null);
+                  }}
+                  className="w-full py-1.5 px-3 bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 text-[11px] font-semibold rounded-lg transition cursor-pointer"
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           )}
@@ -3678,6 +3767,38 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       clearInterval(watchdogInterval);
     };
   }, [user, showInactivityWarning, handleInactivityTimeout]);
+
+  // ── LIVE SINGLE-WINDOW SESSION WATCHDOG ──
+  // Regularly checks that this session has not been superseded by a login on another device.
+  useEffect(() => {
+    const activeToken = user?.token || getAuthToken();
+    if (!activeToken) return;
+
+    let isDisposed = false;
+
+    const checkLiveSession = async () => {
+      try {
+        await axios.get(`${API_BASE_URL}/auth/heartbeat`, {
+          headers: { Authorization: `Bearer ${activeToken}` },
+          withCredentials: true
+        });
+      } catch (err) {
+        if (!isDisposed && axios.isAxiosError(err)) {
+          if (err.response?.status === 401 && err.response?.data?.sessionTerminated) {
+            console.warn("⚠️ Live session invalidated: Logged in from another device. Terminating this window...");
+            onSignOut('concurrent_login');
+          }
+        }
+      }
+    };
+
+    // Poll heartbeat every 20 seconds
+    const heartbeatTimer = setInterval(checkLiveSession, 20000);
+    return () => {
+      isDisposed = true;
+      clearInterval(heartbeatTimer);
+    };
+  }, [user?.token, onSignOut]);
 
   // Watchdog: syncs appraisal records from MongoDB Atlas
   const syncHistoryFromCloud = useCallback(async (currentUser, roleOverride, deptOverride) => {
@@ -9046,17 +9167,41 @@ const googleClientId =
 export default function App() {
   const [user, setUser] = useState(() => loadUserFromStorage());
   const [sessionTimedOut, setSessionTimedOut] = useState(false);
+  const [sessionTerminatedNotice, setSessionTerminatedNotice] = useState(false);
 
   const handleLogin = React.useCallback((userProfile) => {
     setUser(userProfile);
     saveUserToStorage(userProfile);
     setSessionTimedOut(false);
+    setSessionTerminatedNotice(false);
   }, []);
 
-  const handleSignOut = React.useCallback((isTimeout = false) => {
+  const handleSignOut = React.useCallback((reason = false) => {
+    const storedUser = loadUserFromStorage();
+    if (storedUser?.token && reason !== 'concurrent_login') {
+      axios.post(
+        `${API_BASE_URL}/auth/logout`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${storedUser.token}` },
+          withCredentials: true
+        }
+      ).catch(() => {});
+    }
+
     clearUserFromStorage();
     setUser(null);
-    setSessionTimedOut(Boolean(isTimeout));
+
+    if (reason === 'concurrent_login') {
+      setSessionTerminatedNotice(true);
+      setSessionTimedOut(false);
+    } else if (reason === 'inactivity_timeout' || reason === true) {
+      setSessionTimedOut(true);
+      setSessionTerminatedNotice(false);
+    } else {
+      setSessionTimedOut(false);
+      setSessionTerminatedNotice(false);
+    }
   }, []);
 
   if (user === null) {
@@ -9066,6 +9211,8 @@ export default function App() {
         onLogin={handleLogin} 
         sessionTimedOut={sessionTimedOut}
         onClearSessionTimedOut={() => setSessionTimedOut(false)}
+        sessionTerminatedNotice={sessionTerminatedNotice}
+        onClearSessionTerminatedNotice={() => setSessionTerminatedNotice(false)}
       />
     );
   }

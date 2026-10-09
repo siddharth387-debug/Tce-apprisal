@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -142,6 +143,20 @@ FacultyMemberSchema.index({ personalEmail: 1 });
 FacultyMemberSchema.index({ alternateEmails: 1 });
 
 const FacultyMember = mongoose.model('FacultyMember', FacultyMemberSchema);
+
+// ── Single Active Window / Live Session schema & model ──────────────────────
+const UserSessionSchema = new mongoose.Schema({
+  email: { type: String, required: true, lowercase: true, trim: true, index: true },
+  sessionId: { type: String, required: true, unique: true, index: true },
+  deviceInfo: { type: String, default: 'Desktop Browser' },
+  ipAddress: { type: String, default: '' },
+  isActive: { type: Boolean, default: true, index: true },
+  lastActivity: { type: Date, default: Date.now, index: true },
+  createdAt: { type: Date, default: Date.now, expires: 60 * 60 * 24 * 7 } // Auto TTL: 7 days
+}, { timestamps: true });
+
+UserSessionSchema.index({ email: 1, isActive: 1, lastActivity: -1 });
+const UserSession = mongoose.model('UserSession', UserSessionSchema);
 
 // ── Appraisal schema & model ─────────────────────────────────────────────────
 const AppraisalSchema = new mongoose.Schema({
@@ -472,8 +487,36 @@ app.use(
 );
 app.use(express.json());
 
-// ── JWT authentication middleware ────────────────────────────────────────────
-function authenticateToken(request, response, next) {
+// ── Fast In-Memory Session Cache (10s TTL) ──────────────────────────────────
+const sessionCache = new Map(); // sessionId -> { isActive: boolean, lastChecked: number, email: string }
+
+async function isSessionActive(sessionId, email) {
+  if (!sessionId) return true; // Gracefully handle legacy tokens
+  const now = Date.now();
+  const cached = sessionCache.get(sessionId);
+  if (cached && (now - cached.lastChecked < 10000)) {
+    return cached.isActive;
+  }
+
+  try {
+    const session = await UserSession.findOne({ sessionId, isActive: true });
+    const isActive = Boolean(session);
+    sessionCache.set(sessionId, { isActive, lastChecked: now, email });
+    if (session) {
+      // Debounce updating lastActivity (every 30s)
+      if (!session.lastActivity || (now - new Date(session.lastActivity).getTime() > 30000)) {
+        UserSession.updateOne({ _id: session._id }, { $set: { lastActivity: new Date() } }).catch(() => {});
+      }
+    }
+    return isActive;
+  } catch (err) {
+    console.error('Session verification error:', err.message);
+    return true; // fail-open on DB connection hiccup to avoid unneeded lockouts
+  }
+}
+
+// ── JWT & Live Window Authentication Middleware ─────────────────────────────
+async function authenticateToken(request, response, next) {
   const authHeader = request.headers['authorization'];
   const token = (authHeader && authHeader.startsWith('Bearer '))
     ? authHeader.slice(7)
@@ -484,7 +527,20 @@ function authenticateToken(request, response, next) {
   }
 
   try {
-    request.user = jwt.verify(token, jwtSecret, { issuer: 'tce-auth-server' });
+    const decoded = jwt.verify(token, jwtSecret, { issuer: 'tce-auth-server' });
+    request.user = decoded;
+
+    // Single active window enforcement: verify session is still live
+    if (decoded.sessionId) {
+      const active = await isSessionActive(decoded.sessionId, decoded.email);
+      if (!active) {
+        return response.status(401).json({
+          message: 'Your session was terminated because your account was logged into on another device/window.',
+          sessionTerminated: true
+        });
+      }
+    }
+
     next();
   } catch {
     return response.status(403).json({ message: 'Invalid or expired token.' });
@@ -493,6 +549,30 @@ function authenticateToken(request, response, next) {
 
 app.get('/api/health', (_request, response) => {
   response.status(200).json({ status: 'ok' });
+});
+
+app.get('/api/auth/heartbeat', authenticateToken, (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    active: true,
+    sessionId: req.user?.sessionId,
+    user: req.user?.email
+  });
+});
+
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+  try {
+    if (req.user?.sessionId) {
+      await UserSession.updateOne(
+        { sessionId: req.user.sessionId },
+        { $set: { isActive: false } }
+      );
+      sessionCache.delete(req.user.sessionId);
+    }
+    return res.status(200).json({ success: true, message: 'Signed out successfully.' });
+  } catch (err) {
+    return res.status(200).json({ success: true });
+  }
 });
 
 // ── Department Mapping Helper ────────────────────────────────────────────────
@@ -638,7 +718,7 @@ app.post('/api/directory/webhook', handleFacultyWebhook);
 
 
 app.post('/api/auth/google', async (request, response) => {
-  const { credential } = request.body ?? {};
+  const { credential, forceTerminateOther = false } = request.body ?? {};
 
   if (!credential || typeof credential !== 'string') {
     return response.status(400).json({
@@ -766,6 +846,55 @@ app.post('/api/auth/google', async (request, response) => {
       });
     }
 
+    // ── Single Active Session / Live Window Lock ────────────────────────────
+    const SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes live window
+    const activeCutoff = new Date(Date.now() - SESSION_IDLE_TIMEOUT_MS);
+    const lookupEmails = Array.from(new Set([...userAliases.map(e => e.toLowerCase().trim()), verifiedEmail]));
+
+    const existingLiveSession = await UserSession.findOne({
+      email: { $in: lookupEmails },
+      isActive: true,
+      lastActivity: { $gte: activeCutoff }
+    }).sort({ lastActivity: -1 });
+
+    if (existingLiveSession && !forceTerminateOther) {
+      const friendlyDevice = existingLiveSession.deviceInfo || 'another browser/device';
+      const lastActiveTime = new Date(existingLiveSession.lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return response.status(409).json({
+        success: false,
+        sessionConflict: true,
+        message: `An active session is currently live on ${friendlyDevice} (Active at ${lastActiveTime}). Institutional policy permits only one active window per faculty account.`,
+        lastActivity: existingLiveSession.lastActivity,
+        deviceInfo: existingLiveSession.deviceInfo
+      });
+    }
+
+    // If forcing login or clearing stale sessions, deactivate previous sessions
+    if (existingLiveSession && forceTerminateOther) {
+      await UserSession.updateMany(
+        { email: { $in: lookupEmails } },
+        { $set: { isActive: false } }
+      );
+      sessionCache.clear();
+    }
+
+    const newSessionId = crypto.randomUUID();
+    const rawUserAgent = request.headers['user-agent'] || 'Web Browser';
+    const isMobileDevice = /mobile|iphone|ipad|android|touch/i.test(rawUserAgent);
+    const friendlyDevice = isMobileDevice
+      ? `Mobile Device (${rawUserAgent.slice(0, 30)})`
+      : `Desktop / Laptop (${rawUserAgent.slice(0, 30)})`;
+    const clientIp = request.headers['x-forwarded-for'] || request.socket?.remoteAddress || '';
+
+    await UserSession.create({
+      email: verifiedEmail,
+      sessionId: newSessionId,
+      deviceInfo: friendlyDevice,
+      ipAddress: String(clientIp).slice(0, 45),
+      isActive: true,
+      lastActivity: new Date()
+    });
+
     // Calculate 1-Year Service Eligibility (365 Days) — Controlled by feature flag ENABLE_PROBATION_GATE
     const enableProbationGate = process.env.ENABLE_PROBATION_GATE === 'true';
     const rawDOJ = facultyRecord?.joiningDate || new Date(Date.now() - 400 * 24 * 60 * 60 * 1000);
@@ -782,6 +911,7 @@ app.post('/api/auth/google', async (request, response) => {
     const formattedDOJ = dojDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
     const userPayload = {
+      sessionId: newSessionId,
       sub: payload.sub,
       email: verifiedEmail,
       personalEmail: canonicalPersonalEmail,
