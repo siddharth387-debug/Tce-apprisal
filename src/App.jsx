@@ -3182,7 +3182,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     const cloudData = activeTimelineRecord ? flattenAppraisalRecord(activeTimelineRecord) : null;
     const hasLocal = localData && hasSectionEntries(localData);
-    const hasCloud = cloudData && hasSectionEntries(cloudData);
+    const hasCloud = Boolean(cloudData && (hasSectionEntries(cloudData) || activeTimelineRecord?._id || activeTimelineRecord?.id));
 
     let finalData = null;
     if (hasLocal && hasCloud) {
