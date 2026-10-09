@@ -14,7 +14,7 @@ export default function AcademicTimelinePicker({
   onChange,
   isReviewMode = false,
   currentAcademicYear = '2025-2026',
-  minYear = 2000,
+  minYear = 2025,
   maxYear = 2100,
   hideLabel = false,
   isCompact = false,
@@ -149,16 +149,26 @@ export default function AcademicTimelinePicker({
 
   const decadeEnd = decadeStart + 9;
 
-  // Generate 10 standard academic years for the active decade
+  // Explicitly excluded legacy periods (as requested by institution)
+  const EXCLUDED_PERIODS = useMemo(() => new Set([
+    '2020-2021',
+    '2021-2022',
+    '2022-2023',
+    '2023-2024',
+    '2024-2025',
+  ]), []);
+
+  // Generate standard academic years for the active decade
   const decadeYears = useMemo(() => {
     const years = [];
     for (let y = decadeStart; y <= decadeEnd; y++) {
-      if (y >= minYear && y < maxYear) {
-        years.push(`${y}-${y + 1}`);
+      const tl = `${y}-${y + 1}`;
+      if (y >= minYear && y < maxYear && !EXCLUDED_PERIODS.has(tl)) {
+        years.push(tl);
       }
     }
     return years;
-  }, [decadeStart, decadeEnd, minYear, maxYear]);
+  }, [decadeStart, decadeEnd, minYear, maxYear, EXCLUDED_PERIODS]);
 
   const handlePrevDecade = (e) => {
     e.stopPropagation();

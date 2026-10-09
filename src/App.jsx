@@ -44,7 +44,7 @@ export const getCurrentAcademicYear = () => {
   return month >= 6 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
-export const generateTimelines = (startYear = 2020, endYear = 2100) => {
+export const generateTimelines = (startYear = 2025, endYear = 2100) => {
   const list = [];
   for (let y = startYear; y < endYear; y++) {
     list.push(`${y}-${y + 1}`);
@@ -52,7 +52,7 @@ export const generateTimelines = (startYear = 2020, endYear = 2100) => {
   return list;
 };
 
-const TIMELINES = generateTimelines(2020, 2100);
+const TIMELINES = generateTimelines(2025, 2100);
 const MENTORING_BATCH_GROUPS = [
   {
     label: '4-Year UG Programs (B.E. / B.Tech)',
@@ -145,6 +145,18 @@ function isMeaningfullyFilledRow(row) {
 function cleanSectionArray(arr) {
   if (!Array.isArray(arr)) return [];
   return arr.filter(isMeaningfullyFilledRow);
+}
+
+// Retains any row with at least one filled field during draft saves so work is never lost across devices
+function cleanDraftArray(arr) {
+  if (!Array.isArray(arr)) return [];
+  return arr.filter((row) => {
+    if (!row || typeof row !== 'object') return false;
+    return Object.entries(row).some(([k, v]) => {
+      if (k === 'id') return false;
+      return v !== null && v !== undefined && String(v).trim() !== '';
+    });
+  });
 }
 
 function createRowId() {
@@ -568,7 +580,26 @@ function isValidEvidenceLink(value) {
   if (!value || typeof value !== 'string') return false;
   const trimmed = value.trim();
   if (!trimmed) return false;
-  return /^https?:\/\//i.test(trimmed) || trimmed.includes('.') || trimmed.includes('/') || trimmed.length > 3;
+  
+  // Quick reject for common non-link text
+  const lower = trimmed.toLowerCase();
+  if (['nil', 'na', 'n/a', 'none', 'null', 'no', 'not applicable', 'pending', 'test', 'abc'].includes(lower)) {
+    return false;
+  }
+
+  try {
+    const urlString = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    const parsed = new URL(urlString);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+    const host = parsed.hostname.toLowerCase();
+    if (!host || !host.includes('.') || host.endsWith('.')) return false;
+    const parts = host.split('.');
+    const tld = parts[parts.length - 1];
+    if (!tld || tld.length < 2) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function isNonEmpty(value) {
@@ -588,6 +619,15 @@ function getRowValidationErrors(row, columns) {
       return;
     }
 
+    if (column.name === 'evidenceLink' || column.type === 'url' || column.name === 'appointmentLink') {
+      if (!value.trim()) {
+        errors[column.name] = true;
+      } else if (!isValidEvidenceLink(value)) {
+        errors[column.name] = 'invalid_url';
+      }
+      return;
+    }
+
     if (column.type === 'select') {
       if (!value.trim()) {
         errors[column.name] = true;
@@ -600,8 +640,8 @@ function getRowValidationErrors(row, columns) {
     }
   });
 
-  if (!isValidEvidenceLink(row.evidenceLink)) {
-    errors.evidenceLink = true;
+  if (row.evidenceLink !== undefined && !isValidEvidenceLink(row.evidenceLink)) {
+    errors.evidenceLink = isNonEmpty(row.evidenceLink) ? 'invalid_url' : true;
   }
 
   return errors;
@@ -1368,12 +1408,20 @@ function DynamicArraySection({
   const safeColumns = columns || [];
 
   const getFieldErrorText = (row, columnName) => {
-    if (!rowErrors?.[row.id]?.[columnName]) {
+    const err = rowErrors?.[row.id]?.[columnName];
+    if (!err) {
       return '';
     }
 
     if (columnName === 'courseCode') {
       return 'Use 5-7 alphanumeric code (e.g., CS301).';
+    }
+
+    if (columnName === 'evidenceLink' || columnName === 'appointmentLink') {
+      if (err === 'invalid_url') {
+        return 'Please enter a valid link (e.g. Google Drive link https://...)';
+      }
+      return 'Supporting link required (e.g. Google Drive link).';
     }
 
     return 'Required field.';
@@ -2773,6 +2821,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   const [isLeadershipModalOpen, setIsLeadershipModalOpen] = useState(false);
   const [isFacultyModalOpen, setIsFacultyModalOpen] = useState(false);
+  const [submitModalState, setSubmitModalState] = useState(null); // { type: 'warning' | 'confirm' | 'success' | 'error', title: '', message: '' }
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
 
   const [masterAppraisalMode, setMasterAppraisalMode] = useState('GENERAL'); // 'GENERAL' | 'ARCH'
@@ -2943,7 +2992,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     return `${baseEmail}_${deptKey}`;
   }, [user, activeDept]);
 
+  const hydratedTimelinesRef = useRef(new Set());
+  const hasUserEditedRef = useRef(new Set());
+  const [isInitialCloudSynced, setIsInitialCloudSynced] = useState(false);
+
+  // Reset session edit & hydration trackers when user switches
+  useEffect(() => {
+    hydratedTimelinesRef.current.clear();
+    hasUserEditedRef.current.clear();
+    setIsInitialCloudSynced(false);
+  }, [user?.email, user?.personalEmail]);
+
+  // Safety fallback for initial cloud sync in case user is offline or network is sluggish
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsInitialCloudSynced(true);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const saveLocalDraft = useCallback((nextFormDataState) => {
+    // Never write empty/unhydrated states to localStorage on initial mount
+    if (!hydratedTimelinesRef.current.has(selectedTimeline)) return;
     if (draftUserKey && selectedTimeline && nextFormDataState) {
       try {
         const stamped = { ...nextFormDataState, _savedAt: Date.now() };
@@ -2970,68 +3040,68 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const effScores = computeEffectiveScores(currentDraft, activeTimelineRecord?.hodSubsectionScores || {}, activeDept);
 
       const cleanedSection1Data = {
-        coursesHandled: cleanSectionArray(currentDraft.coursesHandled),
-        courseFiles: cleanSectionArray(currentDraft.courseFiles),
-        coursesDesigned: cleanSectionArray(currentDraft.coursesDesigned),
-        valueAdded: cleanSectionArray(currentDraft.valueAdded),
-        innovativeMethods: cleanSectionArray(currentDraft.innovativeMethods),
-        studioPedagogy: cleanSectionArray(currentDraft.studioPedagogy),
-        educationalTours: cleanSectionArray(currentDraft.educationalTours),
-        academicCollaborations: cleanSectionArray(currentDraft.academicCollaborations),
+        coursesHandled: cleanDraftArray(currentDraft.coursesHandled),
+        courseFiles: cleanDraftArray(currentDraft.courseFiles),
+        coursesDesigned: cleanDraftArray(currentDraft.coursesDesigned),
+        valueAdded: cleanDraftArray(currentDraft.valueAdded),
+        innovativeMethods: cleanDraftArray(currentDraft.innovativeMethods),
+        studioPedagogy: cleanDraftArray(currentDraft.studioPedagogy),
+        educationalTours: cleanDraftArray(currentDraft.educationalTours),
+        academicCollaborations: cleanDraftArray(currentDraft.academicCollaborations),
         mentoring: currentDraft.mentoring || {},
-        certifications: cleanSectionArray(currentDraft.certifications),
-        studentFeedback: cleanSectionArray(currentDraft.studentFeedback),
-        resultAnalysis: cleanSectionArray(currentDraft.resultAnalysis),
-        coAttainment: cleanSectionArray(currentDraft.coAttainment),
+        certifications: cleanDraftArray(currentDraft.certifications),
+        studentFeedback: cleanDraftArray(currentDraft.studentFeedback),
+        resultAnalysis: cleanDraftArray(currentDraft.resultAnalysis),
+        coAttainment: cleanDraftArray(currentDraft.coAttainment),
       };
 
       const cleanedSection2Data = {
-        journalPapers: cleanSectionArray(currentDraft.journalPapers),
+        journalPapers: cleanDraftArray(currentDraft.journalPapers),
         citationsReceived: currentDraft.citationsReceived || {},
         q1Citations: currentDraft.q1Citations || {},
-        bookPublications: cleanSectionArray(currentDraft.bookPublications),
-        conferencePapers: cleanSectionArray(currentDraft.conferencePapers),
-        researchCollaborations: cleanSectionArray(currentDraft.researchCollaborations),
-        phdRegistered: cleanSectionArray(currentDraft.phdRegistered),
-        phdAwarded: cleanSectionArray(currentDraft.phdAwarded),
-        creativeScholarship: cleanSectionArray(currentDraft.creativeScholarship),
+        bookPublications: cleanDraftArray(currentDraft.bookPublications),
+        conferencePapers: cleanDraftArray(currentDraft.conferencePapers),
+        researchCollaborations: cleanDraftArray(currentDraft.researchCollaborations),
+        phdRegistered: cleanDraftArray(currentDraft.phdRegistered),
+        phdAwarded: cleanDraftArray(currentDraft.phdAwarded),
+        creativeScholarship: cleanDraftArray(currentDraft.creativeScholarship),
       };
 
       const cleanedSection3Data = {
-        patentsPublished: cleanSectionArray(currentDraft.patentsPublished),
-        patentsGranted: cleanSectionArray(currentDraft.patentsGranted),
-        transferOfTechnology: cleanSectionArray(currentDraft.transferOfTechnology),
-        prototypesDeveloped: cleanSectionArray(currentDraft.prototypesDeveloped),
-        hackathonPrizes: cleanSectionArray(currentDraft.hackathonPrizes),
-        designPatents: cleanSectionArray(currentDraft.designPatents),
+        patentsPublished: cleanDraftArray(currentDraft.patentsPublished),
+        patentsGranted: cleanDraftArray(currentDraft.patentsGranted),
+        transferOfTechnology: cleanDraftArray(currentDraft.transferOfTechnology),
+        prototypesDeveloped: cleanDraftArray(currentDraft.prototypesDeveloped),
+        hackathonPrizes: cleanDraftArray(currentDraft.hackathonPrizes),
+        designPatents: cleanDraftArray(currentDraft.designPatents),
       };
 
       const cleanedSection4Data = {
-        researchProjects: cleanSectionArray(currentDraft.researchProjects),
-        consultancyProjects: cleanSectionArray(currentDraft.consultancyProjects),
+        researchProjects: cleanDraftArray(currentDraft.researchProjects),
+        consultancyProjects: cleanDraftArray(currentDraft.consultancyProjects),
       };
 
       const cleanedSection5Data = {
-        internationalEngagement: cleanSectionArray(currentDraft.internationalEngagement),
-        visitingPositions: cleanSectionArray(currentDraft.visitingPositions),
-        foreignFaculty: cleanSectionArray(currentDraft.foreignFaculty),
-        reputationSurvey: cleanSectionArray(currentDraft.reputationSurvey),
-        nirfSurvey: cleanSectionArray(currentDraft.nirfSurvey),
-        internationalDesignStudio: cleanSectionArray(currentDraft.internationalDesignStudio),
+        internationalEngagement: cleanDraftArray(currentDraft.internationalEngagement),
+        visitingPositions: cleanDraftArray(currentDraft.visitingPositions),
+        foreignFaculty: cleanDraftArray(currentDraft.foreignFaculty),
+        reputationSurvey: cleanDraftArray(currentDraft.reputationSurvey),
+        nirfSurvey: cleanDraftArray(currentDraft.nirfSurvey),
+        internationalDesignStudio: cleanDraftArray(currentDraft.internationalDesignStudio),
       };
 
       const cleanedSection6Data = {
-        fdpAttended: cleanSectionArray(currentDraft.fdpAttended),
-        programsOrganized: cleanSectionArray(currentDraft.programsOrganized),
-        resourcePerson: cleanSectionArray(currentDraft.resourcePerson),
-        professionalMembership: cleanSectionArray(currentDraft.professionalMembership),
-        editorialBoard: cleanSectionArray(currentDraft.editorialBoard).map(r => ({
+        fdpAttended: cleanDraftArray(currentDraft.fdpAttended),
+        programsOrganized: cleanDraftArray(currentDraft.programsOrganized),
+        resourcePerson: cleanDraftArray(currentDraft.resourcePerson),
+        professionalMembership: cleanDraftArray(currentDraft.professionalMembership),
+        editorialBoard: cleanDraftArray(currentDraft.editorialBoard).map(r => ({
           ...r,
           period: (r.fromDate || r.toDate || r.isTillDate)
             ? (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
             : (r.period || '')
         })),
-        moocDeveloped: cleanSectionArray(currentDraft.moocDeveloped).map(r => ({
+        moocDeveloped: cleanDraftArray(currentDraft.moocDeveloped).map(r => ({
           ...r,
           takersCount: ((r.internalStudents !== undefined && r.internalStudents !== '') || (r.externalStudents !== undefined && r.externalStudents !== ''))
             ? `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
@@ -3040,23 +3110,23 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       };
 
       const cleanedSection7Data = {
-        partialDelivery: cleanSectionArray(currentDraft.partialDelivery),
-        industrialVisits: cleanSectionArray(currentDraft.industrialVisits),
-        facultyInternships: cleanSectionArray(currentDraft.facultyInternships),
-        employerEngagement: cleanSectionArray(currentDraft.employerEngagement),
+        partialDelivery: cleanDraftArray(currentDraft.partialDelivery),
+        industrialVisits: cleanDraftArray(currentDraft.industrialVisits),
+        facultyInternships: cleanDraftArray(currentDraft.facultyInternships),
+        employerEngagement: cleanDraftArray(currentDraft.employerEngagement),
       };
 
       const cleanedSection8Data = {
-        projectPublications: cleanSectionArray(currentDraft.projectPublications),
-        hackathonMentoring: cleanSectionArray(currentDraft.hackathonMentoring),
-        startupSupport: cleanSectionArray(currentDraft.startupSupport),
-        studentExhibitions: cleanSectionArray(currentDraft.studentExhibitions),
+        projectPublications: cleanDraftArray(currentDraft.projectPublications),
+        hackathonMentoring: cleanDraftArray(currentDraft.hackathonMentoring),
+        startupSupport: cleanDraftArray(currentDraft.startupSupport),
+        studentExhibitions: cleanDraftArray(currentDraft.studentExhibitions),
       };
 
       const cleanedSection9Data = {
-        deptActivities: cleanSectionArray(currentDraft.deptActivities),
-        collegeActivities: cleanSectionArray(currentDraft.collegeActivities),
-        adminResponsibilities: cleanSectionArray(currentDraft.adminResponsibilities),
+        deptActivities: cleanDraftArray(currentDraft.deptActivities),
+        collegeActivities: cleanDraftArray(currentDraft.collegeActivities),
+        adminResponsibilities: cleanDraftArray(currentDraft.adminResponsibilities),
       };
 
       const payload = {
@@ -3066,6 +3136,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         department: targetDeptToSubmit,
         convertedScore: effScores.grandTotal || 0,
         appraisalStatus: (activeTimelineRecord?.appraisalStatus && activeTimelineRecord.appraisalStatus !== 'Pending') ? activeTimelineRecord.appraisalStatus : 'Draft',
+        hodSubsectionScores: activeTimelineRecord?.hodSubsectionScores || {},
+        subsectionRemarks: activeTimelineRecord?.subsectionRemarks || {},
         section1Data: cleanedSection1Data,
         section2Data: cleanedSection2Data,
         section3Data: cleanedSection3Data,
@@ -3170,12 +3242,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [isManualSaving, isSubmitting, workspaceByTimeline, selectedTimeline, saveLocalDraft, onWorkspaceSave, saveDraftToCloud]);
 
-  const hydratedTimelinesRef = useRef(new Set());
-
-  // Check for local or cloud draft only once on timeline switch / mount (prevents typing overwrites)
+  // Check for local or cloud draft on timeline switch / mount (prevents typing overwrites & synchronizes cloud drafts across devices)
   useEffect(() => {
     if (!selectedTimeline) return;
-    if (hydratedTimelinesRef.current.has(selectedTimeline)) return;
+    if (!isInitialCloudSynced) return;
+
+    // If the user has already actively edited this timeline in this session, do not clobber their in-progress typing!
+    if (hasUserEditedRef.current.has(selectedTimeline)) return;
 
     const savedDraft = draftUserKey ? localStorage.getItem(`draft_${draftUserKey}_${selectedTimeline}`) : null;
     let localData = null;
@@ -3188,27 +3261,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
 
     const cloudData = activeTimelineRecord ? flattenAppraisalRecord(activeTimelineRecord) : null;
-    const hasLocal = localData && hasSectionEntries(localData);
+    const hasLocal = Boolean(localData && hasSectionEntries(localData));
     const hasCloud = Boolean(cloudData && (hasSectionEntries(cloudData) || activeTimelineRecord?._id || activeTimelineRecord?.id));
 
-    // If neither local nor cloud data is ready yet, wait until activeTimelineRecord finishes fetching
-    if (!hasLocal && !hasCloud && !activeTimelineRecord) {
-      return;
-    }
+    // If already hydrated and no newer cloud record has arrived, skip
+    if (hydratedTimelinesRef.current.has(selectedTimeline) && !hasCloud) return;
 
     let finalData = null;
-    if (hasLocal && hasCloud) {
-      const localTime = localData._savedAt || 0;
-      const cloudTime = activeTimelineRecord?.updatedAt ? new Date(activeTimelineRecord.updatedAt).getTime() : 0;
-      if (cloudTime > localTime) {
-        finalData = mergeSectionState(localData, cloudData);
-      } else {
-        finalData = mergeSectionState(cloudData, localData);
+    if (hasCloud) {
+      // Cloud is authoritative across devices! (e.g. laptop saves draft, mobile opens and loads exact cloud data)
+      finalData = cloudData;
+      if (draftUserKey && selectedTimeline) {
+        try {
+          const cloudTime = activeTimelineRecord?.updatedAt ? new Date(activeTimelineRecord.updatedAt).getTime() : Date.now();
+          localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify({ ...cloudData, _savedAt: cloudTime }));
+        } catch (e) {}
       }
     } else if (hasLocal) {
       finalData = localData;
-    } else if (hasCloud) {
-      finalData = cloudData;
     } else {
       finalData = createEmptySectionState();
     }
@@ -3218,7 +3288,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       ...prev,
       [selectedTimeline]: finalData,
     }));
-  }, [selectedTimeline, draftUserKey, activeTimelineRecord]);
+  }, [selectedTimeline, draftUserKey, activeTimelineRecord, isInitialCloudSynced]);
 
   // Auto-save local draft to localStorage whenever workspace data changes (debounced by 350ms so typing never stutters)
   useEffect(() => {
@@ -3306,6 +3376,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
     } catch (error) {
       console.error("Cloud synchronization failed:", error.message);
+    } finally {
+      setIsInitialCloudSynced(true);
     }
   }, [user]);
 
@@ -4312,6 +4384,286 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     setActiveView('section1');
   };
 
+  const validateAppraisalForSubmission = useCallback((formData) => {
+    if (!formData || typeof formData !== 'object') {
+      return {
+        canSubmit: false,
+        reason: 'no_data',
+        title: 'Incomplete Appraisal',
+        message: 'You have not drafted any sections yet. You must complete at least one section fully with valid details and supporting evidence links before submitting.',
+        errorList: [],
+      };
+    }
+
+    const fieldErrors = [];
+    const completedSections = new Set();
+
+    const SECTION_CONFIGS = [
+      {
+        number: 1,
+        title: 'Section I (Teaching & Learning)',
+        tables: [
+          { key: 'coursesHandled', label: 'Courses Handled', columns: coursesHandledColumns },
+          { key: 'courseFiles', label: 'Course Files', columns: courseFilesColumns },
+          { key: 'coAttainment', label: 'CO Attainment', columns: coAttainmentColumns },
+          { key: 'coursesDesigned', label: 'Courses Designed', columns: coursesDesignedColumns },
+          { key: 'valueAdded', label: 'Value Added Courses', columns: valueAddedColumns },
+          { key: 'resultAnalysis', label: 'Result Analysis', columns: resultAnalysisColumns },
+          { key: 'innovativeMethods', label: 'Innovative Methods', columns: innovativeMethodsColumns },
+          { key: 'certifications', label: 'Certifications', columns: certificationsColumns },
+          { key: 'academicCollaborations', label: 'Academic Collaborations', columns: academicCollaborationsColumns },
+          { key: 'studentFeedback', label: 'Student Feedback', columns: studentFeedbackColumns },
+          { key: 'studioPedagogy', label: 'Studio Pedagogy', columns: studioPedagogyColumns },
+          { key: 'educationalTours', label: 'Educational Tours', columns: educationalToursColumns },
+        ],
+        checkCustomComplete: (data) => {
+          const m = data?.mentoring;
+          return Boolean(
+            m &&
+            m.menteeCount &&
+            toNumber(m.menteeCount) > 0 &&
+            isNonEmpty(m.batch) &&
+            isNonEmpty(m.description) &&
+            isValidEvidenceLink(m.evidenceLink)
+          );
+        },
+        checkCustomErrors: (data) => {
+          const errs = [];
+          const m = data?.mentoring;
+          const touched = m && (isNonEmpty(m.menteeCount) || isNonEmpty(m.batch) || isNonEmpty(m.description) || isNonEmpty(m.evidenceLink));
+          if (touched) {
+            if (!isNonEmpty(m.menteeCount) || toNumber(m.menteeCount) <= 0) errs.push('Section I (Mentoring): Number of mentees is required.');
+            if (!isNonEmpty(m.batch)) errs.push('Section I (Mentoring): Mentoring batch is required.');
+            if (!isNonEmpty(m.description)) errs.push('Section I (Mentoring): Mentoring description/activities are required.');
+            if (!m.evidenceLink || !isValidEvidenceLink(m.evidenceLink)) {
+              errs.push('Section I (Mentoring): Please enter a valid supporting link (e.g. Google Drive link https://...).');
+            }
+          }
+          return errs;
+        }
+      },
+      {
+        number: 2,
+        title: 'Section II (Research & Academic Contributions)',
+        tables: [
+          { key: 'journalPapers', label: 'Journal Papers', columns: journalPapersColumns },
+          { key: 'bookPublications', label: 'Book Publications', columns: bookPublicationsColumns },
+          { key: 'conferencePapers', label: 'Conference Papers', columns: conferencePapersColumns },
+          { key: 'researchCollaborations', label: 'Research Collaborations', columns: researchCollaborationsColumns },
+          { key: 'phdRegistered', label: 'PhD Scholars Registered', columns: phdRegisteredColumns },
+          { key: 'phdAwarded', label: 'PhD Scholars Awarded', columns: phdAwardedColumns },
+          { key: 'creativeScholarship', label: 'Creative Scholarship', columns: creativeScholarshipColumns },
+        ],
+        checkCustomComplete: (data) => {
+          const cit = toNumber(data?.citationsReceived?.totalCount);
+          const q1Cit = toNumber(data?.q1Citations?.totalCount);
+          return cit > 0 || q1Cit > 0;
+        }
+      },
+      {
+        number: 3,
+        title: 'Section III (Patents & Innovations)',
+        tables: [
+          { key: 'patentsPublished', label: 'Patents Published', columns: patentsPublishedColumns },
+          { key: 'patentsGranted', label: 'Patents Granted', columns: patentsGrantedColumns },
+          { key: 'transferOfTechnology', label: 'Transfer of Technology', columns: transferOfTechnologyColumns },
+          { key: 'prototypesDeveloped', label: 'Prototypes / Products Developed', columns: prototypesDevelopedColumns },
+          { key: 'hackathonPrizes', label: 'Hackathon Prizes', columns: hackathonPrizesColumns },
+          { key: 'designPatents', label: 'Design Patents', columns: designPatentsColumns },
+        ],
+      },
+      {
+        number: 4,
+        title: 'Section IV (Sponsored Research & Consultancy)',
+        tables: [
+          { key: 'researchProjects', label: 'Sponsored Research Projects', columns: researchProjectsColumns },
+          { key: 'consultancyProjects', label: 'Consultancy Projects', columns: consultancyProjectsColumns },
+        ],
+      },
+      {
+        number: 5,
+        title: 'Section V (International Engagements)',
+        tables: [
+          { key: 'internationalEngagement', label: 'International Engagements', columns: internationalEngagementColumns },
+          { key: 'visitingPositions', label: 'Visiting Faculty Positions', columns: visitingPositionsColumns },
+          { key: 'foreignFaculty', label: 'Foreign Faculty Taught Courses', columns: foreignFacultyColumns },
+          { key: 'reputationSurvey', label: 'Reputation Survey Nominations', columns: reputationSurveyColumns },
+          { key: 'nirfSurvey', label: 'NIRF / QS Surveys', columns: nirfSurveyColumns },
+          { key: 'internationalDesignStudio', label: 'International Design Studio', columns: internationalDesignStudioColumns },
+        ],
+      },
+      {
+        number: 6,
+        title: 'Section VI (Professional Development & MOOC)',
+        tables: [
+          { key: 'fdpAttended', label: 'FDP / STTP / Workshops Attended', columns: fdpAttendedColumns },
+          { key: 'programsOrganized', label: 'Programs Organized', columns: programsOrganizedColumns },
+          { key: 'resourcePerson', label: 'Resource Person / Guest Lectures', columns: resourcePersonColumns },
+          { key: 'professionalMembership', label: 'Professional Society Membership', columns: professionalMembershipColumns },
+          { key: 'editorialBoard', label: 'Editorial Board / Reviewer Positions', columns: editorialBoardColumns },
+          { key: 'moocDeveloped', label: 'MOOC Developed', columns: moocDevelopedColumns },
+        ],
+      },
+      {
+        number: 7,
+        title: 'Section VII (Industry & Institutional Linkages)',
+        tables: [
+          { key: 'partialDelivery', label: 'Partial Course Delivery by Industry Experts', columns: partialDeliveryColumns },
+          { key: 'industrialVisits', label: 'Industrial Visits', columns: industrialVisitsColumns },
+          { key: 'facultyInternships', label: 'Faculty Industry Internships', columns: facultyInternshipsColumns },
+          { key: 'employerEngagement', label: 'Employer / Alumni Engagement', columns: employerEngagementColumns },
+        ],
+      },
+      {
+        number: 8,
+        title: 'Section VIII (Student Guidance & Mentoring Activities)',
+        tables: [
+          { key: 'projectPublications', label: 'Student Project Publications', columns: projectPublicationsColumns },
+          { key: 'hackathonMentoring', label: 'Hackathon Mentoring', columns: hackathonMentoringColumns },
+          { key: 'startupSupport', label: 'Student Startup Support', columns: startupSupportColumns },
+          { key: 'studentExhibitions', label: 'Student Exhibitions Mentored', columns: studentExhibitionsColumns },
+        ],
+      },
+      {
+        number: 9,
+        title: 'Section IX (Institutional Governance & Administration)',
+        tables: [
+          { key: 'deptActivities', label: 'Department Level Activities', columns: deptActivitiesColumns },
+          { key: 'collegeActivities', label: 'College Level Activities', columns: collegeActivitiesColumns },
+          { key: 'adminResponsibilities', label: 'Administrative Responsibilities', columns: adminResponsibilitiesColumns },
+        ],
+      },
+    ];
+
+    SECTION_CONFIGS.forEach((sec) => {
+      let sectionHasCompletedEntry = false;
+
+      if (sec.checkCustomComplete && sec.checkCustomComplete(formData)) {
+        sectionHasCompletedEntry = true;
+      }
+      if (sec.checkCustomErrors) {
+        const customErrs = sec.checkCustomErrors(formData);
+        if (customErrs.length > 0) {
+          fieldErrors.push(...customErrs);
+        }
+      }
+
+      (sec.tables || []).forEach(({ key, label, columns }) => {
+        const rows = formData[key] || [];
+        if (!Array.isArray(rows)) return;
+
+        rows.forEach((row, idx) => {
+          if (isMeaningfullyFilledRow(row)) {
+            const rowValidation = getRowValidationErrors(row, columns);
+            const errKeys = Object.keys(rowValidation);
+
+            if (errKeys.length > 0) {
+              const errDetails = [];
+              if (rowValidation.evidenceLink === 'invalid_url') {
+                errDetails.push('Please enter a valid link (e.g. Google Drive link https://...)');
+              } else if (rowValidation.evidenceLink) {
+                errDetails.push('Supporting document link is required');
+              }
+              if (rowValidation.courseCode) {
+                errDetails.push('Use 5-7 alphanumeric course code (e.g., CS301)');
+              }
+              const otherMissing = errKeys.filter(k => k !== 'evidenceLink' && k !== 'courseCode');
+              if (otherMissing.length > 0) {
+                errDetails.push(`Missing: ${otherMissing.join(', ')}`);
+              }
+              fieldErrors.push(`${sec.title} → ${label} (Row ${idx + 1}): ${errDetails.join('; ')}`);
+            } else {
+              sectionHasCompletedEntry = true;
+            }
+          }
+        });
+      });
+
+      if (sectionHasCompletedEntry) {
+        completedSections.add(sec.number);
+      }
+    });
+
+    if (fieldErrors.length > 0) {
+      return {
+        canSubmit: false,
+        reason: 'validation_errors',
+        title: 'Incomplete / Invalid Entries Found',
+        message: 'Some of your entered details or supporting evidence links are invalid or incomplete. All entered entries must have valid supporting links (e.g. Google Drive link https://...) and required fields filled before submitting.',
+        errorList: fieldErrors,
+      };
+    }
+
+    if (completedSections.size === 0) {
+      return {
+        canSubmit: false,
+        reason: 'no_section_completed',
+        title: 'Incomplete Appraisal',
+        message: 'You have not completed any section yet. You must draft at least one section fully with valid details and supporting evidence links before submitting your appraisal.',
+        errorList: [],
+      };
+    }
+
+    return {
+      canSubmit: true,
+      completedSectionsCount: completedSections.size,
+      completedSections: Array.from(completedSections),
+      errorList: [],
+    };
+  }, [
+    coursesHandledColumns, courseFilesColumns, coAttainmentColumns, coursesDesignedColumns,
+    valueAddedColumns, resultAnalysisColumns, innovativeMethodsColumns, certificationsColumns,
+    academicCollaborationsColumns, studentFeedbackColumns, studioPedagogyColumns, educationalToursColumns,
+    journalPapersColumns, bookPublicationsColumns, conferencePapersColumns, researchCollaborationsColumns,
+    phdRegisteredColumns, phdAwardedColumns, creativeScholarshipColumns,
+    patentsPublishedColumns, patentsGrantedColumns, transferOfTechnologyColumns, prototypesDevelopedColumns,
+    hackathonPrizesColumns, designPatentsColumns,
+    researchProjectsColumns, consultancyProjectsColumns,
+    internationalEngagementColumns, visitingPositionsColumns, foreignFacultyColumns, reputationSurveyColumns,
+    nirfSurveyColumns, internationalDesignStudioColumns,
+    fdpAttendedColumns, programsOrganizedColumns, resourcePersonColumns, professionalMembershipColumns,
+    editorialBoardColumns, moocDevelopedColumns,
+    partialDeliveryColumns, industrialVisitsColumns, facultyInternshipsColumns, employerEngagementColumns,
+    projectPublicationsColumns, hackathonMentoringColumns, startupSupportColumns, studentExhibitionsColumns,
+    deptActivitiesColumns, collegeActivitiesColumns, adminResponsibilitiesColumns
+  ]);
+
+  const handleInitiateSubmit = () => {
+    if (!isEditable) {
+      setSubmitModalState({
+        type: 'warning',
+        title: 'Appraisal Already Submitted',
+        message: `Your appraisal for academic year ${selectedTimeline} has already been submitted or locked and cannot be resubmitted.`,
+        errorList: [],
+      });
+      return;
+    }
+
+    const validation = validateAppraisalForSubmission(currentSectionData);
+    if (!validation.canSubmit) {
+      setSubmitModalState({
+        type: 'warning',
+        title: validation.title,
+        message: validation.message,
+        errorList: validation.errorList || [],
+      });
+      return;
+    }
+
+    // Faculty has completed at least one section with valid links and 0 errors!
+    const totalScore = scores?.grandTotal || 0;
+    setSubmitModalState({
+      type: 'confirm',
+      title: 'Are you sure you want to submit?',
+      message: `You are about to submit your faculty self-appraisal for academic year ${selectedTimeline} with a calculated score of ${totalScore} / 200 (${validation.completedSectionsCount} section(s) completed). Once submitted, editing will be locked and your appraisal will be routed to the Head of Department (HOD) for official review.`,
+      errorList: [],
+    });
+  };
+
+  const handleConfirmSubmit = async () => {
+    await handleSaveAndSubmit();
+  };
+
   const handleSaveAndSubmit = async () => {
     const activeToken = getStoredAuthContext().token;
     const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
@@ -4323,7 +4675,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     if (!activeToken) {
       backupCurrentDraft();
-      alert("⚠️ Your login session has expired. Your data has been securely saved offline! Please click Sign Out and sign back in to submit.");
+      setSubmitModalState({
+        type: 'warning',
+        title: 'Session Expired',
+        message: "⚠️ Your login session has expired. Your data has been securely saved offline! Please click Sign Out and sign back in to submit.",
+        errorList: [],
+      });
       return;
     }
 
@@ -4456,10 +4813,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       if (response.status !== 200 && response.status !== 201) {
         setSubmitError('Submission failed. Please try again.');
+        setSubmitModalState({
+          type: 'error',
+          title: 'Submission Failed',
+          message: 'Server returned error status. Please check your network connection and try again.',
+          errorList: [],
+        });
         return;
       }
 
-      alert("✔ Appraisal saved and submitted successfully!");
+      setSubmitModalState({
+        type: 'success',
+        title: 'Appraisal Submitted Successfully! 🎉',
+        message: `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to your Head of Department. Your submission is now officially recorded and locked for review.`,
+        errorList: [],
+      });
       localStorage.removeItem(`draft_${draftUserKey}_${selectedTimeline}`);
 
       const transaction = response.data?.data;
@@ -4522,12 +4890,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       // FIREWALL INTERCEPTION: Catch 401 Unauthorized or expired pass responses
       if (err.response?.status === 401 || err.message?.includes("token") || err.response?.data?.message?.includes("token")) {
         backupCurrentDraft(); // Secure the state instantly
-        alert("🔒 Session Security Pass Expired! To protect your work, your appraisal has been fully backed up offline. Please click 'Sign Out', log back in immediately via Google, and click Submit again.");
+        setSubmitModalState({
+          type: 'error',
+          title: 'Session Security Pass Expired',
+          message: "🔒 Session Security Pass Expired! To protect your work, your appraisal has been fully backed up offline. Please click 'Sign Out', log back in immediately via Google, and click Submit again.",
+          errorList: [],
+        });
         setSubmitError("Session expired. Please sign out and sign in again.");
       } else {
         const responseData = err?.response?.data;
         const msg = responseData?.message || err.message || 'Unable to submit appraisal.';
-        alert(`Submission failed: ${msg}`);
+        setSubmitModalState({
+          type: 'error',
+          title: 'Submission Failed',
+          message: `Submission failed: ${msg}. Please check your internet connection and try again.`,
+          errorList: [],
+        });
         setSubmitError(`Submission failed: ${msg}`);
       }
     } finally {
@@ -4674,6 +5052,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   };
 
   const updateCurrentTimeline = (updater) => {
+    hasUserEditedRef.current.add(selectedTimeline);
     setWorkspaceByTimeline((previousState) => ({
       ...previousState,
       [selectedTimeline]: updater(
@@ -4874,7 +5253,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               onChange={setSelectedTimeline}
               isReviewMode={isReviewMode}
               currentAcademicYear={getCurrentAcademicYear()}
-              minYear={2000}
+              minYear={2025}
               maxYear={2100}
             />
 
@@ -7113,7 +7492,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </button>
               <button
                 type="button"
-                onClick={handleSaveAndSubmit}
+                onClick={handleInitiateSubmit}
                 disabled={isSubmitting || !isEditable}
                 className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
@@ -7368,6 +7747,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
               <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved to Cloud!' : 'Save Draft to Cloud'}</span>
             </button>
+            <button
+              type="button"
+              onClick={handleInitiateSubmit}
+              disabled={isSubmitting || !isEditable}
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-white bg-[#4A1519] hover:bg-[#3B1013] transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Formally submit completed appraisal to HOD"
+            >
+              <span>📤</span>
+              <span>{isSubmitting ? 'Submitting...' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}</span>
+            </button>
             {lastCloudSyncTime ? (
               <p className="text-[10px] text-center text-slate-500 font-medium">
                 Cloud synced at {lastCloudSyncTime}
@@ -7378,10 +7767,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       </aside>
 
       {/* Floating Quick-Save Dock (Always pinned to bottom-right of viewport while editing sections) */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-slate-300 shadow-2xl shadow-black/25 print-hidden">
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 sm:gap-3 bg-white/95 backdrop-blur-md px-3 sm:px-4 py-2.5 rounded-2xl border border-slate-300 shadow-2xl shadow-black/25 print-hidden">
         <div className="flex items-center gap-2 text-xs">
           <span className={`w-2.5 h-2.5 rounded-full ${cloudSyncState === 'saving' ? 'bg-amber-400 animate-ping' : cloudSyncState === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-          <span className="font-semibold text-slate-700 hidden sm:inline">
+          <span className="font-semibold text-slate-700 hidden md:inline">
             {cloudSyncState === 'saving' ? 'Syncing...' : lastCloudSyncTime ? `Saved (${lastCloudSyncTime})` : 'Cloud Synced'}
           </span>
         </div>
@@ -7389,16 +7778,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           type="button"
           onClick={handleManualSaveDraft}
           disabled={isManualSaving || isSubmitting}
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
             justSavedDraft
               ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-              : 'bg-[#4A1519] hover:bg-[#3B1013] text-white active:scale-95'
+              : 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50 active:scale-95'
           }`}
           title="Immediately save current progress to cloud database"
         >
           <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
-          <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved!' : 'Save Draft'}</span>
+          <span>{isManualSaving ? 'Saving...' : justSavedDraft ? 'Saved!' : 'Save Draft'}</span>
         </button>
+        {isEditable && (
+          <button
+            type="button"
+            onClick={handleInitiateSubmit}
+            disabled={isSubmitting}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-[#4A1519] hover:bg-[#3B1013] text-white transition-all shadow-md cursor-pointer disabled:opacity-60 active:scale-95"
+            title="Formally submit completed appraisal to HOD"
+          >
+            <span>📤</span>
+            <span>Submit to HOD</span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -7859,6 +8260,154 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       isOpen={isFacultyModalOpen}
       onClose={() => setIsFacultyModalOpen(false)}
     />
+
+    {/* Faculty Submission Confirmation / Incomplete / Success Gate Modal */}
+    {submitModalState && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200">
+        <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+          {/* Modal Header */}
+          <div className={`px-6 py-4 text-white flex items-center justify-between ${
+            submitModalState.type === 'success'
+              ? 'bg-gradient-to-r from-emerald-700 to-teal-800'
+              : submitModalState.type === 'warning'
+                ? 'bg-gradient-to-r from-amber-600 to-orange-700'
+                : submitModalState.type === 'error'
+                  ? 'bg-gradient-to-r from-rose-700 to-red-800'
+                  : 'bg-gradient-to-r from-[#4A1519] to-[#3B1013]'
+          }`}>
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-xl border border-white/20">
+                {submitModalState.type === 'success' ? '🎉' : submitModalState.type === 'warning' ? '⚠️' : submitModalState.type === 'error' ? '❌' : '📤'}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">
+                  {submitModalState.title}
+                </h3>
+                <p className="text-xs text-white/80">
+                  Academic Timeline: {selectedTimeline}
+                </p>
+              </div>
+            </div>
+            {submitModalState.type !== 'confirm' && (
+              <button
+                type="button"
+                onClick={() => setSubmitModalState(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6 space-y-4">
+            <p className="text-sm text-slate-700 leading-relaxed font-medium">
+              {submitModalState.message}
+            </p>
+
+            {/* Error / Validation Checklist if present */}
+            {submitModalState.errorList && submitModalState.errorList.length > 0 && (
+              <div className="max-h-52 overflow-y-auto rounded-xl bg-amber-50/90 border border-amber-200 p-3.5 space-y-2 text-xs text-amber-900">
+                <p className="font-bold text-[11px] uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+                  <span>⚠️</span>
+                  <span>Items requiring correction before submission ({submitModalState.errorList.length}):</span>
+                </p>
+                <ul className="list-disc list-inside space-y-1 pl-1">
+                  {submitModalState.errorList.map((err, i) => (
+                    <li key={i} className="leading-snug text-slate-800 font-medium">{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Informational scorecard card when confirming */}
+            {submitModalState.type === 'confirm' && (
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-semibold">Self-Evaluated Grand Total:</span>
+                  <span className="font-bold text-[#4A1519] text-sm">{scores?.grandTotal || 0} / 200 Marks</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-semibold">Department Destination:</span>
+                  <span className="font-bold text-slate-800">{isMasterUser ? masterAppraisalMode : (user?.department || 'CSE')}</span>
+                </div>
+                <div className="flex items-start gap-2 pt-1 text-[11px] text-amber-900 bg-amber-50/80 p-2.5 rounded-lg border border-amber-200 font-medium">
+                  <span className="text-sm">🔒</span>
+                  <span><strong>Important:</strong> Submitting will lock your form and forward your dossier to the Head of Department (HOD) for official review. Ensure all Google Drive evidence links are accessible.</span>
+                </div>
+              </div>
+            )}
+
+            {/* Success Details when submitted */}
+            {submitModalState.type === 'success' && (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-emerald-800 font-semibold">Official Status:</span>
+                  <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">Pending HoD Review</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-emerald-800 font-semibold">Recorded Score:</span>
+                  <span className="font-bold text-emerald-950 text-sm">{scores?.grandTotal || 0} / 200</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Modal Footer Buttons */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            {submitModalState.type === 'confirm' ? (
+              <>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => setSubmitModalState(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 border border-slate-300 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+                >
+                  Cancel / Keep Editing
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={handleConfirmSubmit}
+                  className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-[#4A1519] hover:bg-[#3B1013] transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2 active:scale-95"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <span className="animate-spin text-sm">⏳</span>
+                      <span>Submitting to HOD...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✓</span>
+                      <span>Yes, Submit Appraisal</span>
+                    </>
+                  )}
+                </button>
+              </>
+            ) : submitModalState.type === 'success' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmitModalState(null);
+                  setActiveView('overview');
+                }}
+                className="px-6 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition shadow-md cursor-pointer"
+              >
+                OK (Go to Overview)
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSubmitModalState(null)}
+                className="px-6 py-2 rounded-xl text-xs font-bold text-white bg-[#4A1519] hover:bg-[#3B1013] transition shadow-md cursor-pointer"
+              >
+                Got It
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Formal Printable Document */}
     <AppraisalPrintDocument
