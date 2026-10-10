@@ -3502,7 +3502,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   const isIQACUser = effectiveRole === 'IQAC' || user?.role === 'IQAC';
   const isIQAC = isIQACUser && iqacWorkspaceMode === 'iqac_audit';
-  const isHod = effectiveRole === 'HOD' && hodWorkspaceMode === 'hod_inbox';
+  const isHod = effectiveRole === 'HOD';
   const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal;
 
   const [cloudSyncState, setCloudSyncState] = useState('saved'); // 'saving' | 'saved' | 'error'
@@ -3528,8 +3528,34 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('all'); // 'all' | 'min' (>=) | 'exact' (==) | 'range' (from-to)
   const [iqacStatusWorkflowFilter, setIqacStatusWorkflowFilter] = useState('ALL'); // 'ALL' | 'APPROVED' | 'PENDING'
   const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
-  const [leadershipStatusFilter, setLeadershipStatusFilter] = useState('ALL'); // 'ALL' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'IQAC_APPROVED' | 'RATIFIED'
+  const [leadershipStatusFilter, setLeadershipStatusFilter] = useState('ALL'); // 'ALL' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'NOT_APPROVED_HOD' | 'IQAC_APPROVED' | 'NOT_APPROVED_IQAC' | 'RATIFIED'
   
+  // HoD Score Filter State
+  const [hodScoreSliderValue, setHodScoreSliderValue] = useState(100);
+  const [hodScoreFilterMode, setHodScoreFilterMode] = useState('all'); // 'all' | 'min' (>=) | 'exact' (==) | 'range' (0 to N)
+  const [isScorePopoverOpen, setIsScorePopoverOpen] = useState(false);
+  const scorePopoverRef = useRef(null);
+
+  useEffect(() => {
+    if (!isScorePopoverOpen) return;
+    const handleDocClick = (e) => {
+      if (scorePopoverRef.current && !scorePopoverRef.current.contains(e.target)) {
+        setIsScorePopoverOpen(false);
+      }
+    };
+    const handleDocKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsScorePopoverOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    document.addEventListener('keydown', handleDocKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleDocClick);
+      document.removeEventListener('keydown', handleDocKeyDown);
+    };
+  }, [isScorePopoverOpen]);
+
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   
   const [selectedTimeline, setSelectedTimeline] = useState('2025-2026');
@@ -3714,10 +3740,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     Object.keys(workspaceByTimeline || {}).forEach((tl) => {
       if (typeof tl === 'string' && tl.trim()) list.add(tl.trim());
     });
-    // 2. From database appraisal records for this user
+    // 2. From database appraisal records for this user (or department records for reviewers)
     if (Array.isArray(appraisals)) {
       appraisals.forEach((r) => {
-        if (r?.timeline && isSameUser(r.email || r.facultyEmail, user)) {
+        if (r?.timeline && (isReviewMode || isSameUser(r.email || r.facultyEmail, user))) {
           list.add(String(r.timeline).trim());
         }
       });
@@ -3749,7 +3775,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       return now >= startOfCycle;
     });
     return valid.sort();
-  }, [workspaceByTimeline, appraisals, user, isSameUser, draftUserKey]);
+  }, [workspaceByTimeline, appraisals, user, isSameUser, draftUserKey, isReviewMode]);
 
   const hydratedTimelinesRef = useRef(new Set());
   const hasUserEditedRef = useRef(new Set());
@@ -4306,7 +4332,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) 
         ? selectedDeptFilter 
         : (effectiveRole === 'HOD' ? normalizeDepartmentCode(user.department) : (user.department || 'ALL'));
-      const isSelfMode = (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal');
+      const isSelfMode = isIQACUser && iqacWorkspaceMode === 'self_appraisal';
       const roleForSync = isSelfMode ? 'Faculty' : effectiveRole;
       syncHistoryFromCloud(user, roleForSync, currentDeptParam);
     }
@@ -6225,7 +6251,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const iqacExcludedCount = selectedInboxRows.filter(r => r.iqacExcluded).length;
 
     // Tally counts across all workflow concepts for the active department/timeline scope
-    const statusCounts = { ALL: selectedInboxRows.length, DRAFT: 0, PENDING: 0, APPROVED: 0, IQAC_APPROVED: 0, RATIFIED: 0 };
+    const statusCounts = { ALL: selectedInboxRows.length, DRAFT: 0, PENDING: 0, APPROVED: 0, NOT_APPROVED_HOD: 0, IQAC_APPROVED: 0, NOT_APPROVED_IQAC: 0, RATIFIED: 0 };
     selectedInboxRows.forEach((row) => {
       const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
       const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
@@ -6234,13 +6260,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       else if (apStatus === 'PENDING' || !apStatus) statusCounts.PENDING++;
 
       if (apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED') statusCounts.APPROVED++;
+      if (['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus)) statusCounts.NOT_APPROVED_HOD++;
       if (iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING'))) statusCounts.IQAC_APPROVED++;
+      if (['NOT APPROVED', 'NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) statusCounts.NOT_APPROVED_IQAC++;
       if (prStatus === 'RATIFIED' || apStatus === 'RATIFIED') statusCounts.RATIFIED++;
     });
 
     let displayInboxRows = selectedInboxRows;
 
-    // Leadership Concept Status Filter (All | Drafts | Pending | Approved | IQAC Approved | Ratified)
+    // Leadership Concept Status Filter (All | Drafts | Pending | Approved | Not Approved by HoD | IQAC Approved | Not Approved by IQAC | Ratified)
     if (leadershipStatusFilter !== 'ALL') {
       displayInboxRows = displayInboxRows.filter((row) => {
         const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
@@ -6249,8 +6277,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         if (leadershipStatusFilter === 'DRAFT') return apStatus === 'DRAFT';
         if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || !apStatus;
         if (leadershipStatusFilter === 'APPROVED') return apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED';
+        if (leadershipStatusFilter === 'NOT_APPROVED_HOD') return ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus);
         if (leadershipStatusFilter === 'IQAC_APPROVED') return iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING'));
+        if (leadershipStatusFilter === 'NOT_APPROVED_IQAC') return ['NOT APPROVED', 'NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus);
         if (leadershipStatusFilter === 'RATIFIED') return prStatus === 'RATIFIED' || apStatus === 'RATIFIED';
+        return true;
+      });
+    }
+
+    // Score Filter for HoD
+    if (isHod && hodScoreFilterMode !== 'all') {
+      const N = Number(hodScoreSliderValue) || 0;
+      displayInboxRows = displayInboxRows.filter((row) => {
+        const totalScore = Number(row.totalScore) || 0;
+        if (hodScoreFilterMode === 'min') return totalScore >= N;
+        if (hodScoreFilterMode === 'exact') return totalScore === N;
+        if (hodScoreFilterMode === 'range') return totalScore >= 0 && totalScore <= N;
         return true;
       });
     }
@@ -6295,30 +6337,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-xl">
             <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-              {isPrincipal ? '🎓 Apex Executive Governance & Oversight' : isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? '🏢 Departmental Evaluation' : 'Academic Timeline'}
+              {isPrincipal ? '🎓 Apex Executive Governance & Oversight' : isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
             </p>
-            <h2 className="mt-1 text-xl font-semibold text-slate-900">
-              {isPrincipal
-                ? 'Campus-Wide Accreditation & Analytics'
-                : isRegistrar
-                  ? 'Campus-Wide Appraisal Overview'
-                  : isIQAC
-                    ? 'NAAC / NIRF Benchmark & Quality Audit'
-                    : isHod
-                      ? `Department of ${user.department || 'CSE'} Appraisal Inbox`
-                      : `Appraisal for ${selectedTimeline}`}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {isPrincipal
-                ? 'College-wide performance insights, NIRF/NAAC accreditation readiness, and departmental benchmarks across all 16 academic departments.'
-                : isRegistrar
-                  ? 'Monitor, filter, and validate annual faculty performance submissions across all 16 TCE academic departments.'
-                  : isIQAC
-                    ? 'Audit faculty submissions, filter by score range (e.g. 10 to 20) or target threshold (e.g. Score = 100), verify accreditation evidence, and curate NAAC lists.'
-                    : isHod
-                      ? 'Review faculty submissions and validate appraisal records for the selected academic year.'
-                      : 'Select the academic year and create your Section I submission when ready.'}
-            </p>
+            {!isHod && (
+              <>
+                <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                  {isPrincipal
+                    ? 'Campus-Wide Accreditation & Analytics'
+                    : isRegistrar
+                      ? 'Campus-Wide Appraisal Overview'
+                      : isIQAC
+                        ? 'NAAC / NIRF Benchmark & Quality Audit'
+                        : `Appraisal for ${selectedTimeline}`}
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  {isPrincipal
+                    ? 'College-wide performance insights, NIRF/NAAC accreditation readiness, and departmental benchmarks across all 16 academic departments.'
+                    : isRegistrar
+                      ? 'Monitor, filter, and validate annual faculty performance submissions across all 16 TCE academic departments.'
+                      : isIQAC
+                        ? 'Audit faculty submissions, filter by score range (e.g. 10 to 20) or target threshold (e.g. Score = 100), verify accreditation evidence, and curate NAAC lists.'
+                        : 'Select the academic year and create your Section I submission when ready.'}
+                </p>
+              </>
+            )}
           </div>
 
           <div className="flex flex-wrap items-end gap-3">
@@ -6352,11 +6394,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   }));
                 }
               }}
-              isReviewMode={isReviewMode}
+              isReviewMode={!isHod && isReviewMode}
               currentAcademicYear={getCurrentAcademicYear()}
               minYear={FIRST_ACADEMIC_YEAR}
               maxYear={2100}
-              createdTimelines={!isReviewMode ? createdTimelines : undefined}
+              createdTimelines={isHod ? createdTimelines : (!isReviewMode ? createdTimelines : undefined)}
             />
 
             {isReviewMode && (
@@ -6371,8 +6413,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
 
-        {/* Score Range Filter & Measurement Scheme Toolbar (IQAC, HoD, Registrar & Leadership) */}
-        {(isIQAC || isHod || isPrincipal || isRegistrar || isMasterUser) && (
+        {/* Score Range Filter & Measurement Scheme Toolbar (IQAC, Registrar & Leadership - Removed for HoD) */}
+        {!isHod && (isIQAC || isPrincipal || isRegistrar || isMasterUser) && (
           <div className="mt-4 p-4 bg-gradient-to-r from-blue-900/10 via-slate-50 to-blue-900/10 border border-blue-200 rounded-xl space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -6540,7 +6582,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <p className="text-2xl font-black text-slate-800 mt-1">{displayInboxRows.length}</p>
             </div>
             <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Approved / Ratified</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                {isHod ? 'Approved' : 'Approved / Ratified'}
+              </p>
               <p className="text-2xl font-black text-emerald-800 mt-1">
                 {displayInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
               </p>
@@ -6560,7 +6604,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         )}
 
-        {(!isPrincipal && !isRegistrar && (!isReviewMode || (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (() => {
+        {(!isPrincipal && !isRegistrar && (!isReviewMode || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (() => {
           const isSubmitted = activeTimelineRecord && ['PENDING', 'APPROVED', 'RATIFIED', 'SUBMITTED', 'HOD APPROVED'].includes((activeTimelineRecord.appraisalStatus || '').toUpperCase().trim());
           return (
             <div className="mt-4 flex flex-col sm:flex-row min-h-20 sm:items-center justify-between gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 sm:px-4 sm:py-3">
@@ -6599,7 +6643,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-4 mb-4">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                {isPrincipal ? 'Institutional Executive Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : isIQAC ? 'IQAC Accreditation & Quality Audit Dashboard' : 'Department Faculty Appraisal Dashboard'}
+                {isPrincipal ? 'Institutional Executive Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : isIQAC ? 'IQAC Accreditation & Quality Audit Dashboard' : isHod ? 'FACULTY APPRAISAL DASHBOARD' : 'Department Faculty Appraisal Dashboard'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Showing {displayInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
@@ -6612,21 +6656,23 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'inbox' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                Inbox Roster
+                {isHod ? 'Inbox' : 'Inbox Roster'}
               </button>
-              <button
-                onClick={() => setActiveReviewTab('analytics')}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'analytics' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                Analytics & Reports
-              </button>
+              {!isHod && (
+                <button
+                  onClick={() => setActiveReviewTab('analytics')}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'analytics' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  Analytics & Reports
+                </button>
+              )}
               <button
                 onClick={() => setActiveReviewTab('section_audit')}
                 className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'section_audit' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-                Section / Criteria Audit
+                {isHod ? 'Section Audit' : 'Section / Criteria Audit'}
               </button>
             </div>
           </div>
@@ -6634,38 +6680,115 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           {activeReviewTab === 'inbox' && (
           <div className="space-y-3">
             {/* Quick Status Concept Filter Toolbar for Leadership & HoD */}
-            <div className="flex flex-wrap items-center gap-2 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
-              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
-                <span>🎯</span> Status Concept:
-              </span>
-              {[
-                { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
-                { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
-                { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
-                { key: 'APPROVED', label: '✔ Approved by HoD', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
-                { key: 'IQAC_APPROVED', label: '📊 IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
-                { key: 'RATIFIED', label: '🔒 Ratified', count: statusCounts.RATIFIED, color: 'bg-purple-600 text-white' },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setLeadershipStatusFilter(tab.key)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                    leadershipStatusFilter === tab.key
-                      ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
-                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                      leadershipStatusFilter === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
+            <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                {!isHod && (
+                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
+                    <span>🎯</span> Status Concept:
+                  </span>
+                )}
+                {(isHod
+                  ? [
+                      { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
+                      { key: 'DRAFT', label: 'Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
+                      { key: 'PENDING', label: 'Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
+                      { key: 'APPROVED', label: 'Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
+                      { key: 'NOT_APPROVED_HOD', label: 'Not Approved by HoD', count: statusCounts.NOT_APPROVED_HOD, color: 'bg-rose-600 text-white' },
+                      { key: 'IQAC_APPROVED', label: 'IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
+                      { key: 'NOT_APPROVED_IQAC', label: 'Not Approved by IQAC', count: statusCounts.NOT_APPROVED_IQAC, color: 'bg-orange-600 text-white' },
+                    ]
+                  : [
+                      { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
+                      { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
+                      { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
+                      { key: 'APPROVED', label: '✔ Approved by HoD', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
+                      { key: 'IQAC_APPROVED', label: '📊 IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
+                      { key: 'RATIFIED', label: '🔒 Ratified', count: statusCounts.RATIFIED, color: 'bg-purple-600 text-white' },
+                    ]
+                ).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setLeadershipStatusFilter(tab.key)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      leadershipStatusFilter === tab.key
+                        ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
-                    {tab.count}
+                    <span>{tab.label}</span>
+                    <span
+                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        leadershipStatusFilter === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {isHod && (
+                <div className="relative flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Filter</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="200"
+                    step="1"
+                    value={hodScoreSliderValue}
+                    onChange={(e) => setHodScoreSliderValue(Number(e.target.value))}
+                    className="w-24 sm:w-28 accent-[#4A1519] cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-slate-800 tabular-nums min-w-[24px] text-center select-none">
+                    {hodScoreSliderValue}
                   </span>
-                </button>
-              ))}
+                  <div className="relative" ref={scorePopoverRef}>
+                    <button
+                      type="button"
+                      onClick={() => setIsScorePopoverOpen((prev) => !prev)}
+                      aria-label="Filter by score"
+                      title="Filter by score"
+                      className={`p-1.5 rounded-md border text-xs transition flex items-center justify-center cursor-pointer ${
+                        hodScoreFilterMode !== 'all' || isScorePopoverOpen
+                          ? 'bg-[#4A1519] text-white border-[#4A1519] shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 shadow-2xs'
+                      }`}
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 5a1 1 0 011-1h14a1 1 0 110 2H4a1 1 0 01-1-1zM6 10a1 1 0 011-1h8a1 1 0 110 2H7a1 1 0 01-1-1zM9 15a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    {isScorePopoverOpen && (
+                      <div className="absolute right-0 top-full mt-1.5 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100">
+                        {[
+                          { mode: 'all', label: 'All Scores' },
+                          { mode: 'min', label: `Score ≥ ${hodScoreSliderValue}` },
+                          { mode: 'exact', label: `Exact (${hodScoreSliderValue})` },
+                          { mode: 'range', label: `Range (0–${hodScoreSliderValue})` },
+                        ].map((opt) => (
+                          <button
+                            key={opt.mode}
+                            type="button"
+                            onClick={() => {
+                              setHodScoreFilterMode(opt.mode);
+                              setIsScorePopoverOpen(false);
+                            }}
+                            className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-semibold transition flex items-center justify-between cursor-pointer ${
+                              hodScoreFilterMode === opt.mode
+                                ? 'bg-[#4A1519] text-white shadow-xs'
+                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                          >
+                            <span>{opt.label}</span>
+                            {hodScoreFilterMode === opt.mode && <span className="font-bold">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto">
@@ -6864,7 +6987,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
         )}
           
-          {activeReviewTab === 'analytics' && (
+          {!isHod && activeReviewTab === 'analytics' && (
             <AnalyticsDashboard data={selectedInboxRows} computeScores={computeSectionScores} />
           )}
 
@@ -8915,39 +9038,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             )}
 
-            {/* HoD Mode Switcher (HOD Review Queue | Self-Appraisal) */}
-            {effectiveRole === 'HOD' && (
-              <div className="flex items-center bg-gray-100 p-0.5 sm:p-1 rounded-xl border border-gray-200 shadow-inner">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHodWorkspaceMode('hod_inbox');
-                    setActiveView('overview');
-                  }}
-                  className={`px-2 sm:px-3 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 sm:gap-1.5 ${
-                    hodWorkspaceMode === 'hod_inbox' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <span>🏢</span>
-                  <span className="hidden sm:inline">HOD</span> Review Queue
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHodWorkspaceMode('self_appraisal');
-                    setActiveView('overview');
-                  }}
-                  className={`px-2 sm:px-3 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 sm:gap-1.5 ${
-                    hodWorkspaceMode === 'self_appraisal' ? 'bg-[#4A1519] text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <span>📋</span>
-                  <span>Self-Appraisal</span>
-                </button>
-              </div>
-            )}
-
             {/* IQAC Mode Switcher (IQAC Audit | Self-Appraisal) - Strictly restricted to IQAC quality audit */}
             {isIQACUser && (
               <div className="flex items-center bg-blue-50/90 p-0.5 sm:p-1 rounded-xl border border-blue-200 shadow-inner">
@@ -8985,8 +9075,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             )}
 
-            {/* Institutional Leadership & HoD Handover Button */}
-            {(hasHodPrivileges || isSuperAdmin) && (
+            {/* Institutional Leadership & HoD Handover Button (Super Admin Only) */}
+            {isSuperAdmin && (
               <button 
                 type="button"
                 onClick={() => setIsLeadershipModalOpen(true)}
@@ -9066,15 +9156,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   ? '📊 IQAC ACCREDITATION & QUALITY AUDIT WORKBENCH (NAAC / NIRF BENCHMARKING)'
                   : isIQACUser && iqacWorkspaceMode === 'self_appraisal'
                     ? '📋 IQAC MEMBER SELF-APPRAISAL WORKBENCH (FACULTY MODE)'
-                    : effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal'
-                      ? '📋 HOD SELF-APPRAISAL WORKBENCH (FACULTY MODE)'
-                      : effectiveRole === 'HOD'
-                        ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
-                        : '📋 FACULTY APPRAISAL WORKBENCH'}
+                    : effectiveRole === 'HOD'
+                      ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
+                      : '📋 FACULTY APPRAISAL WORKBENCH'}
           </span>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Real-time Cloud Auto-Save Status Pill & Manual Save Button */}
-            {(!isPrincipal && !isRegistrar && (!isReviewMode || (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (
+            {(!isPrincipal && !isRegistrar && (!isReviewMode || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (
               <>
                 {activeView !== 'overview' && (
                   <button
