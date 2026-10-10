@@ -8707,39 +8707,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               Current / 200 Max
             </p>
           </div>
-
-          {/* Quick Draft Actions Card in Sidebar */}
-          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2 print-hidden">
-            <button
-              type="button"
-              onClick={handleManualSaveDraft}
-              disabled={isManualSaving || isSubmitting}
-              className={`w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed ${
-                justSavedDraft
-                  ? 'bg-emerald-600 text-white border border-emerald-600'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
-              }`}
-              title="Save current progress immediately to cloud database"
-            >
-              <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
-              <span>{isManualSaving ? 'Saving Draft...' : justSavedDraft ? 'Draft Saved to Cloud!' : 'Save Draft to Cloud'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleInitiateSubmit}
-              disabled={isSubmitting || !isEditable}
-              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-white bg-[#4A1519] hover:bg-[#3B1013] transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-              title="Formally submit completed appraisal to HOD"
-            >
-              <span>📤</span>
-              <span>{isSubmitting ? 'Submitting...' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}</span>
-            </button>
-            {lastCloudSyncTime ? (
-              <p className="text-[10px] text-center text-slate-500 font-medium">
-                Cloud synced at {lastCloudSyncTime}
-              </p>
-            ) : null}
-          </div>
         </div>
       </aside>
 
