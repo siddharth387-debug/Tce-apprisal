@@ -18,6 +18,7 @@ import AppDateInput, {
   getCalendarRangeForBatch,
   computeExpectedEndDate,
 } from './AppDateInput.jsx';
+import AppLinkInput, { parseLink } from './AppLinkInput.jsx';
 
 // ── Module-level constants ────────────────────────────────────────────────────
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
@@ -715,28 +716,7 @@ function isValidCourseCode(value) {
 
 function isValidEvidenceLink(value) {
   if (!value || typeof value !== 'string') return false;
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  
-  // Quick reject for common non-link text
-  const lower = trimmed.toLowerCase();
-  if (['nil', 'na', 'n/a', 'none', 'null', 'no', 'not applicable', 'pending', 'test', 'abc'].includes(lower)) {
-    return false;
-  }
-
-  try {
-    const urlString = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const parsed = new URL(urlString);
-    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
-    const host = parsed.hostname.toLowerCase();
-    if (!host || !host.includes('.') || host.endsWith('.')) return false;
-    const parts = host.split('.');
-    const tld = parts[parts.length - 1];
-    if (!tld || tld.length < 2) return false;
-    return true;
-  } catch {
-    return false;
-  }
+  return parseLink(value).valid;
 }
 
 function isNonEmpty(value) {
@@ -837,8 +817,11 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
     if (column.name === 'evidenceLink' || column.type === 'url' || column.name === 'appointmentLink') {
       if (!trimmed) {
         errors[column.name] = true;
-      } else if (!isValidEvidenceLink(trimmed)) {
-        errors[column.name] = 'invalid_url';
+      } else {
+        const parsed = parseLink(trimmed);
+        if (!parsed.valid) {
+          errors[column.name] = parsed.isGoogle && !parsed.fileId ? 'google_id_missing' : 'invalid_url';
+        }
       }
       return;
     }
@@ -871,7 +854,8 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
   });
 
   if (row.evidenceLink !== undefined && !isValidEvidenceLink(row.evidenceLink)) {
-    errors.evidenceLink = isNonEmpty(row.evidenceLink) ? 'invalid_url' : true;
+    const parsed = parseLink(row.evidenceLink);
+    errors.evidenceLink = isNonEmpty(row.evidenceLink) ? (parsed.isGoogle && !parsed.fileId ? 'google_id_missing' : 'invalid_url') : true;
   }
 
   return errors;
@@ -1738,12 +1722,22 @@ function DynamicArraySection({
       return '';
     }
 
-    if (columnName === 'evidenceLink' || columnName === 'appointmentLink') {
+    if (columnName === 'evidenceLink' || columnName === 'appointmentLink' || colDef?.type === 'url') {
+      if (propErr === 'google_id_missing') {
+        return 'Enter the full link of your file or folder';
+      }
       if (propErr === 'invalid_url') {
-        return 'Please enter a valid link (e.g. Google Drive link https://...)';
+        return 'Enter a valid link';
       }
       if (propErr) {
         return 'Supporting link required (e.g. Google Drive link).';
+      }
+      const val = row[columnName];
+      if (isNonEmpty(val)) {
+        const parsed = parseLink(val);
+        if (!parsed.valid) {
+          return parsed.error || 'Enter a valid link';
+        }
       }
       return '';
     }
@@ -1870,7 +1864,7 @@ function DynamicArraySection({
               <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-2 w-full">
                 {safeColumns.map((column) => {
                   const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
-                  const isLinkCol = column.name === 'evidenceLink' || column.name === 'appointmentLink';
+                  const isLinkCol = column.name === 'evidenceLink' || column.name === 'appointmentLink' || column.type === 'url';
                   const isTitleCol = column.name === 'paperTitle' ||
                     column.name === 'title' ||
                     column.name === 'scholarName' ||
@@ -2014,6 +2008,16 @@ function DynamicArraySection({
                             </span>
                           ) : null}
                         </>
+                      ) : isLinkCol ? (
+                        <AppLinkInput
+                          value={row[column.name] ?? ''}
+                          onChange={(val) => onChange(row.id, column.name, val)}
+                          onFocus={handleFieldFocus}
+                          disabled={disabled}
+                          placeholder={column.placeholder || column.label || 'Enter Supporting Document Link'}
+                          hasError={hasRowColumnError(row, column)}
+                          errorText={getFieldErrorText(row, column.name)}
+                        />
                       ) : (
                         <>
                           <input
@@ -5571,8 +5575,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
             if (errKeys.length > 0) {
               const errDetails = [];
-              if (rowValidation.evidenceLink === 'invalid_url') {
-                errDetails.push('Please enter a valid link (e.g. Google Drive link https://...)');
+              if (rowValidation.evidenceLink === 'google_id_missing') {
+                errDetails.push('Enter the full link of your file or folder');
+              } else if (rowValidation.evidenceLink === 'invalid_url') {
+                errDetails.push('Enter a valid link');
               } else if (rowValidation.evidenceLink) {
                 errDetails.push('Supporting document link is required');
               }
@@ -5586,7 +5592,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 const errVal = rowValidation[k];
                 const colDef = columns.find(c => c.name === k);
                 const colLabel = colDef ? colDef.label : k;
-                if (errVal === 'invalid_doi') {
+                if (errVal === 'google_id_missing') {
+                  errDetails.push(`Enter the full link of your file or folder for ${colLabel}`);
+                } else if (errVal === 'invalid_url') {
+                  errDetails.push(`Enter a valid link for ${colLabel}`);
+                } else if (errVal === 'invalid_doi') {
                   errDetails.push('Enter a valid DOI (example: 10.1109/ACCESS.2023.1234567)');
                 } else if (errVal === 'hackathon_duplicate') {
                   errDetails.push(key === 'hackathonPrizes' ? 'Already entered in section 8.2' : 'Already entered in section 3.5');
