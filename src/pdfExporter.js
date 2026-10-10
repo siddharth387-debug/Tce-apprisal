@@ -693,7 +693,7 @@ export const exportAppraisalToPDF = ({
   doc.setTextColor(30, 41, 59);
   doc.text('Signature of Faculty Member', margin + colW / 2, sigY + 3.5, { align: 'center' });
   doc.text('Signature of Head of Department', margin + colW * 1.5, sigY + 3.5, { align: 'center' });
-  doc.text('Signature of Dean / Principal', margin + colW * 2.5, sigY + 3.5, { align: 'center' });
+  doc.text('Signature of Principal', margin + colW * 2.5, sigY + 3.5, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
