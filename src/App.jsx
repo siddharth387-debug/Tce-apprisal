@@ -6579,20 +6579,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Submissions</p>
-              <p className="text-2xl font-black text-slate-800 mt-1">{displayInboxRows.length}</p>
+              <p className="text-2xl font-black text-slate-800 mt-1">
+                {isHod ? statusCounts.ALL : displayInboxRows.length}
+              </p>
             </div>
             <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
                 {isHod ? 'Approved' : 'Approved / Ratified'}
               </p>
               <p className="text-2xl font-black text-emerald-800 mt-1">
-                {displayInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
+                {isHod
+                  ? statusCounts.APPROVED
+                  : displayInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
               </p>
             </div>
             <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Pending Review</p>
               <p className="text-2xl font-black text-amber-800 mt-1">
-                {displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || (r.appraisalStatus || '').toUpperCase() === 'PENDING REVIEW' || !r.appraisalStatus).length}
+                {isHod
+                  ? statusCounts.PENDING
+                  : displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || (r.appraisalStatus || '').toUpperCase() === 'PENDING REVIEW' || !r.appraisalStatus).length}
               </p>
             </div>
             <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 text-left">
@@ -6600,7 +6606,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 {isHod ? 'Not Approved' : 'Fix Needed'}
               </p>
               <p className="text-2xl font-black text-rose-800 mt-1">
-                {displayInboxRows.filter(r => ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes((r.appraisalStatus || '').toUpperCase())).length}
+                {isHod
+                  ? statusCounts.NOT_APPROVED_HOD
+                  : displayInboxRows.filter(r => ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes((r.appraisalStatus || '').toUpperCase())).length}
               </p>
             </div>
           </div>
