@@ -6565,25 +6565,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return (
             <div className="mt-4 flex flex-col sm:flex-row min-h-20 sm:items-center justify-between gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 sm:px-4 sm:py-3">
               <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
-                    cloudSyncState === 'saving'
-                      ? 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
-                      : cloudSyncState === 'error'
-                        ? 'bg-rose-100 text-rose-800 border-rose-300'
-                        : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                  }`}>
-                    <span>{cloudSyncState === 'saving' ? '⏳' : cloudSyncState === 'error' ? '⚠️' : '☁️'}</span>
-                    <span>
-                      {cloudSyncState === 'saving'
-                        ? 'Syncing...'
-                        : cloudSyncState === 'error'
-                          ? 'Sync Retrying...'
-                          : 'Cloud-Synced'}
-                    </span>
-                  </span>
-                </div>
+                <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {isSubmitted
                     ? `Submission Status: ${activeTimelineRecord.appraisalStatus || 'Submitted'} (${activeTimelineRecord.convertedScore || 0} / 200 Marks)`
@@ -9092,20 +9074,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {/* Real-time Cloud Auto-Save Status Pill & Manual Save Button */}
             {(!isPrincipal && !isRegistrar && (!isReviewMode || (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (
               <>
-                <button
-                  type="button"
-                  onClick={handleManualSaveDraft}
-                  disabled={isManualSaving || isSubmitting}
-                  className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 ${
-                    justSavedDraft
-                      ? 'bg-emerald-500 text-white border border-emerald-400'
-                      : 'bg-white text-[#4A1519] hover:bg-red-50 border border-red-200'
-                  }`}
-                  title="Save current appraisal progress immediately to MongoDB Atlas"
-                >
-                  <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
-                  <span>{isManualSaving ? 'Saving...' : justSavedDraft ? 'Saved!' : 'Save Draft'}</span>
-                </button>
+                {activeView !== 'overview' && (
+                  <button
+                    type="button"
+                    onClick={handleManualSaveDraft}
+                    disabled={isManualSaving || isSubmitting}
+                    className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 ${
+                      justSavedDraft
+                        ? 'bg-emerald-500 text-white border border-emerald-400'
+                        : 'bg-white text-[#4A1519] hover:bg-red-50 border border-red-200'
+                    }`}
+                    title="Save current appraisal progress immediately to MongoDB Atlas"
+                  >
+                    <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
+                    <span>{isManualSaving ? 'Saving...' : justSavedDraft ? 'Saved!' : 'Save Draft'}</span>
+                  </button>
+                )}
                 <span className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold border transition-all shrink-0 ${
                   cloudSyncState === 'saving'
                     ? 'bg-amber-400/20 text-amber-200 border-amber-300/40 animate-pulse'
