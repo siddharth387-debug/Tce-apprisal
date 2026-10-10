@@ -8547,9 +8547,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       </div>
 
-      <aside className="xl:sticky xl:top-24 xl:self-start w-full min-w-0 z-20">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5 xl:max-h-[calc(100vh-104px)] xl:overflow-y-auto">
-          <div className="flex flex-col gap-2 items-start justify-between sm:flex-row sm:items-center">
+      <aside
+        style={{
+          '--header-height': '65px',
+          '--floating-bar-height': '72px',
+          '--gap-top': '10px',
+          '--gap-bottom': '12px',
+        }}
+        className="xl:sticky xl:top-[calc(var(--header-height)+var(--gap-top))] xl:self-start w-full min-w-0 z-20"
+      >
+        <div
+          style={{
+            maxHeight: 'calc(100vh - var(--header-height) - var(--floating-bar-height) - var(--gap-top) - var(--gap-bottom))',
+          }}
+          className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5 xl:flex xl:flex-col"
+        >
+          <div className="flex flex-col gap-2 items-start justify-between sm:flex-row sm:items-center xl:shrink-0">
             <div>
               <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
                 Scoreboard
@@ -8687,12 +8700,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             const currentCfg = configs[currentSec] || configs['I'];
 
             return (
-              <div className="pt-3 pb-2">
-                <div className="flex justify-between items-center font-bold text-xs text-gray-800 uppercase tracking-wider mb-2.5 pb-2 border-b border-gray-100">
+              <div className="pt-2 pb-1 xl:flex xl:flex-col xl:flex-1 xl:min-h-0">
+                <div className="flex justify-between items-center font-bold text-xs text-gray-800 uppercase tracking-wider mb-2 pb-1.5 border-b border-gray-100 xl:shrink-0">
                   <span>{currentCfg.title}</span>
                   <span className="text-[#4A1519]">{currentCfg.score} / {currentCfg.max}</span>
                 </div>
-                <div className="print-hidden space-y-1.5 text-[11px] font-medium">
+                <div className="print-hidden space-y-1.5 text-[11px] font-medium xl:flex-1 xl:min-h-0 xl:overflow-y-auto pr-1 pb-1">
                   {currentCfg.items.map((item) => {
                     const isHighlighted = activeSubsection === item.key;
                     return (
@@ -8729,11 +8742,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             );
           })()}
 
-          <div className="mt-3 rounded-lg bg-gradient-to-br from-[#4A1519] to-[#3B1013] px-3 py-3 text-white">
+          <div className="mt-2.5 rounded-lg bg-gradient-to-br from-[#4A1519] to-[#3B1013] px-3 py-2.5 text-white xl:shrink-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-white/65">
               Total Score
             </p>
-            <p className="mt-2 text-3xl font-semibold">
+            <p className="mt-1.5 text-3xl font-semibold">
               {scores.grandTotal || 0}
               <span className="ml-1 text-sm font-medium text-white/65">/ 200</span>
             </p>
