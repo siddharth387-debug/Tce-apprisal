@@ -2354,7 +2354,7 @@ function LandingPage({
 
 // Read-only drill-down view of a submitted appraisal record.
 // When hodControls is provided, a feedback textarea and action buttons render at the bottom.
-function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, iqacControls, onExportPDF }) {
+function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, iqacControls, onExportPDF, isHodView }) {
   const facultyName = appraisal.facultyName || appraisal.name || "Faculty Member";
   const facultyEmail = appraisal.facultyEmail || appraisal.email || "";
   const getFirstPopulatedArray = (arrayKey, ...sources) => {
@@ -2883,7 +2883,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             <div className="bg-[#4A1519]/10 px-2.5 py-1 rounded text-xs font-bold text-[#4A1519]">
               HoD Final Evaluated Score: <span className="font-black text-sm">{effectiveScoreObj.grandTotal} / 200</span>
             </div>
-            {effectiveScoreObj.hasAdjustments && (
+            {!isHodView && effectiveScoreObj.hasAdjustments && (
               <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
                 ⚡ Overrides Applied
               </span>
@@ -2993,7 +2993,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       )}
 
       {/* IQAC Audit Status Callout Banner (Prominently viewable to Registrar, Principal & IQAC) */}
-      {(() => {
+      {!isHodView && (() => {
         const iqacState = (appraisal.iqacStatus || '').toUpperCase();
         const appraisalState = (appraisal.appraisalStatus || '').toUpperCase();
         const isNeedsClarification = iqacState === 'NEEDS CLARIFICATION';
@@ -3811,7 +3811,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   // Helper to save in-progress draft directly to MongoDB Atlas cloud database (enabling cross-device sync from college PC to home laptop)
   const saveDraftToCloud = useCallback(async (isAuto = false, isUnloading = false) => {
-    if (!user || !selectedTimeline || isPrincipal || isRegistrar) return;
+    if (!user || !selectedTimeline || isPrincipal || isRegistrar || !isEditable) return;
     const activeToken = getAuthToken() || user?.token;
     if (!activeToken) return;
 
@@ -3922,7 +3922,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         email: submissionEmail,
         department: targetDeptToSubmit,
         convertedScore: effScores.grandTotal || 0,
-        appraisalStatus: (activeTimelineRecord?.appraisalStatus && activeTimelineRecord.appraisalStatus !== 'Pending') ? activeTimelineRecord.appraisalStatus : 'Draft',
+        appraisalStatus: (activeTimelineRecord?.appraisalStatus && !['DRAFT', 'PENDING', 'PENDING REVIEW'].includes((activeTimelineRecord.appraisalStatus || '').toUpperCase())) ? activeTimelineRecord.appraisalStatus : 'Draft',
         hodSubsectionScores: activeTimelineRecord?.hodSubsectionScores || {},
         subsectionRemarks: activeTimelineRecord?.subsectionRemarks || {},
         section1Data: cleanedSection1Data,
@@ -3989,7 +3989,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       setCloudSyncState('error');
       throw err;
     }
-  }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept, isSameUser, isPrincipal, isRegistrar]);
+  }, [user, selectedTimeline, workspaceByTimeline, isMasterUser, masterAppraisalMode, activeTimelineRecord, activeDept, isSameUser, isPrincipal, isRegistrar, isEditable]);
 
   // Handler for explicit, manual "Save Draft" action across general & architecture appraisals
   const handleManualSaveDraft = useCallback(async () => {
@@ -4093,7 +4093,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   // Fully automated background cloud draft sync with retry on network disruption (4s debounce so typing is uninterrupted)
   useEffect(() => {
-    if (!user || !selectedTimeline || isReviewMode || isPrincipal || isRegistrar) return;
+    if (!user || !selectedTimeline || isReviewMode || isPrincipal || isRegistrar || !isEditable) return;
     const currentData = workspaceByTimeline[selectedTimeline];
     if (!currentData) return;
     if (!hasSectionEntries(currentData) && !activeTimelineRecord) return;
@@ -4139,7 +4139,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       window.removeEventListener('pagehide', handleUnload);
       window.removeEventListener('beforeunload', handleUnload);
     };
-  }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, isPrincipal, isRegistrar, activeTimelineRecord, saveDraftToCloud]);
+  }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, isPrincipal, isRegistrar, activeTimelineRecord, saveDraftToCloud, isEditable]);
 
   // ── INACTIVITY / SESSION TIMEOUT WATCHDOG (15-Minute Idle Threshold) ──
   // Automatically logs out inactive faculty/staff sessions after 15 minutes of inactivity.
@@ -6257,7 +6257,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
       const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
       if (apStatus === 'DRAFT') statusCounts.DRAFT++;
-      else if (apStatus === 'PENDING' || !apStatus) statusCounts.PENDING++;
+      else if (apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || !apStatus) statusCounts.PENDING++;
 
       if (apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED') statusCounts.APPROVED++;
       if (['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus)) statusCounts.NOT_APPROVED_HOD++;
@@ -6275,7 +6275,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
         const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
         if (leadershipStatusFilter === 'DRAFT') return apStatus === 'DRAFT';
-        if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || !apStatus;
+        if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || !apStatus;
         if (leadershipStatusFilter === 'APPROVED') return apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED';
         if (leadershipStatusFilter === 'NOT_APPROVED_HOD') return ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus);
         if (leadershipStatusFilter === 'IQAC_APPROVED') return iqStatus.includes('IQAC') || iqStatus.includes('VERIF') || (iqStatus.includes('APPROVED') && !iqStatus.includes('PENDING'));
@@ -6592,11 +6592,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Pending Review</p>
               <p className="text-2xl font-black text-amber-800 mt-1">
-                {displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || !r.appraisalStatus).length}
+                {displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || (r.appraisalStatus || '').toUpperCase() === 'PENDING REVIEW' || !r.appraisalStatus).length}
               </p>
             </div>
             <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Fix Needed</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
+                {isHod ? 'Not Approved' : 'Fix Needed'}
+              </p>
               <p className="text-2xl font-black text-rose-800 mt-1">
                 {displayInboxRows.filter(r => ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes((r.appraisalStatus || '').toUpperCase())).length}
               </p>
@@ -6693,7 +6695,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       { key: 'DRAFT', label: 'Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
                       { key: 'PENDING', label: 'Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
                       { key: 'APPROVED', label: 'Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
-                      { key: 'NOT_APPROVED_HOD', label: 'Not Approved by HoD', count: statusCounts.NOT_APPROVED_HOD, color: 'bg-rose-600 text-white' },
+                      { key: 'NOT_APPROVED_HOD', label: 'Not Approved', count: statusCounts.NOT_APPROVED_HOD, color: 'bg-rose-600 text-white' },
                       { key: 'IQAC_APPROVED', label: 'IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
                       { key: 'NOT_APPROVED_IQAC', label: 'Not Approved by IQAC', count: statusCounts.NOT_APPROVED_IQAC, color: 'bg-orange-600 text-white' },
                     ]
@@ -6802,7 +6804,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <th className="py-2.5 px-3">Academic Year</th>
                   <th className="py-2.5 px-3">Date Submitted</th>
                   <th className="py-2.5 px-3">Evaluated Score</th>
-                  <th className="py-2.5 px-3">Validation State</th>
+                  <th className="py-2.5 px-3">{isHod ? 'Status' : 'Validation State'}</th>
                   <th className="py-2.5 px-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -6895,13 +6897,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else if (activeStatus === 'APPROVED') {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-green-50 text-green-700 border border-green-200 shadow-sm flex items-center gap-1 w-fit">
-                                  <span>✔</span> Approved by HoD
+                                  <span>✔</span> {isHod ? 'Approved' : 'Approved by HoD'}
                                 </span>
                               );
                             } else if (activeStatus === 'NOT APPROVED' || activeStatus === 'FIX NEEDED' || activeStatus === 'REJECTED') {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200 shadow-sm flex items-center gap-1 w-fit">
-                                  <span>⚠</span> Fix Needed
+                                  <span>⚠</span> {isHod ? 'Not Approved' : 'Fix Needed'}
                                 </span>
                               );
                             } else if (activeStatus === 'DRAFT') {
@@ -6913,7 +6915,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                  <span>⏳</span> Pending HoD Review
+                                  <span>⏳</span> {isHod ? 'Pending Review' : 'Pending HoD Review'}
                                 </span>
                               );
                             }
@@ -6921,25 +6923,41 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end space-x-1.5">
-                            <button
-                              onClick={() => {
-                                try {
-                                  const flattened = flattenAppraisalRecord(row);
-                                  openInboxRecord(row);
-                                  setSelectedAppraisal({ ...row, ...flattened });
-                                  setSelectedReviewAppraisal(row);
-                                  setHodRemarksInput(row.hodRemarks || '');
-                                  setHodSubsectionRemarks(row.subsectionRemarks || {});
-                                  setHodSubsectionScores(row.hodSubsectionScores || {});
-                                  setIqacRemarksInput(row.iqacAuditRemarks || '');
-                                } catch (err) {
-                                  console.error("Error opening appraisal record:", err);
-                                }
-                              }}
-                              className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 cursor-pointer"
-                            >
-                              <span>🔍</span> {isIQAC ? 'Audit Data' : 'Review Data'}
-                            </button>
+                            {isHod && activeStatus === 'DRAFT' ? (
+                              <button
+                                type="button"
+                                aria-disabled="true"
+                                title="Form not submitted"
+                                className="text-[10.5px] bg-slate-200 text-slate-400 border border-slate-300 px-2.5 py-1 rounded-md shadow-none font-medium flex items-center gap-1 cursor-not-allowed select-none"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                              >
+                                <span>🔍</span> Review Data
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  try {
+                                    const flattened = flattenAppraisalRecord(row);
+                                    openInboxRecord(row);
+                                    setSelectedAppraisal({ ...row, ...flattened });
+                                    setSelectedReviewAppraisal(row);
+                                    setHodRemarksInput(row.hodRemarks || '');
+                                    setHodSubsectionRemarks(row.subsectionRemarks || {});
+                                    setHodSubsectionScores(row.hodSubsectionScores || {});
+                                    setIqacRemarksInput(row.iqacAuditRemarks || '');
+                                  } catch (err) {
+                                    console.error("Error opening appraisal record:", err);
+                                  }
+                                }}
+                                className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>🔍</span> {isIQAC ? 'Audit Data' : 'Review Data'}
+                              </button>
+                            )}
 
                             {isIQAC && (
                               <>
@@ -7356,6 +7374,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       {selectedAppraisal && (
         <DetailedReviewView
           appraisal={selectedAppraisal}
+          isHodView={isHod}
           onClose={() => {
             setSelectedAppraisal(null);
             setSelectedReviewAppraisal(null);
