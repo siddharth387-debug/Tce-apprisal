@@ -2050,15 +2050,19 @@ function DynamicArraySection({
                             disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
                             placeholder={column.name === 'toDate' && Boolean(row.isTillDate) ? 'Present / Ongoing' : (column.placeholder || column.label)}
                             list={
-                              column.name === 'courseCode'
-                                ? 'autofill-course-codes'
-                                : column.name === 'courseName'
-                                  ? 'autofill-course-names'
-                                  : ['institution', 'partner', 'industry', 'industryName', 'venue'].includes(column.name)
-                                    ? 'autofill-institutions'
-                                    : ['journalName', 'bodyName', 'proceedingName', 'societyName'].includes(column.name)
-                                      ? 'autofill-journals'
-                                      : undefined
+                              String(row[column.name] ?? '').trim().length > 0
+                                ? (
+                                    column.name === 'courseCode'
+                                      ? 'autofill-course-codes'
+                                      : column.name === 'courseName'
+                                        ? 'autofill-course-names'
+                                        : ['institution', 'partner', 'industry', 'industryName', 'venue'].includes(column.name)
+                                          ? 'autofill-institutions'
+                                          : ['journalName', 'bodyName', 'proceedingName', 'societyName'].includes(column.name)
+                                            ? 'autofill-journals'
+                                            : undefined
+                                  )
+                                : undefined
                             }
                             className={`w-full rounded-md border ${
                               hasRowColumnError(row, column)

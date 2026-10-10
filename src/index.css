@@ -66,6 +66,29 @@ select {
   font: inherit;
 }
 
+/* Hide browser datalist dropdown indicator arrow (▼) on text inputs across all browsers */
+input:not([type="date"])::-webkit-calendar-picker-indicator,
+input[list]:not([type="date"])::-webkit-calendar-picker-indicator {
+  display: none !important;
+  opacity: 0 !important;
+  -webkit-appearance: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
+
+input::-moz-list-bullet {
+  font-size: 0 !important;
+  display: none !important;
+}
+
+input::-ms-clear,
+input::-ms-reveal {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 /* 🔮 Subtle Floating & Glassmorphism Utilities */
 @keyframes subtleFloat {
   0%, 100% {
