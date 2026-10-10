@@ -11,7 +11,7 @@ import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH
 import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
 import AnalyticsDashboard from './AnalyticsDashboard.jsx';
-import AcademicTimelinePicker from './AcademicTimelinePicker.jsx';
+import AcademicTimelinePicker, { FIRST_ACADEMIC_YEAR, isAcademicYearStarted } from './AcademicTimelinePicker.jsx';
 import AppDateInput, {
   parseDateStringToIso,
   formatIsoToDisplay,
@@ -3526,10 +3526,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   
-  const [selectedTimeline, setSelectedTimeline] = useState(() => {
-    const cur = getCurrentAcademicYear();
-    return TIMELINES.includes(cur) ? cur : TIMELINES[0];
-  });
+  const [selectedTimeline, setSelectedTimeline] = useState('2025-2026');
   const [activeReviewTab, setActiveReviewTab] = useState('inbox');
   const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
   const [sectionAuditSearch, setSectionAuditSearch] = useState('');
@@ -3703,6 +3700,50 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const deptKey = (activeDept || user?.department || 'CSE').toUpperCase().trim();
     return `${baseEmail}_${deptKey}`;
   }, [user, activeDept]);
+
+  // Created academic years for faculty role: includes 2025-2026 always, plus any year created/persisted by user
+  const createdTimelines = useMemo(() => {
+    const list = new Set(['2025-2026']);
+    // 1. From workspace
+    Object.keys(workspaceByTimeline || {}).forEach((tl) => {
+      if (typeof tl === 'string' && tl.trim()) list.add(tl.trim());
+    });
+    // 2. From database appraisal records for this user
+    if (Array.isArray(appraisals)) {
+      appraisals.forEach((r) => {
+        if (r?.timeline && isSameUser(r.email || r.facultyEmail, user)) {
+          list.add(String(r.timeline).trim());
+        }
+      });
+    }
+    // 3. From localStorage drafts
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const prefix = draftUserKey ? `draft_${draftUserKey}_` : 'draft_';
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            const tl = key.slice(prefix.length).trim();
+            if (tl) list.add(tl);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    // Filter to only 2025-2026 and valid started academic years
+    const now = new Date();
+    const valid = Array.from(list).filter((tl) => {
+      if (tl === '2025-2026') return true;
+      const match = String(tl).match(/^(\d{4})-(\d{4})$/);
+      if (!match) return false;
+      const s = parseInt(match[1], 10);
+      if (s < FIRST_ACADEMIC_YEAR) return false;
+      const startOfCycle = new Date(s, 6, 1);
+      return now >= startOfCycle;
+    });
+    return valid.sort();
+  }, [workspaceByTimeline, appraisals, user, isSameUser, draftUserKey]);
 
   const hydratedTimelinesRef = useRef(new Set());
   const hasUserEditedRef = useRef(new Set());
@@ -6296,11 +6337,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
             <AcademicTimelinePicker
               value={selectedTimeline}
-              onChange={setSelectedTimeline}
+              onChange={(val) => {
+                setSelectedTimeline(val);
+                if (val && val !== 'All') {
+                  setWorkspaceByTimeline((prev) => ({
+                    ...prev,
+                    [val]: prev[val] || createEmptySectionState(),
+                  }));
+                }
+              }}
               isReviewMode={isReviewMode}
               currentAcademicYear={getCurrentAcademicYear()}
-              minYear={2025}
+              minYear={FIRST_ACADEMIC_YEAR}
               maxYear={2100}
+              createdTimelines={!isReviewMode ? createdTimelines : undefined}
             />
 
             {isReviewMode && (
@@ -6537,22 +6587,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {!isSubmitted && (
-                  <button
-                    type="button"
-                    onClick={handleManualSaveDraft}
-                    disabled={isManualSaving || isSubmitting}
-                    className={`text-xs py-1.5 px-3 rounded-md font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-60 cursor-pointer ${
-                      justSavedDraft
-                        ? 'bg-emerald-600 text-white border border-emerald-600'
-                        : 'text-slate-700 bg-white border border-slate-300 hover:bg-slate-50'
-                    }`}
-                    title="Save current progress immediately to cloud database"
-                  >
-                    <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
-                    <span>{isManualSaving ? 'Saving…' : justSavedDraft ? 'Saved!' : 'Save Draft'}</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={handleProceedToSectionOne}
@@ -7257,7 +7291,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         hackathonMentoring: currentSectionData.hackathonMentoring || [],
       }}
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] 2xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] 2xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
       <div className="space-y-3 min-w-0 pb-36 sm:pb-32">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
           {/* Title row + export buttons */}
@@ -8513,8 +8547,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       </div>
 
-      <aside className="xl:sticky xl:top-6 xl:self-start w-full min-w-0">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
+      <aside className="xl:sticky xl:top-24 xl:self-start w-full min-w-0 z-20">
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5 xl:max-h-[calc(100vh-104px)] xl:overflow-y-auto">
           <div className="flex flex-col gap-2 items-start justify-between sm:flex-row sm:items-center">
             <div>
               <p className="text-sm font-bold uppercase tracking-wide text-gray-700">

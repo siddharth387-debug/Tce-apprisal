@@ -9,12 +9,20 @@ import { createPortal } from 'react-dom';
  * Usable both as a top-level appraisal timeline picker and inline within dynamic table rows.
  * Renders via React Portal with position:fixed and z-[99999] so it is NEVER submerged under other cards or sections.
  */
+export const FIRST_ACADEMIC_YEAR = 2025;
+
+export const isAcademicYearStarted = (startYear) => {
+  const now = new Date();
+  const startDate = new Date(startYear, 6, 1); // 1 July of year startYear
+  return now >= startDate;
+};
+
 export default function AcademicTimelinePicker({
   value = '',
   onChange,
   isReviewMode = false,
   currentAcademicYear = '2025-2026',
-  minYear = 2025,
+  minYear = FIRST_ACADEMIC_YEAR,
   maxYear = 2100,
   hideLabel = false,
   isCompact = false,
@@ -22,6 +30,7 @@ export default function AcademicTimelinePicker({
   allowClear = false,
   disabled = false,
   restrictToBatch = false,
+  createdTimelines = null,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
@@ -210,12 +219,20 @@ export default function AcademicTimelinePicker({
       setCustomError('Please enter valid 4-digit years.');
       return;
     }
+    if (s < FIRST_ACADEMIC_YEAR) {
+      setCustomError(`Academic period cannot start before ${FIRST_ACADEMIC_YEAR}.`);
+      return;
+    }
     if (end <= s) {
       setCustomError('End year must be after start year.');
       return;
     }
     if (end - s > 25) {
       setCustomError('Period range cannot exceed 25 years.');
+      return;
+    }
+    if (!isAcademicYearStarted(s)) {
+      setCustomError(`Cannot create appraisal for an academic year that has not started yet (starts 1 July ${s})`);
       return;
     }
     const rangeTimeline = `${s}-${end}`;
@@ -353,7 +370,13 @@ export default function AcademicTimelinePicker({
             )}
 
             {/* Decade Header Navigator */}
-            {restrictToBatch ? (
+            {createdTimelines ? (
+              <div className="flex items-center justify-between mb-3 px-1">
+                <span className="text-xs font-bold text-slate-800 tracking-wide">
+                  Academic Period
+                </span>
+              </div>
+            ) : restrictToBatch ? (
               <div className="flex items-center justify-between mb-3 px-1">
                 <span className="text-xs font-bold text-slate-800 tracking-wide">
                   Academic Batch ({currentAcademicYear})
@@ -403,7 +426,7 @@ export default function AcademicTimelinePicker({
 
             {/* Decade Years Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {decadeYears.map((tl) => {
+              {(createdTimelines || decadeYears).map((tl) => {
                 const isSelected = value === tl;
                 const isCurrent = tl === currentAcademicYear;
                 return (
