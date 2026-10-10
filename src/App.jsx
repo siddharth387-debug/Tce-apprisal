@@ -1789,19 +1789,19 @@ function DynamicArraySection({
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
-      <div className="mb-3 flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0 pr-2">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-4">
+        <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
               {title}
             </p>
             {maxScore !== undefined && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#4A1519]/10 text-[#4A1519] border border-[#4A1519]/20 shadow-xs">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#4A1519]/10 text-[#4A1519] border border-[#4A1519]/20 shadow-xs whitespace-nowrap">
                 Subtotal: {subScore ?? 0} / {maxScore}
               </span>
             )}
           </div>
-          <span className="text-[11px] text-gray-500 font-medium mt-0.5 block tracking-wide italic normal-case">
+          <span className="text-[11px] text-gray-500 font-medium mt-0.5 block tracking-wide italic normal-case break-words">
             {subtitle}
           </span>
         </div>
@@ -1811,7 +1811,7 @@ function DynamicArraySection({
           onClick={addDisabled ? undefined : onAdd}
           disabled={addDisabled}
           title={addDisabled ? 'Form is locked' : 'Add a new entry'}
-          className={`shrink-0 whitespace-nowrap inline-flex items-center justify-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg transition-all select-none ${
+          className={`self-start sm:self-auto shrink-0 whitespace-nowrap inline-flex items-center justify-center gap-1.5 px-3 py-1.5 h-8 text-xs font-semibold rounded-lg transition-all select-none ${
             addDisabled
               ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
               : 'bg-[#4A1519] hover:bg-[#3B1013] text-white cursor-pointer shadow-sm hover:shadow active:scale-[0.98]'
@@ -1840,10 +1840,10 @@ function DynamicArraySection({
           {safeRows.map((row, index) => (
             <div
               key={row.id || index}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-2"
+              className="rounded-lg border border-slate-200 bg-slate-50 p-2 sm:p-2.5"
             >
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-700 truncate">
                   Entry {index + 1}
                   {row.tier ? ` • ${row.tier} (${row.tier === 'Q1' ? '6 marks' : row.tier === 'Q2' ? '4 marks' : '2 marks'})` : ''}
                   {row.type && ['Book (Author)', 'Chapter', 'Editor'].includes(row.type) ? ` • ${row.type} (${row.type === 'Book (Author)' ? '5 marks' : '2 marks'})` : ''}
@@ -1855,13 +1855,13 @@ function DynamicArraySection({
                   type="button"
                   onClick={() => onRemove(row.id)}
                   disabled={disabled || canRemove === false}
-                  className="text-[11px] text-red-500 font-medium hover:text-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-[11px] text-red-500 font-medium hover:text-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
                 >
                   Remove
                 </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-2 w-full">
                 {safeColumns.map((column) => {
                   const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
                   const isLinkCol = column.name === 'evidenceLink' || column.name === 'appointmentLink';
@@ -1880,18 +1880,18 @@ function DynamicArraySection({
                   return (
                     <div
                       key={column.name}
-                      className={`flex flex-col min-w-0 max-w-full ${
+                      className={`w-full min-w-0 flex flex-col ${
                         isCheckCol
-                          ? 'shrink-0 min-w-[85px]'
+                          ? 'sm:w-auto sm:shrink-0 sm:min-w-[85px]'
                           : isLinkCol
-                            ? 'flex-[2] min-w-[140px] sm:min-w-[160px] w-full sm:w-auto'
+                            ? 'sm:w-auto sm:flex-[2] sm:min-w-[160px]'
                             : isTitleCol
-                              ? 'flex-[1.5] min-w-[110px] sm:min-w-[130px]'
+                              ? 'sm:w-auto sm:flex-[1.5] sm:min-w-[130px]'
                               : isDateCol
-                                ? 'flex-1 min-w-[95px] sm:min-w-[110px]'
+                                ? 'sm:w-auto sm:flex-1 sm:min-w-[110px]'
                                 : isTimelineCol
-                                  ? 'flex-1 min-w-[105px] sm:min-w-[125px]'
-                                  : 'flex-1 min-w-[75px] sm:min-w-[90px]'
+                                  ? 'sm:w-auto sm:flex-1 sm:min-w-[125px]'
+                                  : 'sm:w-auto sm:flex-1 sm:min-w-[90px]'
                       }`}
                     >
                       {isTimelineCol ? (
@@ -1908,14 +1908,14 @@ function DynamicArraySection({
                             restrictToBatch={Boolean(column.restrictToBatch || column.name === 'period')}
                           />
                           {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
                               {getFieldErrorText(row, column.name)}
                             </span>
                           ) : null}
                         </div>
                       ) : column.type === 'checkbox' ? (
                         <>
-                          <label className="flex items-center gap-1.5 h-7 px-2 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition">
+                          <label className="flex items-center gap-2 h-[38px] sm:h-7 px-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition w-full sm:w-auto">
                             <input
                               type="checkbox"
                               checked={Boolean(row[column.name])}
@@ -1928,12 +1928,12 @@ function DynamicArraySection({
                                   onChange(row.id, 'toDate', '');
                                 }
                               }}
-                              className="w-3.5 h-3.5 accent-[#4A1519] rounded cursor-pointer"
+                              className="w-4 h-4 sm:w-3.5 sm:h-3.5 accent-[#4A1519] rounded cursor-pointer shrink-0"
                             />
                             <span className="truncate">{column.label}</span>
                           </label>
                           {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
                               {getFieldErrorText(row, column.name)}
                             </span>
                           ) : null}
@@ -1975,7 +1975,7 @@ function DynamicArraySection({
                               hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
-                            } bg-white py-1 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed`}
                           >
                             <option value="" disabled>
                               {column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`)}
@@ -2003,7 +2003,7 @@ function DynamicArraySection({
                             )}
                           </select>
                           {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
                               {getFieldErrorText(row, column.name)}
                             </span>
                           ) : null}
@@ -2064,10 +2064,10 @@ function DynamicArraySection({
                               hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
-                            } bg-white py-1 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed`}
                           />
                           {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-0.5 block text-[10px] text-rose-600">
+                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
                               {getFieldErrorText(row, column.name)}
                             </span>
                           ) : null}
@@ -7258,7 +7258,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }}
     >
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] 2xl:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="space-y-3 min-w-0 pb-28 sm:pb-32">
+      <div className="space-y-3 min-w-0 pb-36 sm:pb-32">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
           {/* Title row + export buttons */}
           <div className="flex flex-wrap items-start justify-between gap-2">

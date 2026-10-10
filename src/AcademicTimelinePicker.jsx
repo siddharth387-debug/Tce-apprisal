@@ -258,7 +258,7 @@ export default function AcademicTimelinePicker({
         onClick={handleToggle}
         className={
           isCompact
-            ? `w-full h-7 py-0.5 px-2 flex items-center justify-between gap-1.5 rounded-md border text-xs shadow-xs transition-all outline-none ${
+            ? `w-full h-[38px] sm:h-7 py-0.5 px-2.5 flex items-center justify-between gap-1.5 rounded-md border text-xs shadow-xs transition-all outline-none ${
                 disabled
                   ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                   : isOpen

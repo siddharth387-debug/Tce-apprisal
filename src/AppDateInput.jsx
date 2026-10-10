@@ -207,10 +207,10 @@ export default function AppDateInput({
         placeholder={placeholder}
         className={`w-full rounded-md border ${
           hasError ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white'
-        } py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed ${className}`}
+        } h-[38px] sm:h-7 py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed ${className}`}
       />
       {validationError ? (
-        <span className="mt-0.5 block text-[10px] text-rose-600 font-medium">
+        <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
           {validationError}
         </span>
       ) : null}
