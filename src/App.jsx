@@ -6826,6 +6826,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     const iqSt = (row.iqacStatus || '').toUpperCase();
                     const apSt = (row.appraisalStatus || '').toUpperCase();
                     const isIqacApproved = iqSt.includes('IQAC') || iqSt.includes('VERIF') || (iqSt.includes('APPROVED') && !iqSt.includes('PENDING')) || apSt.includes('IQAC');
+                    const activeStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
 
                     return (
                       <tr
@@ -6860,7 +6861,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         </td>
                         <td className="py-2.5 px-3">
                           {(() => {
-                            const activeStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
                             const isElevatedView = isPrincipal || isRegistrar || isIQAC || isHod;
                             const isNeedsClarification = isElevatedView && (row.iqacStatus || '').toUpperCase() === 'NEEDS CLARIFICATION';
@@ -7224,6 +7224,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     const iqStHist = (row.iqacStatus || '').toUpperCase();
                     const apStHist = (row.appraisalStatus || '').toUpperCase();
                     const isIqacVerifiedHistory = iqStHist.includes('IQAC') || iqStHist.includes('APPROVED') || iqStHist.includes('VERIF') || apStHist.includes('IQAC') || apStHist.includes('APPROVED');
+                    const activeStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
 
                     return (
                       <tr key={row._id || row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition text-xs">
@@ -7239,7 +7240,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         </td>
                         <td className="py-3 px-3">
                           {(() => {
-                            const activeStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
                             if (isRatified && isIqacVerifiedHistory) {
                               return (
