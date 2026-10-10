@@ -6565,7 +6565,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return (
             <div className="mt-4 flex flex-col sm:flex-row min-h-20 sm:items-center justify-between gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 sm:px-4 sm:py-3">
               <div>
-                <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
+                <div>
+                  <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
+                </div>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {isSubmitted
                     ? `Submission Status: ${activeTimelineRecord.appraisalStatus || 'Submitted'} (${activeTimelineRecord.convertedScore || 0} / 200 Marks)`
