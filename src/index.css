@@ -32,11 +32,21 @@ body {
 }
 
 @media (max-width: 640px) {
-  /* Prevent iOS Safari from auto-zooming on focus while keeping compact look */
+  /* Fluid scaling & readable placeholders on mobile while maintaining compact look */
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
-    font-size: 13.5px !important;
+    font-size: 12px !important;
+    min-height: 38px;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 11px;
+  }
+
+  button:not(.compact-btn) {
+    min-height: 38px;
   }
 }
 

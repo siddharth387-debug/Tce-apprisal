@@ -1861,32 +1861,37 @@ function DynamicArraySection({
                 </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 w-full">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full">
                 {safeColumns.map((column) => {
                   const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
+                  const isLinkCol = column.name === 'evidenceLink' || column.name === 'appointmentLink';
+                  const isTitleCol = column.name === 'paperTitle' ||
+                    column.name === 'title' ||
+                    column.name === 'scholarName' ||
+                    column.name === 'journalName' ||
+                    column.name === 'proceedingName' ||
+                    column.name === 'partner' ||
+                    column.name === 'researchArea' ||
+                    column.name === 'bodyName' ||
+                    column.name === 'courseName';
+                  const isDateCol = column.name === 'fromDate' || column.name === 'toDate' || column.name === 'startDate' || column.name === 'endDate' || column.name === 'vivaDate';
+                  const isCheckCol = column.name === 'isTillDate' || column.type === 'checkbox';
+
                   return (
                     <div
                       key={column.name}
                       className={`flex flex-col min-w-0 max-w-full ${
-                        column.name === 'evidenceLink'
-                          ? 'flex-1 w-full sm:w-auto sm:min-w-[240px]'
-                          : column.name === 'paperTitle' ||
-                            column.name === 'title' ||
-                            column.name === 'scholarName' ||
-                            column.name === 'journalName' ||
-                            column.name === 'proceedingName' ||
-                            column.name === 'partner' ||
-                            column.name === 'researchArea' ||
-                            column.name === 'bodyName' ||
-                            column.name === 'courseName'
-                            ? 'flex-1 w-full sm:w-auto sm:min-w-[160px]'
-                            : column.name === 'internalStudents' || column.name === 'externalStudents'
-                              ? 'w-full sm:w-auto sm:min-w-[130px] flex-1'
-                              : column.name === 'fromDate' || column.name === 'toDate' || column.name === 'isTillDate' || column.name === 'startDate' || column.name === 'endDate' || column.name === 'vivaDate'
-                                ? 'w-full sm:w-auto sm:min-w-[120px]'
+                        isCheckCol
+                          ? 'shrink-0 min-w-[85px]'
+                          : isLinkCol
+                            ? 'flex-[2] min-w-[140px] sm:min-w-[160px] w-full sm:w-auto'
+                            : isTitleCol
+                              ? 'flex-[1.5] min-w-[110px] sm:min-w-[130px]'
+                              : isDateCol
+                                ? 'flex-1 min-w-[95px] sm:min-w-[110px]'
                                 : isTimelineCol
-                                  ? 'w-full sm:w-auto sm:min-w-[140px] sm:max-w-[185px] flex-1'
-                                  : 'w-full sm:w-auto flex-1'
+                                  ? 'flex-1 min-w-[105px] sm:min-w-[125px]'
+                                  : 'flex-1 min-w-[75px] sm:min-w-[90px]'
                       }`}
                     >
                       {isTimelineCol ? (
@@ -1970,13 +1975,7 @@ function DynamicArraySection({
                               hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
-                            } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                              column.name === 'courseCode'
-                                ? 'max-w-[110px]'
-                                : column.name === 'courseName'
-                                  ? 'max-w-[160px]'
-                                  : ''
-                            }`}
+                            } bg-white py-1 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed`}
                           >
                             <option value="" disabled>
                               {column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`)}
@@ -2065,13 +2064,7 @@ function DynamicArraySection({
                               hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
-                            } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                              column.name === 'courseCode'
-                                ? 'max-w-[110px]'
-                                : column.name === 'courseName'
-                                  ? 'max-w-[160px]'
-                                  : ''
-                            }`}
+                            } bg-white py-1 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed`}
                           />
                           {getFieldErrorText(row, column.name) ? (
                             <span className="mt-0.5 block text-[10px] text-rose-600">
@@ -6514,9 +6507,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {(!isPrincipal && !isRegistrar && (!isReviewMode || (effectiveRole === 'HOD' && hodWorkspaceMode === 'self_appraisal') || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (() => {
           const isSubmitted = activeTimelineRecord && ['PENDING', 'APPROVED', 'RATIFIED', 'SUBMITTED', 'HOD APPROVED'].includes((activeTimelineRecord.appraisalStatus || '').toUpperCase().trim());
           return (
-            <div className="mt-4 flex min-h-20 items-center justify-between rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3">
+            <div className="mt-4 flex flex-col sm:flex-row min-h-20 sm:items-center justify-between gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-3 sm:px-4 sm:py-3">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-semibold text-slate-700">Self-Appraisal Workspace: {selectedTimeline}</p>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
                     cloudSyncState === 'saving'
@@ -6543,7 +6536,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         : 'Draft Status: Not Started | Click button to open self-appraisal sections.')}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {!isSubmitted && (
                   <button
                     type="button"
@@ -7264,8 +7257,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         hackathonMentoring: currentSectionData.hackathonMentoring || [],
       }}
     >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
-      <div className="space-y-3">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px] 2xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="space-y-3 min-w-0 pb-28 sm:pb-32">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
           {/* Title row + export buttons */}
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -7329,7 +7322,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'I' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle('I')} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'I' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'I' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION I: Teaching & Learning</h2>
@@ -7337,7 +7330,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === 'I' ? '▲ Collapse' : '▼ Expand'}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === 'I' ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === 'I' ? 'block' : 'hidden print-section'}`}>
         <DynamicArraySection
           title="1.1 Courses Handled"
           subtitle="(Calculation Rubric: 1 course = 3 marks | 2 courses = 6 marks | 3+ courses = 8 marks max)"
@@ -7686,7 +7679,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'II' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle('II')} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'II' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'II' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION II: Research Publications</h2>
@@ -7694,7 +7687,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === 'II' ? '▲ Collapse' : '▼ Expand'}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === 'II' ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === 'II' ? 'block' : 'hidden print-section'}`}>
               {/* 2.1 Journal Papers */}
               <DynamicArraySection
                 title="2.1 Journal Publications (SCI / Scopus Indexed)"
@@ -7952,7 +7945,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "III" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle("III")} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "III" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "III" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION III: Patents and Innovation</h2>
@@ -7960,7 +7953,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "III" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === "III" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "III" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="3.1 Number of Patents Published"
                 subtitle="(Calculation Rubric: 1 mark per patent | Max 2 marks)"
@@ -8048,7 +8041,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IV" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle("IV")} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IV" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IV" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION IV: Sponsored Research and Consultancy</h2>
@@ -8056,7 +8049,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "IV" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === "IV" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "IV" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="4.1 Sponsored Research Project - PI / Co-PI"
                 subtitle={(
@@ -8102,7 +8095,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "V" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle("V")} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "V" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "V" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION V: International Engagement & Rankings Contribution</h2>
@@ -8110,7 +8103,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "V" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === "V" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "V" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="5.1 International Engagement / MoU"
                 subtitle="(Calculation Rubric: 1 mark per engagement | Max 2 marks)"
@@ -8199,7 +8192,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VI" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle("VI")} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VI" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VI" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION VI: Faculty Development & Professional Activities</h2>
@@ -8207,7 +8200,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "VI" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === "VI" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VI" ? 'block' : 'hidden print-section'}`}>
               {(() => {
                 const fdpList = currentSectionData.fdpAttended || [];
                 const hasFdp = fdpList.some((r) => isMeaningfullyFilledRow(r));
@@ -8302,7 +8295,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle("VII")} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION VII: Industry Interaction & Internship</h2>
@@ -8310,7 +8303,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "VII" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === "VII" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VII" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="7.1 Partial delivery of regular courses by industry experts"
                 subtitle="(Calculation Rubric: >=6 hrs = 3; 3 hrs = 2; 1-2 hrs = 1 | Max 4 marks)"
@@ -8370,7 +8363,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VIII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle("VIII")} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VIII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VIII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION VIII: Student Development Activities</h2>
@@ -8378,7 +8371,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "VIII" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === "VIII" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VIII" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)"
                 subtitle="(Calculation Rubric: Per publication = 1 mark | Max 2 marks)"
@@ -8440,7 +8433,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IX" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
             onClick={() => handleSectionToggle("IX")} 
-            className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IX" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
+            className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IX" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
               <h2 className="text-base font-black text-[#4A1519]">SECTION IX: Institutional Development</h2>
@@ -8448,7 +8441,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "IX" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-6 space-y-6 ${activeSection === "IX" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "IX" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="9.1 Department Level Activities"
                 subtitle="(Calculation Rubric: DLCs and File Maintenance = 5; Dept. Activity & File Maintenance = 2 per Activity | Max 10 marks)"
@@ -8520,7 +8513,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       </div>
 
-      <aside className="xl:sticky xl:top-6 xl:self-start">
+      <aside className="xl:sticky xl:top-6 xl:self-start w-full min-w-0">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
           <div className="flex flex-col gap-2 items-start justify-between sm:flex-row sm:items-center">
             <div>
@@ -9122,7 +9115,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-7xl px-3 sm:px-6 py-4 sm:py-8 lg:px-8">
+      <main className="mx-auto w-full max-w-[1600px] min-w-0 px-2 sm:px-4 md:px-6 py-4 sm:py-6 lg:px-8">
         {effectiveRole === 'Faculty' && user?.isEligibleForAppraisal === false ? (
           <div className="max-w-4xl mx-auto my-8 p-8 bg-white rounded-2xl border border-slate-200 shadow-xl space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
@@ -9251,10 +9244,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     {/* Faculty Submission Confirmation / Incomplete / Success Gate Modal */}
     {submitModalState && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200">
-        <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+        <div className="relative w-full max-w-lg max-h-[92vh] rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
           {/* Modal Header */}
-          <div className={`px-6 py-4 text-white flex items-center justify-between ${
+          <div className={`px-4 sm:px-6 py-3.5 sm:py-4 text-white flex items-center justify-between shrink-0 ${
             submitModalState.type === 'success'
               ? 'bg-gradient-to-r from-emerald-700 to-teal-800'
               : submitModalState.type === 'warning'
@@ -9288,7 +9281,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
 
           {/* Modal Body */}
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[calc(92vh-130px)]">
             <p className="text-sm text-slate-700 leading-relaxed font-medium">
               {submitModalState.message}
             </p>
@@ -9342,7 +9335,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
 
           {/* Modal Footer Buttons */}
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0">
             {submitModalState.type === 'confirm' ? (
               <>
                 <button
@@ -9409,8 +9402,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     {/* Inactivity Session Timeout Warning Modal (Active at 13 mins of continuous idle time) */}
     {showInactivityWarning && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-        <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+        <div className="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 sm:p-6 space-y-4">
           <div className="flex items-start gap-3">
             <div className="p-3 bg-amber-100 text-amber-900 rounded-xl text-2xl shrink-0">
               ⏳
