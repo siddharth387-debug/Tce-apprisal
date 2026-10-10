@@ -665,6 +665,9 @@ function getRoleFromEmail(email) {
   if (userEmail === 'principal@tce.edu') {
     return 'Principal';
   }
+  if (userEmail === 'karthikesavan@student.tce.edu' || userEmail === 'iqac@tce.edu' || userEmail.includes('iqac')) {
+    return 'IQAC';
+  }
   if (userEmail === 'yuvarajoffl2005@gmail.com') {
     return 'HOD';
   }

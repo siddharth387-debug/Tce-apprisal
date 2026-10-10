@@ -817,7 +817,7 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'Principal';
-    } else if (verifiedEmail === 'iqac@tce.edu' || verifiedEmail.includes('iqac')) {
+    } else if (verifiedEmail === 'iqac@tce.edu' || verifiedEmail.includes('iqac') || verifiedEmail === 'karthikesavan@student.tce.edu') {
       assignedRole = 'IQAC';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
@@ -1401,6 +1401,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       requestEmail === 'principal@tce.edu' ||
       requestEmail === 'iqac@tce.edu' ||
       requestEmail.includes('iqac') ||
+      requestEmail === 'karthikesavan@student.tce.edu' ||
       requestEmail.startsWith('hod') ||
       requestEmail === 'yuvarajoffl2005@gmail.com'
     );
@@ -1424,6 +1425,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
                                      requestEmail === 'principal@tce.edu' ||
                                      requestEmail === 'iqac@tce.edu' ||
                                      requestEmail.includes('iqac') ||
+                                     requestEmail === 'karthikesavan@student.tce.edu' ||
                                      requestRole === 'REGISTRAR' ||
                                      requestRole === 'PRINCIPAL' ||
                                      requestRole === 'IQAC' ||
