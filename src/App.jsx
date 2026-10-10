@@ -12,6 +12,12 @@ import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
 import AnalyticsDashboard from './AnalyticsDashboard.jsx';
 import AcademicTimelinePicker from './AcademicTimelinePicker.jsx';
+import AppDateInput, {
+  parseDateStringToIso,
+  formatIsoToDisplay,
+  getCalendarRangeForBatch,
+  computeExpectedEndDate,
+} from './AppDateInput.jsx';
 
 // ── Module-level constants ────────────────────────────────────────────────────
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
@@ -176,6 +182,30 @@ function handleCountKeyDown(e) {
   }
 }
 
+export const DOI_REGEX = /^10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+$/i;
+export const isValidDoi = (val) => Boolean(val && typeof val === 'string' && DOI_REGEX.test(val.trim()));
+export const normalizeEventName = (str) => (!str ? '' : String(str).trim().toLowerCase().replace(/\s+/g, ' '));
+
+export function convertToLakhs(raw) {
+  if (raw === '' || raw === null || raw === undefined) return '';
+  const num = parseFloat(raw);
+  if (isNaN(num)) return raw;
+  if (num < 0) return '0';
+  if (num >= 1000) {
+    const inLakhs = num / 100000;
+    return parseFloat(inLakhs.toFixed(5)).toString();
+  }
+  return num.toString();
+}
+
+export const AppraisalFormContext = React.createContext({
+  selectedTimeline: '2025-2026',
+  activeSubsection: '1.1',
+  setActiveSubsection: () => {},
+  hackathonPrizes: [],
+  hackathonMentoring: [],
+});
+
 const DEFAULT_ONLY_KEYS = new Set(['id', 'role', 'type', 'category', 'mode', 'status', 'level', 'evidenceSubmitted', 'approval', 'compliance']);
 
 function isMeaningfullyFilledRow(row) {
@@ -220,13 +250,15 @@ function createEmptySectionState() {
     valueAdded: [],
     innovativeMethods: [],
     academicCollaborations: [],
-    mentoring: {
-      menteeCount: '',
-      batch: '',
-      description: '',
-      hodReview: 'Pending',
-      evidenceLink: '',
-    },
+    mentoring: [
+      {
+        id: 'mentoring-1',
+        menteeCount: '',
+        batch: '',
+        description: '',
+        evidenceLink: '',
+      },
+    ],
     certifications: [],
     studentFeedback: [],
     resultAnalysis: [],
@@ -467,7 +499,7 @@ function normalizeSection6Data(sec6 = {}) {
 function flattenAppraisalRecord(record) {
   if (!record) return createEmptySectionState();
   const rawSec = record.sectionData || {};
-  return {
+  const res = {
     ...createEmptySectionState(),
     ...rawSec,
     ...(record.section1Data || {}),
@@ -478,6 +510,31 @@ function flattenAppraisalRecord(record) {
     ...(normalizeSection6Data(record.section6Data || rawSec.section6Data || {})),
     ...(record.section7Data || {}),
     ...(record.section8Data || {}),
+  };
+  if (res.mentoring && !Array.isArray(res.mentoring)) {
+    const m = res.mentoring;
+    res.mentoring = [
+      {
+        id: 'mentoring-1',
+        menteeCount: m.menteeCount || '',
+        batch: m.batch || '',
+        description: m.description || '',
+        evidenceLink: m.evidenceLink || '',
+      },
+    ];
+  } else if (!res.mentoring || (Array.isArray(res.mentoring) && res.mentoring.length === 0)) {
+    res.mentoring = [
+      {
+        id: 'mentoring-1',
+        menteeCount: '',
+        batch: '',
+        description: '',
+        evidenceLink: '',
+      },
+    ];
+  }
+  return {
+    ...res,
     ...(record.section9Data || {}),
     submittedAt: record.submittedAt,
     appraisalStatus: record.appraisalStatus,
@@ -521,7 +578,9 @@ function hasSectionEntries(sectionData) {
     }
   }
 
-  if (
+  if (Array.isArray(sectionData.mentoring)) {
+    if (sectionData.mentoring.some(isMeaningfullyFilledRow)) return true;
+  } else if (
     Boolean(sectionData.mentoring?.menteeCount?.toString().trim()) ||
     Boolean(sectionData.mentoring?.batch?.toString().trim()) ||
     Boolean(sectionData.mentoring?.description?.toString().trim()) ||
@@ -673,7 +732,7 @@ function isNonEmpty(value) {
   return Boolean((value || '').trim());
 }
 
-function getRowValidationErrors(row, columns, allRows = []) {
+function getRowValidationErrors(row, columns, allRows = [], options = {}) {
   const errors = {};
 
   columns.forEach((column) => {
@@ -694,6 +753,68 @@ function getRowValidationErrors(row, columns, allRows = []) {
         });
         if (hasDuplicate) {
           errors[column.name] = 'duplicate';
+        }
+      }
+      return;
+    }
+
+    if (column.name === 'doi') {
+      if (!trimmed) {
+        errors[column.name] = true;
+      } else if (!isValidDoi(trimmed)) {
+        errors[column.name] = 'invalid_doi';
+      }
+      return;
+    }
+
+    if (column.name === 'eventName' && options.crossHackathons) {
+      const norm = normalizeEventName(trimmed);
+      if (norm && options.crossHackathons.includes(norm)) {
+        errors[column.name] = 'hackathon_duplicate';
+      }
+    }
+
+    if (column.type === 'date') {
+      if (!trimmed) {
+        errors[column.name] = true;
+      } else {
+        const iso = parseDateStringToIso(trimmed);
+        if (iso === 'invalid') {
+          errors[column.name] = 'invalid_date';
+        } else {
+          if (options.batch && column.calendarType && column.calendarType !== 'none') {
+            const range = getCalendarRangeForBatch(options.batch, column.calendarType);
+            if (range.minDate && range.maxDate && (iso < range.minDate || iso > range.maxDate)) {
+              errors[column.name] = 'out_of_range';
+            }
+          }
+          if (column.isFdpEndDate) {
+            const startVal = row[column.startDateField || 'dateRange'];
+            const exp = computeExpectedEndDate(startVal, row.duration);
+            if (exp && iso !== exp) {
+              errors[column.name] = 'fdp_date_mismatch';
+            }
+          }
+          if (column.isEndDate) {
+            const startVal = row[column.startDateField || 'startDate'] || row.dateRange || row.fromDate;
+            const startIso = parseDateStringToIso(startVal);
+            if (startIso && startIso !== 'invalid' && iso < startIso) {
+              errors[column.name] = 'end_before_start';
+            }
+          }
+        }
+      }
+      return;
+    }
+
+    if (column.type === 'timeline' || column.name === 'period') {
+      if (!trimmed || isPlaceholderValue(trimmed)) {
+        errors[column.name] = true;
+      } else if (column.restrictToBatch && options.batch) {
+        const normBatch = options.batch.replace(/\s+/g, '');
+        const normVal = trimmed.replace(/\s+/g, '');
+        if (normVal !== normBatch) {
+          errors[column.name] = 'batch_mismatch';
         }
       }
       return;
@@ -720,7 +841,7 @@ function getRowValidationErrors(row, columns, allRows = []) {
         errors[column.name] = true;
       } else {
         const num = Number(trimmed);
-        const fieldMax = getNumericFieldMax(column);
+        const fieldMax = column.isLakhs ? undefined : getNumericFieldMax(column);
         if (Number.isNaN(num) || num < 0) {
           errors[column.name] = 'min_limit';
         } else if (fieldMax !== undefined && num > fieldMax) {
@@ -892,7 +1013,14 @@ function canAddPhdRegistered(rows) {
 
 function canAddPhdAwarded(rows) {
   if (!rows || rows.length === 0) return true;
-  return !rows.some((r) => !r.scholarName || !r.researchArea || !r.evidenceLink);
+  return !rows.some((r) => !r.scholarName || !r.researchArea || !r.vivaDate || !r.evidenceLink);
+}
+
+function canAddMentoring(rows) {
+  const arr = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+  if (arr.length === 0) return true;
+  const last = arr[arr.length - 1];
+  return !!(last && last.menteeCount && last.batch && !isPlaceholderValue(last.batch) && last.description && isValidEvidenceLink(last.evidenceLink));
 }
 
 
@@ -1016,7 +1144,7 @@ function canAddConsultancyProjects(rows) {
 function canAddInternationalEngagement(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.institution && last.country && last.nature && last.status && last.evidenceLink);
+  return !!(last.institution && last.country && last.nature && last.startDate && last.endDate && last.evidenceLink);
 }
 function canAddVisitingPositions(rows) {
   if (rows.length === 0) return true;
@@ -1031,12 +1159,12 @@ function canAddForeignFaculty(rows) {
 function canAddReputationSurvey(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.surveyName && last.contributionDetails && last.evidenceSubmitted && last.evidenceLink);
+  return !!(last.surveyName && last.contributionDetails && last.startDate && last.endDate && last.evidenceSubmitted && last.evidenceLink);
 }
 function canAddNirfSurvey(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.nominationDetails && last.evidenceSubmitted && last.evidenceLink);
+  return !!(last.nominationDetails && last.startDate && last.endDate && last.evidenceSubmitted && last.evidenceLink);
 }
 function canAddStudioPedagogy(rows) {
   if (rows.length === 0) return true;
@@ -1494,13 +1622,23 @@ function DynamicArraySection({
   onChange,
   onRemove,
   canAdd,
+  canRemove = true,
   disabled = false,
   hodRemark,
   subScore,
   maxScore,
+  selectedTimeline,
+  activeSubsection,
+  setActiveSubsection,
+  sectionError,
 }) {
   const safeRows = rows || [];
   const safeColumns = columns || [];
+  const formContext = React.useContext(AppraisalFormContext);
+  const effectiveBatch = selectedTimeline || formContext.selectedTimeline || '2025-2026';
+  const effectiveActiveSub = activeSubsection || formContext.activeSubsection;
+  const effectiveSetActiveSub = setActiveSubsection || formContext.setActiveSubsection;
+  const subKey = title ? title.match(/^(\d+\.\d+(\.\d+)?)/)?.[1] : null;
 
   const isDuplicateCourseCode = (code, rowId) => {
     if (!code || !isNonEmpty(code)) return false;
@@ -1510,6 +1648,65 @@ function DynamicArraySection({
 
   const getFieldErrorText = (row, columnName) => {
     const propErr = rowErrors?.[row.id]?.[columnName];
+
+    if (columnName === 'doi') {
+      if (propErr === 'invalid_doi') {
+        return 'Enter a valid DOI (example: 10.1109/ACCESS.2023.1234567)';
+      }
+      const val = String(row[columnName] || '').trim();
+      if (val && !isValidDoi(val)) {
+        return 'Enter a valid DOI (example: 10.1109/ACCESS.2023.1234567)';
+      }
+    }
+
+    if (columnName === 'eventName') {
+      const val = normalizeEventName(row[columnName]);
+      if (val) {
+        if (subKey === '3.5') {
+          const existsIn8_2 = (formContext.hackathonMentoring || []).some(
+            (r) => normalizeEventName(r.eventName) === val
+          );
+          if (existsIn8_2) return 'Already entered in section 8.2';
+        } else if (subKey === '8.2') {
+          const existsIn3_5 = (formContext.hackathonPrizes || []).some(
+            (r) => normalizeEventName(r.eventName) === val
+          );
+          if (existsIn3_5) return 'Already entered in section 3.5';
+        }
+      }
+    }
+
+    const colDef = safeColumns.find((c) => c.name === columnName);
+    if (colDef && colDef.type === 'date') {
+      const dateVal = String(row[columnName] || '').trim();
+      if (dateVal) {
+        const iso = parseDateStringToIso(dateVal);
+        if (iso === 'invalid') {
+          return 'Enter a valid date (DD.MM.YYYY or YYYY-MM-DD)';
+        }
+        if (colDef.isFdpEndDate) {
+          const startVal = row[colDef.startDateField || 'dateRange'];
+          const exp = computeExpectedEndDate(startVal, row.duration);
+          if (exp && iso !== exp) {
+            return `Must be exactly ${formatIsoToDisplay(exp)} (start + duration - 1 days)`;
+          }
+        }
+        if (colDef.isEndDate) {
+          const startVal = row[colDef.startDateField || 'startDate'] || row.dateRange || row.fromDate;
+          const startIso = parseDateStringToIso(startVal);
+          if (startIso && startIso !== 'invalid' && iso < startIso) {
+            return 'End date cannot be earlier than start date';
+          }
+        }
+        if (colDef.calendarType && colDef.calendarType !== 'none') {
+          const range = getCalendarRangeForBatch(effectiveBatch, colDef.calendarType);
+          if (range.minDate && range.maxDate && (iso < range.minDate || iso > range.maxDate)) {
+            return `Date must be within ${range.calendarName} (${range.label})`;
+          }
+        }
+      }
+    }
+
     if (columnName === 'courseCode') {
       if (propErr === 'duplicate' || isDuplicateCourseCode(row[columnName], row.id)) {
         return 'Subject code already used in this section';
@@ -1552,7 +1749,27 @@ function DynamicArraySection({
         return true;
       }
     }
+    if (column.name === 'doi' && isNonEmpty(row[column.name]) && !isValidDoi(row[column.name])) {
+      return true;
+    }
+    if (column.name === 'eventName') {
+      const val = normalizeEventName(row[column.name]);
+      if (val) {
+        if (subKey === '3.5' && (formContext.hackathonMentoring || []).some((r) => normalizeEventName(r.eventName) === val)) {
+          return true;
+        }
+        if (subKey === '8.2' && (formContext.hackathonPrizes || []).some((r) => normalizeEventName(r.eventName) === val)) {
+          return true;
+        }
+      }
+    }
     return false;
+  };
+
+  const handleFieldFocus = () => {
+    if (subKey && effectiveSetActiveSub) {
+      effectiveSetActiveSub(subKey);
+    }
   };
 
   const addDisabled = Boolean(disabled);
@@ -1624,7 +1841,7 @@ function DynamicArraySection({
                 <button
                   type="button"
                   onClick={() => onRemove(row.id)}
-                  disabled={disabled}
+                  disabled={disabled || canRemove === false}
                   className="text-[11px] text-red-500 font-medium hover:text-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Remove
@@ -1652,7 +1869,7 @@ function DynamicArraySection({
                             ? 'flex-1 w-full sm:w-auto sm:min-w-[160px]'
                             : column.name === 'internalStudents' || column.name === 'externalStudents'
                               ? 'w-full sm:w-auto sm:min-w-[130px] flex-1'
-                              : column.name === 'fromDate' || column.name === 'toDate' || column.name === 'isTillDate'
+                              : column.name === 'fromDate' || column.name === 'toDate' || column.name === 'isTillDate' || column.name === 'startDate' || column.name === 'endDate' || column.name === 'vivaDate'
                                 ? 'w-full sm:w-auto sm:min-w-[120px]'
                                 : isTimelineCol
                                   ? 'w-full sm:w-auto sm:min-w-[140px] sm:max-w-[185px] flex-1'
@@ -1660,7 +1877,7 @@ function DynamicArraySection({
                       }`}
                     >
                       {isTimelineCol ? (
-                        <>
+                        <div onFocus={handleFieldFocus} className="w-full">
                           <AcademicTimelinePicker
                             value={row[column.name] || ''}
                             onChange={(val) => onChange(row.id, column.name, val)}
@@ -1669,13 +1886,15 @@ function DynamicArraySection({
                             hideLabel={true}
                             placeholder={column.placeholder || column.label || 'Select Period'}
                             allowClear={true}
+                            currentAcademicYear={effectiveBatch}
+                            restrictToBatch={Boolean(column.restrictToBatch || column.name === 'period')}
                           />
                           {getFieldErrorText(row, column.name) ? (
                             <span className="mt-0.5 block text-[10px] text-rose-600">
                               {getFieldErrorText(row, column.name)}
                             </span>
                           ) : null}
-                        </>
+                        </div>
                       ) : column.type === 'checkbox' ? (
                         <>
                           <label className="flex items-center gap-1.5 h-7 px-2 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition">
@@ -1683,6 +1902,7 @@ function DynamicArraySection({
                               type="checkbox"
                               checked={Boolean(row[column.name])}
                               disabled={disabled}
+                              onFocus={handleFieldFocus}
                               onChange={(event) => {
                                 const isChecked = event.target.checked;
                                 onChange(row.id, column.name, isChecked);
@@ -1700,10 +1920,35 @@ function DynamicArraySection({
                             </span>
                           ) : null}
                         </>
+                      ) : column.type === 'date' ? (
+                        <>
+                          <AppDateInput
+                            value={row[column.name] || ''}
+                            onChange={(val) => {
+                              onChange(row.id, column.name, val);
+                              if (column.endDateField && row[column.endDateField]) {
+                                const sIso = parseDateStringToIso(val);
+                                const eIso = parseDateStringToIso(row[column.endDateField]);
+                                if (sIso && eIso && eIso < sIso) {
+                                  onChange(row.id, column.endDateField, '');
+                                }
+                              }
+                            }}
+                            calendarType={column.calendarType || 'none'}
+                            batch={effectiveBatch}
+                            exactDate={column.isFdpEndDate ? computeExpectedEndDate(row[column.startDateField || 'dateRange'], row.duration) : undefined}
+                            startDateForOrdering={column.isEndDate || column.isFdpEndDate ? (row[column.startDateField || 'startDate'] || row.dateRange || row.fromDate) : undefined}
+                            disabled={disabled}
+                            placeholder={column.placeholder || column.label || 'Select Date'}
+                            onFocus={handleFieldFocus}
+                            errorText={getFieldErrorText(row, column.name)}
+                          />
+                        </>
                       ) : column.type === 'select' ? (
                         <>
                           <select
                             value={row[column.name] || ''}
+                            onFocus={handleFieldFocus}
                             onChange={(event) =>
                               onChange(row.id, column.name, event.target.value)
                             }
@@ -1723,15 +1968,27 @@ function DynamicArraySection({
                             <option value="" disabled>
                               {column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`)}
                             </option>
-                            {(column.options || []).map((option) => {
-                              const optValue = typeof option === 'object' && option !== null ? option.value : option;
-                              const optLabel = typeof option === 'object' && option !== null ? option.label : option;
-                              return (
-                                <option key={optValue} value={optValue}>
-                                  {optLabel}
-                                </option>
-                              );
-                            })}
+                            {column.groups ? (
+                              column.groups.map((group) => (
+                                <optgroup key={group.label} label={group.label}>
+                                  {group.options.map((option) => (
+                                    <option key={option} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))
+                            ) : (
+                              (column.options || []).map((option) => {
+                                const optValue = typeof option === 'object' && option !== null ? option.value : option;
+                                const optLabel = typeof option === 'object' && option !== null ? option.label : option;
+                                return (
+                                  <option key={optValue} value={optValue}>
+                                    {optLabel}
+                                  </option>
+                                );
+                              })
+                            )}
                           </select>
                           {getFieldErrorText(row, column.name) ? (
                             <span className="mt-0.5 block text-[10px] text-rose-600">
@@ -1743,27 +2000,41 @@ function DynamicArraySection({
                         <>
                           <input
                             type={column.type || 'text'}
-                            {...(column.type === 'date' ? { min: '1990-01-01', max: '2035-12-31' } : {})}
+                            value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
+                            onFocus={handleFieldFocus}
+                            onBlur={(event) => {
+                              if (column.isLakhs) {
+                                const converted = convertToLakhs(event.target.value);
+                                if (converted !== event.target.value) {
+                                  onChange(row.id, column.name, converted);
+                                }
+                              }
+                            }}
                             {...(column.type === 'number' ? {
                               min: 0,
-                              ...(getNumericFieldMax(column) !== undefined ? { max: getNumericFieldMax(column) } : {}),
-                              ...(getNumericFieldMax(column) === 100 ? { step: 'any' } : { step: '1' }),
+                              ...(column.isLakhs ? {} : (getNumericFieldMax(column) !== undefined ? { max: getNumericFieldMax(column) } : {})),
+                              ...(column.isLakhs ? { step: 'any' } : (getNumericFieldMax(column) === 100 ? { step: 'any' } : { step: '1' })),
                               onKeyDown: handleCountKeyDown,
                               onPaste: (e) => {
                                 e.preventDefault();
                                 const pasted = e.clipboardData.getData('text');
-                                const sanitized = sanitizeCountInput(pasted, getNumericFieldMax(column));
-                                onChange(row.id, column.name, sanitized);
+                                if (column.isLakhs) {
+                                  onChange(row.id, column.name, pasted.trim());
+                                } else {
+                                  const sanitized = sanitizeCountInput(pasted, getNumericFieldMax(column));
+                                  onChange(row.id, column.name, sanitized);
+                                }
+                              },
+                              onChange: (e) => {
+                                if (column.isLakhs) {
+                                  onChange(row.id, column.name, e.target.value);
+                                } else {
+                                  onChange(row.id, column.name, sanitizeCountInput(e.target.value, getNumericFieldMax(column)));
+                                }
                               }
-                            } : {})}
-                            value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
-                            onChange={(event) => {
-                              let val = event.target.value;
-                              if (column.type === 'number') {
-                                val = sanitizeCountInput(val, getNumericFieldMax(column));
-                              }
-                              onChange(row.id, column.name, val);
-                            }}
+                            } : {
+                              onChange: (event) => onChange(row.id, column.name, event.target.value)
+                            })}
                             disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
                             placeholder={column.name === 'toDate' && Boolean(row.isTillDate) ? 'Present / Ongoing' : (column.placeholder || column.label)}
                             list={
@@ -1804,6 +2075,12 @@ function DynamicArraySection({
           ))}
         </div>
       )}
+
+      {sectionError ? (
+        <div className="mt-2.5 rounded-lg border border-red-200 bg-red-50/70 p-2 text-xs font-semibold text-rose-700">
+          ⚠️ {sectionError}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -3251,8 +3528,27 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
   const [sectionAuditSearch, setSectionAuditSearch] = useState('');
   const [activeView, setActiveView] = useState('overview');
-  const setView = (v) => setActiveView(v === 'dashboard' ? 'overview' : v);
   const [activeSection, setActiveSection] = useState('I'); // Tracks 'I' or 'II'
+  const [activeSubsection, setActiveSubsection] = useState('1.1');
+
+  const handleSectionToggle = (sec) => {
+    const next = activeSection === sec ? null : sec;
+    setActiveSection(next);
+    if (next) {
+      const defaultSub = {
+        'I': '1.1',
+        'II': '2.1',
+        'III': '3.1',
+        'IV': '4.1',
+        'V': '5.1',
+        'VI': '6.1',
+        'VII': '7.1',
+        'VIII': '8.1',
+        'IX': '9.1',
+      }[next];
+      if (defaultSub) setActiveSubsection(defaultSub);
+    }
+  };
   const [showHodRemarks, setShowHodRemarks] = useState(false);
   const [selectedInboxRecordId, setSelectedInboxRecordId] = useState('');
   const [hodFeedbackDraft, setHodFeedbackDraft] = useState('');
@@ -4389,13 +4685,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'feedbackPct', label: 'Feedback Average', type: 'number', max: 100, placeholder: 'Enter the feedback average' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
   ];
+  const mentoringColumns = [
+    { name: 'menteeCount', label: 'Mentee Count', type: 'number', min: 0, placeholder: 'Enter Mentee Count' },
+    { name: 'batch', label: 'Batch', type: 'select', groups: MENTORING_BATCH_GROUPS, placeholder: 'Select Batch' },
+    { name: 'description', label: 'Mentoring Description', type: 'text', placeholder: 'Enter Mentoring Description' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+  ];
   const journalPapersColumns = [
     { name: 'paperTitle', label: 'Paper Title', placeholder: 'Enter Paper Title' },
     { name: 'journalName', label: 'Journal Name', placeholder: 'Enter Journal Name' },
     { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
     { name: 'publisher', label: 'Publisher', placeholder: 'Enter Publisher Name' },
     { name: 'volumeIssue', label: 'Vol, Issue & Page Nos.', placeholder: 'Enter Vol, Issue & Page Nos.' },
-    { name: 'pubDate', label: 'Publication Date', type: 'date' },
+    { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'year' },
     {
       name: 'tier',
       label: 'Journal Tier',
@@ -4413,7 +4715,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
     { name: 'publisher', label: 'Publisher', placeholder: 'Enter Publisher Name' },
     { name: 'isbnIssn', label: 'ISBN / ISSN No.', placeholder: 'Enter ISBN / ISSN No.' },
-    { name: 'pubDate', label: 'Publication Date', type: 'date' },
+    { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'year' },
     {
       name: 'type',
       label: 'Publication Type',
@@ -4459,16 +4761,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const fdpAttendedColumns = [
     { name: "programName", label: "Name of Program", type: "text", placeholder: "Enter Name of Program" },
     { name: "organizer", label: "Organizer", type: "text", placeholder: "Enter Organizer / Institution Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "Enter Duration in Days" },
-    { name: "dateRange", label: "Start Date", type: "date" },
-    { name: "endDate", label: "End Date", type: "date" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Enter Duration in Days" },
+    { name: "dateRange", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
+    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isFdpEndDate: true, startDateField: "dateRange" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const programsOrganizedColumns = [
     { name: "programName", label: "Name of Program", type: "text", placeholder: "Enter Name of Program" },
-    { name: "days", label: "Number of Days", type: "number", placeholder: "Enter Number of Days" },
-    { name: "dateRange", label: "Start Date", type: "date" },
-    { name: "endDate", label: "End Date", type: "date" },
+    { name: "days", label: "Number of Days", type: "number", min: 0, placeholder: "Enter Number of Days" },
+    { name: "dateRange", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
+    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "dateRange" },
     {
       name: "role",
       label: "Role in Program",
@@ -4493,7 +4795,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "level", label: "International / National", type: "select", options: ["International", "National"] },
     { name: "topic", label: "Topic", type: "text", placeholder: "Enter Talk / Session Topic" },
     { name: "venue", label: "Venue / Host Institution", type: "text", placeholder: "Enter Venue / Host Institution" },
-    { name: "date", label: "Date of Session", type: "date" },
+    { name: "date", label: "Date of Session", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const professionalMembershipColumns = [
@@ -4505,8 +4807,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const editorialBoardColumns = [
     { name: "bodyName", label: "Name of Body", type: "text", placeholder: "Enter Name of Journal / Editorial Body" },
     { name: "position", label: "Position Held", type: "text", placeholder: "Enter Position Held" },
-    { name: "fromDate", label: "From Date", type: "date" },
-    { name: "toDate", label: "To Date", type: "date" },
+    { name: "fromDate", label: "From Date", type: "date", calendarType: "academic", endDateField: "toDate" },
+    { name: "toDate", label: "To Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "fromDate" },
     { name: "isTillDate", label: "Till Date / Present", type: "checkbox" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
@@ -4525,20 +4827,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "mode", label: "Online/Offline", type: "select", options: ["Online", "Offline"] },
     { name: "industryName", label: "Name of the Industry", type: "text", placeholder: "Enter Name of the Industry" },
     { name: "expertDetails", label: "Name of the Expert & Designation", type: "text", placeholder: "Enter Name of the Expert & Designation" },
-    { name: "duration", label: "Duration (Hours)", type: "number", placeholder: "Enter Duration in Hours" },
-    { name: "date", label: "Lecture Date", type: "date" },
+    { name: "duration", label: "Duration (Hours)", type: "number", min: 0, placeholder: "Enter Duration in Hours" },
+    { name: "date", label: "Lecture Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const industrialVisitsColumns = [
     { name: "visitDetails", label: "Visit Details", type: "text", placeholder: "Enter Industrial Visit Details" },
     { name: "industry", label: "Industry", type: "text", placeholder: "Enter Industry / Organization Name" },
-    { name: "studentsCount", label: "No. of Students", type: "number", placeholder: "Enter Number of Students" },
-    { name: "date", label: "Visit Date", type: "date" },
+    { name: "studentsCount", label: "No. of Students", type: "number", min: 0, placeholder: "Enter Number of Students" },
+    { name: "date", label: "Visit Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const facultyInternshipsColumns = [
     { name: "industryName", label: "Industry Name", type: "text", placeholder: "Enter Industry Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "Enter Duration in Days" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Enter Duration in Days" },
     { name: "purpose", label: "Purpose", type: "text", placeholder: "Enter Internship Purpose / Scope" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
@@ -4555,14 +4857,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "Enter Journal / Conference Details" },
     { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "Enter DOI (Digital Object Identifier)" },
     { name: "publisher", label: "Publisher", placeholder: "Enter Publisher Name" },
-    { name: "date", label: "Date of Publication", type: "date" },
+    { name: "date", label: "Date of Publication", type: "date", calendarType: "year" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const hackathonMentoringColumns = [
     { name: "eventName", label: "Hackathon / Event Name", type: "text", placeholder: "Enter Hackathon / Event Name" },
     { name: "students", label: "Students Mentored", type: "text", placeholder: "Enter Students Mentored" },
     { name: "outcome", label: "Outcome", type: "text", placeholder: "Enter Outcome / Award Details" },
-    { name: "dateRange", label: "Event Date", type: "date" },
+    { name: "dateRange", label: "Event Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const startupSupportColumns = [
@@ -4611,7 +4913,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     { name: "title", label: "Title", type: "text", placeholder: "Enter Patent Title" },
     { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Enter Name of Inventors" },
-    { name: "datePublished", label: "Date Published", type: "date" },
+    { name: "datePublished", label: "Date Published", type: "date", calendarType: "year" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const patentsGrantedColumns = [
@@ -4624,34 +4926,34 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     { name: "title", label: "Title", type: "text", placeholder: "Enter Patent Title" },
     { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Enter Name of Inventors" },
-    { name: "dateGranted", label: "Date Granted", type: "date" },
+    { name: "dateGranted", label: "Date Granted", type: "date", calendarType: "year" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const transferOfTechnologyColumns = [
     { name: "title", label: "Title", type: "text", placeholder: "Enter Technology Transfer Title" },
     { name: "industryPartner", label: "Industry Partner", type: "text", placeholder: "Enter Industry Partner Name" },
-    { name: "amount", label: "Amount (Rs.)", type: "number", placeholder: "Enter Amount in INR" },
+    { name: "amount", label: "Amount (Rs.)", type: "number", min: 0, placeholder: "Enter Amount in INR" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const prototypesDevelopedColumns = [
     { name: "title", label: "Title of Product", type: "text", placeholder: "Enter Title of Prototype / Product" },
     { name: "studentsInvolved", label: "Students Involved", type: "text", placeholder: "Enter Student Name(s) Involved" },
-    { name: "date", label: "Development Date", type: "date" },
+    { name: "date", label: "Development Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const hackathonPrizesColumns = [
     { name: "eventName", label: "Hackathon/Event Name", type: "text", placeholder: "Enter Hackathon / Event Name" },
     { name: "studentsMentored", label: "Students Mentored", type: "text", placeholder: "Enter Students Mentored" },
     { name: "prize", label: "Prize / Achievement", type: "text", placeholder: "Enter Prize / Achievement" },
-    { name: "date", label: "Award Date", type: "date" },
+    { name: "date", label: "Award Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   
   const researchProjectsColumns = [
     { name: "projectName", label: "Project Name", type: "text", placeholder: "Enter Project Name" },
     { name: "fundingAgency", label: "Funding Agency", type: "text", placeholder: "Enter Funding Agency Name" },
-    { name: "period", label: "Period", type: "timeline", placeholder: "Select Period" },
-    { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", placeholder: "Enter Sanctioned Amount in INR" },
+    { name: "period", label: "Period", type: "timeline", restrictToBatch: true, calendarType: "academic", placeholder: "Select Period" },
+    { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", isLakhs: true, min: 0, placeholder: "Enter sanctioned amount" },
     { name: "role", label: "Role", type: "select", options: ["PI", "Co-PI"] },
     { name: "status", label: "Project Status", type: "select", options: ["Ongoing", "Completed"] },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
@@ -4659,8 +4961,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const consultancyProjectsColumns = [
     { name: "title", label: "Title of Consultancy Project", type: "text", placeholder: "Enter Title of Consultancy Project" },
     { name: "clientDetails", label: "Client Details", type: "text", placeholder: "Enter Client Details / Organization" },
-    { name: "period", label: "Period", type: "timeline", placeholder: "Select Period" },
-    { name: "amount", label: "Amount Generated (Rs.)", type: "number", placeholder: "Enter Amount Generated in INR" },
+    { name: "period", label: "Period", type: "timeline", restrictToBatch: true, calendarType: "academic", placeholder: "Select Period" },
+    { name: "amount", label: "Amount Generated (Rs.)", type: "number", isLakhs: true, min: 0, placeholder: "Enter sanctioned amount" },
     { name: "facultyInvolved", label: "Names of Faculty Involved", type: "text", placeholder: "Enter Names of Faculty Involved" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
@@ -4669,31 +4971,36 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "institution", label: "Partner Institution", type: "text", placeholder: "Enter Partner Institution Name" },
     { name: "country", label: "Country", type: "text", placeholder: "Enter Country Name" },
     { name: "nature", label: "Nature of Collaboration", type: "text", placeholder: "Enter Nature of Collaboration" },
-    { name: "status", label: "Status", type: "text", placeholder: "Enter Collaboration Status" },
+    { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
+    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const visitingPositionsColumns = [
     { name: "institution", label: "Institution", type: "text", placeholder: "Enter Institution Name" },
     { name: "country", label: "Country", type: "text", placeholder: "Enter Country Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", placeholder: "Enter Duration in Days" },
-    { name: "period", label: "Period / Date", type: "date" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Enter Duration in Days" },
+    { name: "period", label: "Period / Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const foreignFacultyColumns = [
     { name: "name", label: "Name", type: "text", placeholder: "Enter Foreign Faculty Name" },
     { name: "institution", label: "Institution / Country", type: "text", placeholder: "Enter Institution & Country" },
     { name: "engagementType", label: "Engagement Type", type: "text", placeholder: "Enter Engagement Type" },
-    { name: "period", label: "Period / Date", type: "date" },
+    { name: "period", label: "Period / Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const reputationSurveyColumns = [
     { name: "surveyName", label: "Survey Name", type: "text", placeholder: "Enter Survey Name" },
     { name: "contributionDetails", label: "Contribution Details", type: "text", placeholder: "Enter Contribution Details" },
+    { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
+    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
     { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
   const nirfSurveyColumns = [
     { name: "nominationDetails", label: "Nomination Details", type: "text", placeholder: "Enter Nomination Details" },
+    { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
+    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
     { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
   ];
@@ -4701,7 +5008,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const phdAwardedColumns = [
     { name: 'scholarName', label: 'Scholar Name', placeholder: 'Enter Scholar Name' },
     { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Enter Research Area / Title' },
-    { name: 'evidenceLink', label: 'Notification / Evidence Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'none', placeholder: 'Enter Viva Date' },
+    { name: 'evidenceLink', label: 'Viva Circular Link', type: 'url', placeholder: 'Enter Viva Circular Link' },
   ];
   const timelineApprovalStatus = currentSectionData.appraisalStatus || 'Not Approved';
   const timelineHodRemarks = currentSectionData.hodRemarks || 'No HoD remarks available.';
@@ -4791,16 +5099,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       certifications: {},
       academicCollaborations: {},
       studentFeedback: {},
+      mentoring: {},
     };
 
     const validateRows = (key, columns) => {
       const rows = currentSectionData[key] || [];
-      if (rows.length === 0) {
+      if (!Array.isArray(rows) || rows.length === 0) {
         return;
       }
 
       rows.forEach((row) => {
-        const errors = getRowValidationErrors(row, columns, rows);
+        const errors = getRowValidationErrors(row, columns, rows, { batch: selectedTimeline });
         if (Object.keys(errors).length > 0) {
           rowErrors[key][row.id] = errors;
         }
@@ -4818,22 +5127,27 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     validateRows('academicCollaborations', academicCollaborationsColumns);
     validateRows('studentFeedback', studentFeedbackColumns);
 
-    const mCount = currentSectionData.mentoring?.menteeCount;
-    const mBatch = currentSectionData.mentoring?.batch;
+    if (Array.isArray(currentSectionData.mentoring)) {
+      validateRows('mentoring', mentoringColumns);
+    }
+
+    const legacyMentoring = !Array.isArray(currentSectionData.mentoring) ? currentSectionData.mentoring : null;
+    const mCount = legacyMentoring?.menteeCount;
+    const mBatch = legacyMentoring?.batch;
     const mentoringTouched =
       isNonEmpty(mCount) ||
       (isNonEmpty(mBatch) && !isPlaceholderValue(mBatch)) ||
-      isNonEmpty(currentSectionData.mentoring?.description) ||
-      isNonEmpty(currentSectionData.mentoring?.evidenceLink);
+      isNonEmpty(legacyMentoring?.description) ||
+      isNonEmpty(legacyMentoring?.evidenceLink);
     const mentoringErrors = {
       menteeCount:
         mentoringTouched && (!isNonEmpty(mCount) || Number(mCount) < 0),
       batch: mentoringTouched && (!isNonEmpty(mBatch) || isPlaceholderValue(mBatch)),
       description:
-        mentoringTouched && !isNonEmpty(currentSectionData.mentoring?.description),
+        mentoringTouched && !isNonEmpty(legacyMentoring?.description),
       evidenceLink:
         mentoringTouched &&
-        !isValidEvidenceLink(currentSectionData.mentoring?.evidenceLink),
+        !isValidEvidenceLink(legacyMentoring?.evidenceLink),
     };
     const rowErrorCount = Object.values(rowErrors).reduce(
       (sectionCount, section) =>
@@ -4865,6 +5179,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     certificationsColumns,
     academicCollaborationsColumns,
     studentFeedbackColumns,
+    mentoringColumns,
+    selectedTimeline,
   ]);
 
   const mySubmissions = useMemo(() => {
@@ -4992,12 +5308,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           { key: 'innovativeMethods', label: 'Innovative Methods', columns: innovativeMethodsColumns },
           { key: 'certifications', label: 'Certifications', columns: certificationsColumns },
           { key: 'academicCollaborations', label: 'Academic Collaborations', columns: academicCollaborationsColumns },
+          { key: 'mentoring', label: 'Mentoring System', columns: mentoringColumns },
           { key: 'studentFeedback', label: 'Student Feedback', columns: studentFeedbackColumns },
           { key: 'studioPedagogy', label: 'Studio Pedagogy', columns: studioPedagogyColumns },
           { key: 'educationalTours', label: 'Educational Tours', columns: educationalToursColumns },
         ],
         checkCustomComplete: (data) => {
           const m = data?.mentoring;
+          if (Array.isArray(m)) {
+            return m.some((r) => r.menteeCount && toNumber(r.menteeCount) > 0 && isNonEmpty(r.batch) && isNonEmpty(r.description) && isValidEvidenceLink(r.evidenceLink));
+          }
           return Boolean(
             m &&
             m.menteeCount &&
@@ -5010,6 +5330,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         checkCustomErrors: (data) => {
           const errs = [];
           const m = data?.mentoring;
+          if (Array.isArray(m)) return errs;
           const touched = m && (isNonEmpty(m.menteeCount) || (isNonEmpty(m.batch) && !isPlaceholderValue(m.batch)) || isNonEmpty(m.description) || isNonEmpty(m.evidenceLink));
           if (touched) {
             if (!isNonEmpty(m.menteeCount)) {
@@ -5159,7 +5480,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
         rows.forEach((row, idx) => {
           if (isMeaningfullyFilledRow(row)) {
-            const rowValidation = getRowValidationErrors(row, columns, rows);
+            const crossHackathons = key === 'hackathonPrizes'
+              ? (formData.hackathonMentoring || []).map((r) => normalizeEventName(r.eventName)).filter(Boolean)
+              : key === 'hackathonMentoring'
+                ? (formData.hackathonPrizes || []).map((r) => normalizeEventName(r.eventName)).filter(Boolean)
+                : null;
+            const rowValidation = getRowValidationErrors(row, columns, rows, { batch: selectedTimeline, crossHackathons });
             const errKeys = Object.keys(rowValidation);
 
             if (errKeys.length > 0) {
@@ -5179,7 +5505,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 const errVal = rowValidation[k];
                 const colDef = columns.find(c => c.name === k);
                 const colLabel = colDef ? colDef.label : k;
-                if (errVal === 'max_limit') {
+                if (errVal === 'invalid_doi') {
+                  errDetails.push('Enter a valid DOI (example: 10.1109/ACCESS.2023.1234567)');
+                } else if (errVal === 'hackathon_duplicate') {
+                  errDetails.push(key === 'hackathonPrizes' ? 'Already entered in section 8.2' : 'Already entered in section 3.5');
+                } else if (errVal === 'invalid_date') {
+                  errDetails.push(`Enter a valid date for ${colLabel} (DD.MM.YYYY or YYYY-MM-DD)`);
+                } else if (errVal === 'out_of_range') {
+                  errDetails.push(`${colLabel} is out of the allowed calendar range for batch ${selectedTimeline}`);
+                } else if (errVal === 'fdp_date_mismatch') {
+                  errDetails.push('End date must be exactly start date + duration - 1 days');
+                } else if (errVal === 'end_before_start') {
+                  errDetails.push('End date cannot be earlier than start date');
+                } else if (errVal === 'max_limit') {
                   const fieldMax = getNumericFieldMax(colDef || k);
                   errDetails.push(`${colLabel} cannot exceed ${fieldMax}`);
                 } else if (errVal === 'min_limit') {
@@ -5202,6 +5540,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         completedSections.add(sec.number);
       }
     });
+
+    // Issue 5: Hackathon cross-check between 3.5 and 8.2
+    const prizes3_5 = formData.hackathonPrizes || [];
+    const ment8_2 = formData.hackathonMentoring || [];
+    const eventNames3_5 = prizes3_5.map((r) => normalizeEventName(r.eventName)).filter(Boolean);
+    const eventNames8_2 = ment8_2.map((r) => normalizeEventName(r.eventName)).filter(Boolean);
+    const dupNames = eventNames3_5.filter((name) => eventNames8_2.includes(name));
+    if (dupNames.length > 0) {
+      fieldErrors.push(`Duplicate Hackathon Event: "${dupNames[0]}" cannot be entered in both Section 3.5 and Section 8.2.`);
+    }
+
+    // Issue 12: 6.1 Total duration must be at least 5 days
+    const fdpList = formData.fdpAttended || [];
+    if (fdpList.some((r) => isMeaningfullyFilledRow(r))) {
+      const totDur = fdpList.reduce((acc, r) => acc + (Number(r.duration) || 0), 0);
+      if (totDur < 5) {
+        fieldErrors.push(`Section VI → 6.1 FDP Attended: Total duration must be at least 5 days (currently ${totDur}).`);
+      }
+    }
 
     if (fieldErrors.length > 0) {
       return {
@@ -5244,7 +5601,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     editorialBoardColumns, moocDevelopedColumns,
     partialDeliveryColumns, industrialVisitsColumns, facultyInternshipsColumns, employerEngagementColumns,
     projectPublicationsColumns, hackathonMentoringColumns, startupSupportColumns, studentExhibitionsColumns,
-    deptActivitiesColumns, collegeActivitiesColumns, adminResponsibilitiesColumns
+    deptActivitiesColumns, collegeActivitiesColumns, adminResponsibilitiesColumns,
+    mentoringColumns, selectedTimeline
   ]);
 
   const handleInitiateSubmit = () => {
@@ -5691,9 +6049,34 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const updateArrayRow = (key, rowId, field, value) => {
     updateCurrentTimeline((current) => ({
       ...current,
-      [key]: (current[key] || []).map((row) =>
-        row.id === rowId ? { ...row, [field]: value } : row
-      ),
+      [key]: (current[key] || []).map((row) => {
+        if (row.id !== rowId) return row;
+        const updated = { ...row, [field]: value };
+        if (key === 'fdpAttended') {
+          if (field === 'duration' || field === 'dateRange') {
+            const exp = computeExpectedEndDate(
+              field === 'dateRange' ? value : updated.dateRange,
+              field === 'duration' ? value : updated.duration
+            );
+            if (updated.endDate) {
+              const currentEndIso = parseDateStringToIso(updated.endDate);
+              if (!exp || currentEndIso !== exp) {
+                updated.endDate = '';
+              }
+            }
+          }
+        }
+        const startKey = updated.startDate !== undefined ? 'startDate' : updated.dateRange !== undefined ? 'dateRange' : updated.fromDate !== undefined ? 'fromDate' : null;
+        const endKey = updated.endDate !== undefined ? 'endDate' : updated.toDate !== undefined ? 'toDate' : null;
+        if (startKey && endKey && field === startKey && updated[endKey]) {
+          const sIso = parseDateStringToIso(updated[startKey]);
+          const eIso = parseDateStringToIso(updated[endKey]);
+          if (sIso && sIso !== 'invalid' && eIso && eIso !== 'invalid' && eIso < sIso) {
+            updated[endKey] = '';
+          }
+        }
+        return updated;
+      }),
     }));
   };
 
@@ -6852,7 +7235,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   };
 
   const renderSectionOne = () => (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+    <AppraisalFormContext.Provider
+      value={{
+        selectedTimeline,
+        activeSubsection,
+        setActiveSubsection,
+        hackathonPrizes: currentSectionData.hackathonPrizes || [],
+        hackathonMentoring: currentSectionData.hackathonMentoring || [],
+      }}
+    >
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
       <div className="space-y-3">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
           {/* Title row + export buttons */}
@@ -6955,7 +7347,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section I Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'I' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === 'I' ? null : 'I')} 
+            onClick={() => handleSectionToggle('I')} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'I' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
           >
             <div>
@@ -7185,123 +7577,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </>
         )}
 
-        <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
-          <div className="mb-3 flex items-start justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                  1.7 Mentoring System
-                </p>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#4A1519]/10 text-[#4A1519] border border-[#4A1519]/20 shadow-xs">
-                  Subtotal: {scores.sub1_7 || 0} / 2
-                </span>
-              </div>
-              <span className="text-[11px] text-gray-500 font-medium mt-0.5 block tracking-wide italic normal-case">
-                (Calculation Rubric: Mentee Count &gt; 0 with complete mentoring details = 2 marks | Else = 0 marks)
-              </span>
-            </div>
-          </div>
-
-          <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
-            <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Mentee Count
-              </span>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={currentSectionData.mentoring?.menteeCount || ''}
-                onKeyDown={handleCountKeyDown}
-                onPaste={(event) => {
-                  event.preventDefault();
-                  const pasted = event.clipboardData.getData('text');
-                  updateMentoringField('menteeCount', sanitizeCountInput(pasted));
-                }}
-                onChange={(event) =>
-                  updateMentoringField('menteeCount', sanitizeCountInput(event.target.value))
-                }
-                readOnly={!isEditable || user.role === 'HOD'}
-                placeholder="Enter Mentee Count"
-                className={`mt-1 w-full rounded-md border ${
-                  sectionValidation.mentoringErrors.menteeCount
-                    ? 'border-red-400'
-                    : 'border-slate-200'
-                } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 read-only:cursor-default read-only:bg-slate-100 placeholder:text-[11px] placeholder:text-gray-400`}
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Batch
-              </span>
-              <select
-                value={currentSectionData.mentoring?.batch || ''}
-                onChange={(event) => updateMentoringField('batch', event.target.value)}
-                disabled={!isEditable || user.role === 'HOD'}
-                className={`mt-1 w-full rounded-md border ${
-                  sectionValidation.mentoringErrors.batch
-                    ? 'border-red-400'
-                    : 'border-slate-200'
-                } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:cursor-default disabled:bg-slate-100`}
-              >
-                <option value="" disabled>Select Batch</option>
-                {MENTORING_BATCH_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.options.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="mt-2 block">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Mentoring Description
-            </span>
-            <textarea
-              value={currentSectionData.mentoring?.description || ''}
-              onChange={(event) =>
-                updateMentoringField('description', event.target.value)
-              }
-              readOnly={!isEditable || user.role === 'HOD'}
-              placeholder="Enter Mentoring Description"
-              className={`mt-1 w-full rounded-md border ${
-                sectionValidation.mentoringErrors.description
-                  ? 'border-red-400'
-                  : 'border-slate-200'
-              } bg-white py-1 px-2 text-xs leading-5 text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 read-only:cursor-default read-only:bg-slate-100 placeholder:text-[11px] placeholder:text-gray-400 min-h-16`}
-            />
-          </label>
-
-          <label className="mt-2 block">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-              Supporting Document Link
-            </span>
-            <input
-              type="url"
-              value={currentSectionData.mentoring?.evidenceLink || ''}
-              onChange={(event) =>
-                updateMentoringField('evidenceLink', event.target.value)
-              }
-              readOnly={!isEditable || user.role === 'HOD'}
-              placeholder="Enter Supporting Document Link"
-              className={`mt-1 w-full rounded-md border ${
-                sectionValidation.mentoringErrors.evidenceLink
-                  ? 'border-red-400'
-                  : 'border-slate-200'
-              } bg-white py-0.5 px-2 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 read-only:cursor-default read-only:bg-slate-100 placeholder:text-[11px] placeholder:text-gray-400`}
-            />
-          </label>
-
-          <p className="mt-2 text-[11px] font-medium text-slate-500">
-            Auto-scored in real time when all required mentoring fields are valid.
-          </p>
-        </section>
+        <DynamicArraySection
+          title="1.7 Mentoring System"
+          subtitle="(Calculation Rubric: Mentee Count > 0 with complete mentoring details = 2 marks | Else = 0 marks)"
+          subScore={scores.sub1_7 || 0}
+          maxScore={2}
+          rows={Array.isArray(currentSectionData.mentoring) ? currentSectionData.mentoring : (currentSectionData.mentoring ? [currentSectionData.mentoring] : [{ id: 'mentoring-1', menteeCount: '', batch: '', description: '', evidenceLink: '' }])}
+          rowErrors={sectionValidation.rowErrors?.mentoring}
+          canAdd={canAddMentoring(Array.isArray(currentSectionData.mentoring) ? currentSectionData.mentoring : [])}
+          canRemove={Array.isArray(currentSectionData.mentoring) && currentSectionData.mentoring.length > 1}
+          disabled={!isEditable}
+          onAdd={() =>
+            addArrayRow('mentoring', {
+              menteeCount: '',
+              batch: '',
+              description: '',
+              evidenceLink: '',
+            })
+          }
+          onChange={(rowId, field, value) =>
+            updateArrayRow('mentoring', rowId, field, value)
+          }
+          onRemove={(rowId) => removeArrayRow('mentoring', rowId)}
+          columns={mentoringColumns}
+        />
 
         <DynamicArraySection
           title="1.8 NPTEL Certifications"
@@ -7405,7 +7704,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section II Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'II' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === 'II' ? null : 'II')} 
+            onClick={() => handleSectionToggle('II')} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'II' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
           >
             <div>
@@ -7447,7 +7746,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       2.2 Citations Received (Last 3 Years)
                     </h3>
                     <p className="text-xs text-slate-500">
-                      (Calculation Rubric: ≥50 = 8 marks | 25-49 = 5 marks | 15-24 = 4 marks | 5-14 = 3 marks | 1-4 = 1 mark | Max 8 marks)
+                      (Calculation Rubric: 1 mark per 5 citations | Max 8 marks)
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -7467,6 +7766,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       step="1"
                       placeholder="Enter Total Citations Count"
                       value={currentSectionData.citationsReceived?.totalCount || ''}
+                      onFocus={() => setActiveSubsection('2.2')}
                       onKeyDown={handleCountKeyDown}
                       onPaste={(e) => {
                         e.preventDefault();
@@ -7502,7 +7802,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       2.3 Total Q1 Citations
                     </h3>
                     <p className="text-xs text-slate-500">
-                      (Calculation Rubric: ≥25 = 7 marks | 15-24 = 5 marks | 6-14 = 3 marks | 1-5 = 1 mark | Max 7 marks)
+                      (Calculation Rubric: 1 mark per Q1 citation | Max 7 marks)
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -7522,6 +7822,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       step="1"
                       placeholder="Enter Q1 Citations Count"
                       value={currentSectionData.q1Citations?.totalCount || ''}
+                      onFocus={() => setActiveSubsection('2.3')}
                       onKeyDown={handleCountKeyDown}
                       onPaste={(e) => {
                         e.preventDefault();
@@ -7669,7 +7970,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section III Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "III" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === "III" ? null : "III")} 
+            onClick={() => handleSectionToggle("III")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "III" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -7694,7 +7995,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="3.2 Number of Patents Granted"
-                subtitle="(Calculation Rubric: 3 marks per patent | Max 6 marks)"
+                subtitle="(Calculation Rubric: 6 marks per patent | Max 6 marks)"
                 subScore={scores.sub3_2 || 0}
                 maxScore={6}
                 rows={currentSectionData.patentsGranted || []}
@@ -7733,7 +8034,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="3.5 Hackathon Mentoring & Prizes (with Students)"
-                subtitle="(Calculation Rubric: 2 marks per prize | Max 2 marks)"
+                subtitle="(Calculation Rubric: 1 mark per prize | Max 2 marks)"
                 subScore={scores.sub3_5 || 0}
                 maxScore={2}
                 rows={currentSectionData.hackathonPrizes || []}
@@ -7765,7 +8066,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section IV Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IV" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === "IV" ? null : "IV")} 
+            onClick={() => handleSectionToggle("IV")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IV" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -7777,7 +8078,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-6 space-y-6 ${activeSection === "IV" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="4.1 Sponsored Research Project - PI / Co-PI"
-                subtitle="(Calculation Rubric: Sanctioned Amount >= ₹1 Lakh = 5 marks; < ₹1 Lakh = 3 marks | Max 8 marks | Note: Sanction letter to be uploaded)"
+                subtitle={(
+                  <>
+                    <span>(Calculation Rubric: Sanctioned Amount &gt;= ₹10 Lakhs = 8 marks; ₹3 - ₹10 Lakhs = 5 marks; &lt; ₹3 Lakhs = 3 marks | Max 8 marks | Note: Sanction letter to be uploaded, </span>
+                    <span className="text-red-600 font-semibold not-italic">Sanction amount ₹ 10000 = 0.1 , ₹ 3 lakhs = 3</span>
+                    <span>)</span>
+                  </>
+                )}
                 subScore={scores.sub4_1 || 0}
                 maxScore={8}
                 rows={currentSectionData.researchProjects || []}
@@ -7790,7 +8097,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="4.2 Consultancy Projects"
-                subtitle="(Calculation Rubric: Consultancy Amount >= ₹50,000 = 3 marks; < ₹50,000 = 2 marks | Max 7 marks)"
+                subtitle={(
+                  <>
+                    <span>(Calculation Rubric: Consultancy Amount &gt;= ₹2 Lakhs = 7 marks; ₹50,000 - ₹2 Lakhs = 4 marks; &lt; ₹50,000 = 2 marks | Max 7 marks, </span>
+                    <span className="text-red-600 font-semibold not-italic">Sanction amount ₹ 10000 = 0.1 , ₹ 3 lakhs = 3</span>
+                    <span>)</span>
+                  </>
+                )}
                 subScore={scores.sub4_2 || 0}
                 maxScore={7}
                 rows={currentSectionData.consultancyProjects || []}
@@ -7807,7 +8120,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section V Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "V" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === "V" ? null : "V")} 
+            onClick={() => handleSectionToggle("V")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "V" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -7904,7 +8217,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section VI Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VI" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === "VI" ? null : "VI")} 
+            onClick={() => handleSectionToggle("VI")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VI" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -7914,19 +8227,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "VI" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
             <div className={`p-6 space-y-6 ${activeSection === "VI" ? 'block' : 'hidden print-section'}`}>
-              <DynamicArraySection
-                title="6.1 FDP / STTP Attended (5 days and above)"
-                subtitle="(Calculation Rubric: Per program = 2 marks | Max 3 marks)"
-                subScore={scores.sub6_1 || 0}
-                maxScore={3}
-                rows={currentSectionData.fdpAttended || []}
-                canAdd={canAddFdpAttended(currentSectionData.fdpAttended || [])}
-                disabled={!isEditable}
-                onAdd={() => addArrayRow("fdpAttended", { programName: "", organizer: "", duration: "", dateRange: "", endDate: "", evidenceLink: "" })}
-                onChange={(rowId, field, value) => updateArrayRow("fdpAttended", rowId, field, value)}
-                onRemove={(rowId) => removeArrayRow("fdpAttended", rowId)}
-                columns={fdpAttendedColumns}
-              />
+              {(() => {
+                const fdpList = currentSectionData.fdpAttended || [];
+                const hasFdp = fdpList.some((r) => isMeaningfullyFilledRow(r));
+                const totDur = fdpList.reduce((acc, r) => acc + (Number(r.duration) || 0), 0);
+                const fdpError = (hasFdp && totDur < 5) ? `Total duration must be at least 5 days (currently ${totDur})` : null;
+                return (
+                  <DynamicArraySection
+                    title="6.1 FDP / STTP Attended (5 days and above)"
+                    subtitle="(Calculation Rubric: 1.5 marks per 5-day FDP | Max 3 marks)"
+                    subScore={scores.sub6_1 || 0}
+                    maxScore={3}
+                    rows={fdpList}
+                    canAdd={canAddFdpAttended(fdpList)}
+                    disabled={!isEditable}
+                    onAdd={() => addArrayRow("fdpAttended", { programName: "", organizer: "", duration: "", dateRange: "", endDate: "", evidenceLink: "" })}
+                    onChange={(rowId, field, value) => updateArrayRow("fdpAttended", rowId, field, value)}
+                    onRemove={(rowId) => removeArrayRow("fdpAttended", rowId)}
+                    columns={fdpAttendedColumns}
+                    sectionError={fdpError}
+                  />
+                );
+              })()}
               <DynamicArraySection
                 title="6.2 Programs (FDP/STTP/Workshops/others) Organized"
                 subtitle="(Calculation Rubric: Per program (>= 5 days) = 2; (2-4 days) = 1 | Max 4 marks)"
@@ -7998,7 +8320,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section VII Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === "VII" ? null : "VII")} 
+            onClick={() => handleSectionToggle("VII")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -8066,7 +8388,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section VIII Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VIII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === "VIII" ? null : "VIII")} 
+            onClick={() => handleSectionToggle("VIII")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VIII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -8078,7 +8400,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-6 space-y-6 ${activeSection === "VIII" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)"
-                subtitle="(Calculation Rubric: Per publication = 2 | Max 2 marks)"
+                subtitle="(Calculation Rubric: Per publication = 1 mark | Max 2 marks)"
                 subScore={scores.sub8_1 || 0}
                 maxScore={2}
                 rows={currentSectionData.projectPublications || []}
@@ -8136,7 +8458,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section IX Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IX" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => setActiveSection(activeSection === "IX" ? null : "IX")} 
+            onClick={() => handleSectionToggle("IX")} 
             className={`p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IX" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -8251,199 +8573,167 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </button>
           </div>
 
-          {/* Section I Score Block Row */}
-          <div className="border-b border-gray-100 pb-3 mb-3 mt-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === 'I' ? null : 'I')} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section I Subtotal</span>
-              <span className="text-[#4A1519]">{scores.total || 0} / 50</span>
-            </div>
-            {activeSection === 'I' && (
-              <div className="print-hidden space-y-1.5 text-[11px] text-gray-500 font-medium pl-1 mt-2">
-                {scoreboardItems.map((item) => (
-                  <div
-                    key={item.label}
-                    className="flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1.5"
-                  >
-                    <div>
-                      <p className="text-xs font-medium text-gray-700">{item.label}</p>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-400">
-                        Max {item.max}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${getScoreBadgeClass(
-                        item.value,
-                        item.max
-                      )}`}
-                    >
-                      {item.value} / {item.max}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Active Section Scoreboard Block (Issue 15) */}
+          {(() => {
+            const currentSec = activeSection || 'I';
+            const configs = {
+              'I': {
+                title: 'Section I Subtotal',
+                score: scores.total || 0,
+                max: 50,
+                items: [
+                  { key: '1.1', label: '1.1 Courses Handled', value: scores.sub1_1 || 0, max: 8 },
+                  { key: '1.2', label: '1.2 Feedback / Engagement', value: scores.sub1_2 || 0, max: 6 },
+                  { key: '1.3', label: '1.3 Result Analysis / Target', value: scores.sub1_3 || 0, max: 6 },
+                  { key: '1.4', label: '1.4 Value Added Courses', value: scores.sub1_4 || 0, max: 4 },
+                  { key: '1.5', label: '1.5 Innovative Methods', value: scores.sub1_5 || 0, max: 4 },
+                  { key: '1.6', label: '1.6 Academic Collaborations', value: scores.sub1_6 || 0, max: 4 },
+                  { key: '1.7', label: '1.7 Mentoring System', value: scores.sub1_7 || 0, max: 4 },
+                  { key: '1.8', label: '1.8 Faculty Certifications', value: scores.sub1_8 || 0, max: 4 },
+                  { key: '1.9', label: '1.9 Student Feedback', value: scores.sub1_9 || 0, max: 5 },
+                  { key: '1.10', label: '1.10 End Semester Result Pass %', value: scores.sub1_10 || 0, max: 5 },
+                ],
+              },
+              'II': {
+                title: 'Section II Subtotal',
+                score: scores.section2Total || 0,
+                max: 55,
+                items: [
+                  { key: '2.1', label: '2.1 Journal Papers (SCI/Scopus)', value: scores.sub2_1 || 0, max: 15 },
+                  { key: '2.2', label: '2.2 Citations (Last 3 Years)', value: scores.sub2_2 || 0, max: 8 },
+                  { key: '2.3', label: '2.3 Total Q1 Citations', value: scores.sub2_3 || 0, max: 7 },
+                  { key: '2.4', label: '2.4 Books / Chapters', value: scores.sub2_4 || 0, max: isArch ? 4 : 5 },
+                  { key: '2.5', label: '2.5 Conference Publications', value: scores.sub2_5 || 0, max: 4 },
+                  { key: '2.6', label: isArch ? '2.6 Creative Scholarship & Design' : '2.6 Research Collaborations', value: scores.sub2_6 || 0, max: isArch ? 6 : 5 },
+                  { key: '2.7', label: '2.7 PhD Scholars (Registered)', value: scores.sub2_7 || 0, max: 5 },
+                  { key: '2.8', label: '2.8 PhD Scholars (Awarded)', value: scores.sub2_8 || 0, max: 6 },
+                ],
+              },
+              'III': {
+                title: 'Section III Subtotal',
+                score: scores.section3Total || 0,
+                max: 15,
+                items: [
+                  { key: '3.1', label: '3.1 Patents Published', value: scores.sub3_1 || 0, max: isArch ? 1 : 2 },
+                  { key: '3.2', label: '3.2 Patents Granted', value: scores.sub3_2 || 0, max: isArch ? 3 : 6 },
+                  { key: '3.3', label: '3.3 Transfer of Technology', value: scores.sub3_3 || 0, max: isArch ? 2 : 3 },
+                  { key: '3.4', label: '3.4 Prototypes Developed', value: scores.sub3_4 || 0, max: isArch ? 3 : 2 },
+                  { key: '3.5', label: '3.5 Hackathons Mentoring', value: scores.sub3_5 || 0, max: 2 },
+                  ...(isArch ? [{ key: '3.6', label: '3.6 Design Patents', value: scores.sub3_6 || 0, max: 4 }] : []),
+                ],
+              },
+              'IV': {
+                title: 'Section IV Subtotal',
+                score: scores.section4Total || 0,
+                max: 15,
+                items: [
+                  { key: '4.1', label: '4.1 Research Projects', value: scores.sub4_1 || 0, max: 8 },
+                  { key: '4.2', label: '4.2 Consultancy Projects', value: scores.sub4_2 || 0, max: 7 },
+                ],
+              },
+              'V': {
+                title: 'Section V Subtotal',
+                score: scores.section5Total || 0,
+                max: 10,
+                items: [
+                  { key: '5.1', label: '5.1 Int. Engagement / MoU', value: scores.sub5_1 || 0, max: isArch ? 1 : 2 },
+                  { key: '5.2', label: '5.2 Visiting Positions Abroad', value: scores.sub5_2 || 0, max: isArch ? 2 : 4 },
+                  { key: '5.3', label: '5.3 Foreign Faculty / Student', value: scores.sub5_3 || 0, max: isArch ? 1 : 2 },
+                  { key: '5.4', label: '5.4 QS / THE Survey', value: scores.sub5_4 || 0, max: 1 },
+                  { key: '5.5', label: '5.5 NIRF Survey', value: scores.sub5_5 || 0, max: 1 },
+                  ...(isArch ? [{ key: '5.6', label: '5.6 Int. Design Studio', value: scores.sub5_6 || 0, max: 4 }] : []),
+                ],
+              },
+              'VI': {
+                title: 'Section VI Subtotal',
+                score: scores.section6Total || 0,
+                max: 20,
+                items: [
+                  { key: '6.1', label: '6.1 FDP / STTP Attended', value: scores.sub6_1 || 0, max: 3 },
+                  { key: '6.2', label: '6.2 Programs Organized', value: scores.sub6_2 || 0, max: 4 },
+                  { key: '6.3', label: '6.3 Resource Person', value: scores.sub6_3 || 0, max: 4 },
+                  { key: '6.4', label: '6.4 Society Membership', value: scores.sub6_4 || 0, max: 1 },
+                  { key: '6.5', label: '6.5 Designation / Editorial', value: scores.sub6_5 || 0, max: 2 },
+                  { key: '6.6', label: '6.6 MOOC Developed', value: scores.sub6_6 || 0, max: 6 },
+                ],
+              },
+              'VII': {
+                title: 'Section VII Subtotal',
+                score: scores.section7Total || 0,
+                max: 10,
+                items: [
+                  { key: '7.1', label: '7.1 Partial Course Delivery', value: scores.sub7_1 || 0, max: 4 },
+                  { key: '7.2', label: '7.2 Accompanying Ind. Visit', value: scores.sub7_2 || 0, max: 2 },
+                  { key: '7.3', label: '7.3 Faculty Internship', value: scores.sub7_3 || 0, max: 3 },
+                  { key: '7.4', label: '7.4 Employer Engagement', value: scores.sub7_4 || 0, max: 1 },
+                ],
+              },
+              'VIII': {
+                title: 'Section VIII Subtotal',
+                score: scores.section8Total || 0,
+                max: 5,
+                items: [
+                  { key: '8.1', label: '8.1 Student Project Pub.', value: scores.sub8_1 || 0, max: isArch ? 1 : 2 },
+                  { key: '8.2', label: '8.2 Hackathon Mentoring', value: scores.sub8_2 || 0, max: 2 },
+                  { key: '8.3', label: '8.3 Startup / Club Support', value: scores.sub8_3 || 0, max: 1 },
+                  ...(isArch ? [{ key: '8.4', label: '8.4 Student Exhibitions', value: scores.sub8_4 || 0, max: 1 }] : []),
+                ],
+              },
+              'IX': {
+                title: 'Section IX Subtotal',
+                score: scores.section9Total || 0,
+                max: 20,
+                items: [
+                  { key: '9.1', label: '9.1 Department Activities', value: scores.sub9_1 || 0, max: 10 },
+                  { key: '9.2', label: '9.2 College Activities', value: scores.sub9_2 || 0, max: 10 },
+                  { key: '9.3', label: '9.3 Admin Responsibilities', value: scores.sub9_3 || 0, max: 20 },
+                ],
+              },
+            };
+            const currentCfg = configs[currentSec] || configs['I'];
 
-          {/* Section II Score Block Row */}
-          <div>
-            <div 
-              onClick={() => setActiveSection(activeSection === 'II' ? null : 'II')} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section II Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section2Total || 0} / 55</span>
-            </div>
-            {activeSection === 'II' && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>2.1 Journal Papers (SCI/Scopus)</span><span className="font-bold text-gray-800">{scores.sub2_1 || 0} / 15</span></div>
-                <div className="flex justify-between"><span>2.2 Citations (Last 3 Years)</span><span className="font-bold text-gray-800">{scores.sub2_2 || 0} / 8</span></div>
-                <div className="flex justify-between"><span>2.3 Total Q1 Citations</span><span className="font-bold text-gray-800">{scores.sub2_3 || 0} / 7</span></div>
-                <div className="flex justify-between"><span>2.4 Books / Chapters</span><span className="font-bold text-gray-800">{scores.sub2_4 || 0} / {isArch ? 4 : 5}</span></div>
-                <div className="flex justify-between"><span>2.5 Conference Publications</span><span className="font-bold text-gray-800">{scores.sub2_5 || 0} / 4</span></div>
-                <div className="flex justify-between"><span>{isArch ? '2.6 Creative Scholarship & Design Works' : '2.6 Research Collaborations'}</span><span className="font-bold text-gray-800">{scores.sub2_6 || 0} / {isArch ? 6 : 5}</span></div>
-                <div className="flex justify-between"><span>2.7 PhD Scholars (Registered)</span><span className="font-bold text-gray-800">{scores.sub2_7 || 0} / 5</span></div>
-                <div className="flex justify-between"><span>2.8 PhD Scholars (Awarded)</span><span className="font-bold text-gray-800">{scores.sub2_8 || 0} / 6</span></div>
+            return (
+              <div className="pt-3 pb-2">
+                <div className="flex justify-between items-center font-bold text-xs text-gray-800 uppercase tracking-wider mb-2.5 pb-2 border-b border-gray-100">
+                  <span>{currentCfg.title}</span>
+                  <span className="text-[#4A1519]">{currentCfg.score} / {currentCfg.max}</span>
+                </div>
+                <div className="print-hidden space-y-1.5 text-[11px] font-medium">
+                  {currentCfg.items.map((item) => {
+                    const isHighlighted = activeSubsection === item.key;
+                    return (
+                      <div
+                        key={item.key}
+                        className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 transition-all ${
+                          isHighlighted
+                            ? 'bg-amber-100/90 border-2 border-[#4A1519] text-[#4A1519] font-bold shadow-xs'
+                            : 'bg-slate-50 border border-slate-200/60 text-slate-700'
+                        }`}
+                      >
+                        <div>
+                          <p className={`text-xs ${isHighlighted ? 'font-bold text-[#4A1519]' : 'font-medium text-gray-700'}`}>
+                            {item.label}
+                          </p>
+                          <p className="text-[10px] uppercase tracking-wider text-gray-400">
+                            Max {item.max}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${
+                            isHighlighted
+                              ? 'bg-[#4A1519] text-white'
+                              : getScoreBadgeClass(item.value, item.max)
+                          }`}
+                        >
+                          {item.value} / {item.max}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
-          {/* Section III Score Block Row */}
-          <div className="border-t border-gray-100 pt-3 mt-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === "III" ? null : "III")} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section III Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section3Total || 0} / 15</span>
-            </div>
-            {activeSection === "III" && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>3.1 Patents Published</span><span className="font-bold text-gray-800">{scores.sub3_1 || 0} / {isArch ? 1 : 2}</span></div>
-                <div className="flex justify-between"><span>3.2 Patents Granted</span><span className="font-bold text-gray-800">{scores.sub3_2 || 0} / {isArch ? 3 : 6}</span></div>
-                <div className="flex justify-between"><span>3.3 Transfer of Technology</span><span className="font-bold text-gray-800">{scores.sub3_3 || 0} / {isArch ? 2 : 3}</span></div>
-                <div className="flex justify-between"><span>3.4 Prototypes</span><span className="font-bold text-gray-800">{scores.sub3_4 || 0} / {isArch ? 3 : 2}</span></div>
-                <div className="flex justify-between"><span>3.5 Hackathons Mentoring</span><span className="font-bold text-gray-800">{scores.sub3_5 || 0} / 2</span></div>
-                {isArch && <div className="flex justify-between"><span>3.6 Design Patents & Registered Designs</span><span className="font-bold text-gray-800">{scores.sub3_6 || 0} / 4</span></div>}
-              </div>
-            )}
-          </div>
-
-          {/* Section IV Score Block Row */}
-          <div className="border-t border-gray-100 pt-3 mt-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === "IV" ? null : "IV")} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section IV Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section4Total || 0} / 15</span>
-            </div>
-            {activeSection === "IV" && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>4.1 Research Projects</span><span className="font-bold text-gray-800">{scores.sub4_1 || 0} / 8</span></div>
-                <div className="flex justify-between"><span>4.2 Consultancy Projects</span><span className="font-bold text-gray-800">{scores.sub4_2 || 0} / 7</span></div>
-              </div>
-            )}
-          </div>
-
-          {/* Section V Score Block Row */}
-          <div className="border-t border-gray-100 pt-3 mt-3 pb-3 mb-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === "V" ? null : "V")} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section V Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section5Total || 0} / 10</span>
-            </div>
-            {activeSection === "V" && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>5.1 Int. Engagement</span><span className="font-bold text-gray-800">{scores.sub5_1 || 0} / {isArch ? 1 : 2}</span></div>
-                <div className="flex justify-between"><span>5.2 Visiting Abroad</span><span className="font-bold text-gray-800">{scores.sub5_2 || 0} / {isArch ? 2 : 4}</span></div>
-                <div className="flex justify-between"><span>5.3 Hosted Faculty</span><span className="font-bold text-gray-800">{scores.sub5_3 || 0} / {isArch ? 1 : 2}</span></div>
-                <div className="flex justify-between"><span>5.4 QS Survey</span><span className="font-bold text-gray-800">{scores.sub5_4 || 0} / 1</span></div>
-                <div className="flex justify-between"><span>5.5 NIRF Survey</span><span className="font-bold text-gray-800">{scores.sub5_5 || 0} / 1</span></div>
-                {isArch && <div className="flex justify-between"><span>5.6 International Design Studio / Workshops</span><span className="font-bold text-gray-800">{scores.sub5_6 || 0} / 4</span></div>}
-              </div>
-            )}
-          </div>
-
-          {/* Section VI Score Block Row */}
-          <div className="border-t border-gray-100 pt-3 mt-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === "VI" ? null : "VI")} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section VI Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section6Total || 0} / 20</span>
-            </div>
-            {activeSection === "VI" && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>6.1 FDP Attended</span><span className="font-bold text-gray-800">{scores.sub6_1 || 0} / 3</span></div>
-                <div className="flex justify-between"><span>6.2 Programs Organized</span><span className="font-bold text-gray-800">{scores.sub6_2 || 0} / 4</span></div>
-                <div className="flex justify-between"><span>6.3 Resource Person</span><span className="font-bold text-gray-800">{scores.sub6_3 || 0} / 4</span></div>
-                <div className="flex justify-between"><span>6.4 Society Membership</span><span className="font-bold text-gray-800">{scores.sub6_4 || 0} / 1</span></div>
-                <div className="flex justify-between"><span>6.5 Designation Positions</span><span className="font-bold text-gray-800">{scores.sub6_5 || 0} / 2</span></div>
-                <div className="flex justify-between"><span>6.6 MOOC Developed</span><span className="font-bold text-gray-800">{scores.sub6_6 || 0} / 6</span></div>
-              </div>
-            )}
-          </div>
-
-          {/* Section VII Score Block Row */}
-          <div className="border-t border-gray-100 pt-3 mt-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === "VII" ? null : "VII")} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section VII Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section7Total || 0} / 10</span>
-            </div>
-            {activeSection === "VII" && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>7.1 Expert Deliveries</span><span className="font-bold text-gray-800">{scores.sub7_1 || 0} / 4</span></div>
-                <div className="flex justify-between"><span>7.2 Industrial Visits</span><span className="font-bold text-gray-800">{scores.sub7_2 || 0} / 2</span></div>
-                <div className="flex justify-between"><span>7.3 Faculty Internships</span><span className="font-bold text-gray-800">{scores.sub7_3 || 0} / 3</span></div>
-                <div className="flex justify-between"><span>7.4 Employer Engagement</span><span className="font-bold text-gray-800">{scores.sub7_4 || 0} / 1</span></div>
-              </div>
-            )}
-          </div>
-
-          {/* Section VIII Score Block Row */}
-          <div className="border-t border-gray-100 pt-3 mt-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === "VIII" ? null : "VIII")} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section VIII Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section8Total || 0} / 5</span>
-            </div>
-            {activeSection === "VIII" && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>8.1 Project Publications</span><span className="font-bold text-gray-800">{scores.sub8_1 || 0} / {isArch ? 1 : 2}</span></div>
-                <div className="flex justify-between"><span>8.2 Hackathon Mentoring</span><span className="font-bold text-gray-800">{scores.sub8_2 || 0} / 2</span></div>
-                <div className="flex justify-between"><span>8.3 Startup Support</span><span className="font-bold text-gray-800">{scores.sub8_3 || 0} / 1</span></div>
-                {isArch && <div className="flex justify-between"><span>8.4 Student Exhibitions / Competitions Mentored</span><span className="font-bold text-gray-800">{scores.sub8_4 || 0} / 1</span></div>}
-              </div>
-            )}
-          </div>
-
-          {/* Section IX Score Block Row */}
-          <div className="border-t border-gray-100 pt-3 mt-3 pb-3 mb-3">
-            <div 
-              onClick={() => setActiveSection(activeSection === "IX" ? null : "IX")} 
-              className="flex justify-between items-center cursor-pointer font-bold text-xs text-gray-800 uppercase tracking-wider mb-2"
-            >
-              <span>Section IX Subtotal</span>
-              <span className="text-[#4A1519]">{scores.section9Total || 0} / 20</span>
-            </div>
-            {activeSection === "IX" && (
-              <div className="print-hidden space-y-2 text-xs font-medium text-gray-600 mt-2 pl-1">
-                <div className="flex justify-between"><span>9.1 Dept. Activities</span><span className="font-bold text-gray-800">{scores.sub9_1 || 0} / 10</span></div>
-                <div className="flex justify-between"><span>9.2 College Activities</span><span className="font-bold text-gray-800">{scores.sub9_2 || 0} / 10</span></div>
-                <div className="flex justify-between"><span>9.3 Admin Responsibilities</span><span className="font-bold text-gray-800">{scores.sub9_3 || 0} / 20</span></div>
-              </div>
-            )}
-          </div>
+            );
+          })()}
 
           <div className="mt-3 rounded-lg bg-gradient-to-br from-[#4A1519] to-[#3B1013] px-3 py-3 text-white">
             <p className="text-xs font-semibold uppercase tracking-wider text-white/65">
@@ -8529,7 +8819,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         )}
       </div>
     </div>
-  );
+  </AppraisalFormContext.Provider>
+);
 
 
   return (

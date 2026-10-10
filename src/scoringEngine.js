@@ -124,12 +124,12 @@ export function computeAutomatedScores(sectionData = {}) {
     ).length) * 4,
     4
   );
-  const s1_7 =
-    safeData.mentoring &&
-    isRowFullyFilled(safeData.mentoring, ['menteeCount', 'batch', 'description', 'evidenceLink']) &&
-    toNum(safeData.mentoring.menteeCount) > 0
-      ? 2
-      : 0;
+  const mentoringList = Array.isArray(safeData.mentoring)
+    ? safeData.mentoring
+    : safeData.mentoring ? [safeData.mentoring] : [];
+  const s1_7 = mentoringList.some(
+    (r) => isRowFullyFilled(r, ['menteeCount', 'batch', 'description', 'evidenceLink']) && toNum(r.menteeCount) > 0
+  ) ? 2 : 0;
   const s1_8 = Math.min(
     ((safeData.certifications || []).filter(
       (r) => isRowFullyFilled(r, ['courseName', 'platform', 'certType', 'evidenceLink'])
@@ -137,31 +137,31 @@ export function computeAutomatedScores(sectionData = {}) {
     4
   );
 
-  const s1_9 = Math.min(
-    (safeData.studentFeedback || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['courseName', 'feedbackPct', 'evidenceLink'])) return sum;
-      const v = toNum(r.feedbackPct);
-      if (v > 90) return sum + 4;
-      if (v >= 80) return sum + 3;
-      if (v >= 75) return sum + 1;
-      return sum;
-    }, 0),
-    4
+  const filledFeedback = (safeData.studentFeedback || []).filter(
+    (r) => isRowFullyFilled(r, ['courseName', 'feedbackPct', 'evidenceLink'])
   );
+  let s1_9 = 0;
+  if (filledFeedback.length > 0) {
+    const totalPct = filledFeedback.reduce((sum, r) => sum + toNum(r.feedbackPct), 0);
+    const avgFeedback = totalPct / filledFeedback.length;
+    if (avgFeedback > 90) s1_9 = 4;
+    else if (avgFeedback >= 80) s1_9 = 3;
+    else if (avgFeedback >= 75) s1_9 = 1;
+  }
 
-  const s1_10 = Math.min(
-    (safeData.resultAnalysis || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])) return sum;
-      const v = toNum(r.passPercentage);
-      if (v >= 90) return sum + 5;
-      if (v >= 80) return sum + 4;
-      if (v >= 70) return sum + 3;
-      if (v >= 60) return sum + 2;
-      if (v > 0) return sum + 1;
-      return sum;
-    }, 0),
-    5
+  const filledResults = (safeData.resultAnalysis || []).filter(
+    (r) => isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])
   );
+  let s1_10 = 0;
+  if (filledResults.length > 0) {
+    const totalPass = filledResults.reduce((sum, r) => sum + toNum(r.passPercentage), 0);
+    const avgPass = totalPass / filledResults.length;
+    if (avgPass >= 90) s1_10 = 5;
+    else if (avgPass >= 80) s1_10 = 4;
+    else if (avgPass >= 70) s1_10 = 3;
+    else if (avgPass >= 60) s1_10 = 2;
+    else if (avgPass > 0) s1_10 = 1;
+  }
 
   const s1_11 = Math.min(
     (safeData.coAttainment || []).reduce((sum, r) => {
@@ -189,19 +189,10 @@ export function computeAutomatedScores(sectionData = {}) {
   );
 
   const citVal = isFilled(safeData.citationsReceived?.totalCount) ? toNum(safeData.citationsReceived?.totalCount) : 0;
-  let s2_2 = 0;
-  if (citVal >= 50) s2_2 = 8;
-  else if (citVal >= 25) s2_2 = 5;
-  else if (citVal >= 15) s2_2 = 4;
-  else if (citVal >= 5) s2_2 = 3;
-  else if (citVal >= 1) s2_2 = 1;
+  const s2_2 = Math.min(8, Math.floor(citVal / 5));
 
   const q1CitVal = isFilled(safeData.q1Citations?.totalCount) ? toNum(safeData.q1Citations?.totalCount) : 0;
-  let s2_3 = 0;
-  if (q1CitVal >= 25) s2_3 = 7;
-  else if (q1CitVal >= 15) s2_3 = 5;
-  else if (q1CitVal >= 6) s2_3 = 3;
-  else if (q1CitVal >= 1) s2_3 = 1;
+  const s2_3 = Math.min(7, Math.floor(q1CitVal));
 
   const s2_4 = Math.min(
     (safeData.bookPublications || []).reduce((sum, r) => {
@@ -216,7 +207,7 @@ export function computeAutomatedScores(sectionData = {}) {
   const s2_5 = Math.min(
     (safeData.conferencePapers || []).filter(
       (r) => isRowFullyFilled(r, ['paperTitle', 'proceedingName', 'evidenceLink'])
-    ).length * 1,
+    ).length * 2,
     4
   );
   const s2_6 = Math.min(
@@ -236,7 +227,7 @@ export function computeAutomatedScores(sectionData = {}) {
   );
   const s2_8 = Math.min(
     (safeData.phdAwarded || []).filter(
-      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'vivaDate', 'evidenceLink'])
     ).length * 3,
     6
   );
@@ -251,7 +242,7 @@ export function computeAutomatedScores(sectionData = {}) {
   const s3_2 = Math.min(
     (safeData.patentsGranted || []).filter(
       (r) => isRowFullyFilled(r, ['refNumber', 'title', 'evidenceLink'])
-    ).length * 3,
+    ).length * 6,
     6
   );
   const s3_3 = Math.min(
@@ -269,7 +260,7 @@ export function computeAutomatedScores(sectionData = {}) {
   const s3_5 = Math.min(
     (safeData.hackathonPrizes || []).filter(
       (r) => isRowFullyFilled(r, ['eventName', 'prize', 'evidenceLink'])
-    ).length * 2,
+    ).length * 1,
     2
   );
 
@@ -278,11 +269,9 @@ export function computeAutomatedScores(sectionData = {}) {
     (safeData.researchProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['projectName', 'fundingAgency', 'amount', 'role', 'status', 'evidenceLink'])) return sum;
       const v = toNum(r.amount);
-      if (v >= 2000000) return sum + 8;
-      if (v >= 1500000) return sum + 5;
-      if (v >= 1000000) return sum + 3;
-      if (v >= 500000) return sum + 2;
-      if (v >= 100000) return sum + 1;
+      if (v >= 10) return sum + 8;
+      if (v >= 3) return sum + 5;
+      if (v > 0) return sum + 3;
       return sum;
     }, 0),
     8
@@ -292,10 +281,9 @@ export function computeAutomatedScores(sectionData = {}) {
     (safeData.consultancyProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['title', 'clientDetails', 'amount', 'evidenceLink'])) return sum;
       const v = toNum(r.amount);
-      if (v >= 500000) return sum + 7;
-      if (v >= 300000) return sum + 5;
-      if (v >= 100000) return sum + 3;
-      if (v > 0) return sum + 1;
+      if (v >= 2) return sum + 7;
+      if (v >= 0.5) return sum + 4;
+      if (v > 0) return sum + 2;
       return sum;
     }, 0),
     7
@@ -304,7 +292,7 @@ export function computeAutomatedScores(sectionData = {}) {
   // Section 5
   const s5_1 = Math.min(
     (safeData.internationalEngagement || []).filter(
-      (r) => isRowFullyFilled(r, ['institution', 'country', 'nature', 'status', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['institution', 'country', 'nature', ['startDate', 'status'], 'evidenceLink'])
     ).length * 1,
     2
   );
@@ -344,7 +332,7 @@ export function computeAutomatedScores(sectionData = {}) {
   const s6_1 = Math.min(
     (safeData.fdpAttended || []).filter(
       (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink'])
-    ).length * 2,
+    ).length * 1.5,
     3
   );
   const s6_2 = Math.min(
@@ -426,7 +414,7 @@ export function computeAutomatedScores(sectionData = {}) {
   const s8_1 = Math.min(
     (safeData.projectPublications || []).filter(
       (r) => isRowFullyFilled(r, ['title', ['students', 'studentNames'], 'evidenceLink'])
-    ).length * 2,
+    ).length * 1,
     2
   );
   const s8_2 = Math.min(
@@ -559,8 +547,11 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
 
   // 1.7 Mentoring System Effectiveness (Good = 2 | Avg = 1)
+  const mentoringListArch = Array.isArray(safeData.mentoringSystem || safeData.mentoring)
+    ? (safeData.mentoringSystem || safeData.mentoring)
+    : [(safeData.mentoringSystem || safeData.mentoring || {})];
   const s1_7 = Math.min(
-    (safeData.mentoringSystem || [safeData.mentoring || {}]).reduce((sum, r) => {
+    mentoringListArch.reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['menteeCount', 'batch', 'description', 'evidenceLink'])) return sum;
       const rev = (r.hodReview || '').toLowerCase();
       if (rev === 'good' || rev === 'excellent') return sum + 2;
@@ -578,30 +569,30 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
 
   // 1.9 Feedback (>90% = 4, 80-90% = 3, 75-80% = 1)
-  const s1_9 = Math.min(
-    (safeData.studentFeedback || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['courseName', ['score', 'feedbackPct'], 'evidenceLink'])) return sum;
-      const v = toNum(r.score || r.feedbackPct);
-      if (v > 90) return sum + 4;
-      if (v >= 80) return sum + 3;
-      if (v >= 75) return sum + 1;
-      return sum;
-    }, 0),
-    4
+  const filledFeedbackArch = (safeData.studentFeedback || []).filter(
+    (r) => isRowFullyFilled(r, ['courseName', ['score', 'feedbackPct'], 'evidenceLink'])
   );
+  let s1_9 = 0;
+  if (filledFeedbackArch.length > 0) {
+    const totalPct = filledFeedbackArch.reduce((sum, r) => sum + toNum(r.score || r.feedbackPct), 0);
+    const avgFeedback = totalPct / filledFeedbackArch.length;
+    if (avgFeedback > 90) s1_9 = 4;
+    else if (avgFeedback >= 80) s1_9 = 3;
+    else if (avgFeedback >= 75) s1_9 = 1;
+  }
 
   // 1.10 Result Analysis — Pass % (>=90% = 3, 70-89% = 2, 60-69% = 1) -> Max 3 for Arch!
-  const s1_10 = Math.min(
-    (safeData.resultAnalysis || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])) return sum;
-      const v = toNum(r.passPercentage);
-      if (v >= 90) return sum + 3;
-      if (v >= 70) return sum + 2;
-      if (v >= 60) return sum + 1;
-      return sum;
-    }, 0),
-    3
+  const filledResultsArch = (safeData.resultAnalysis || []).filter(
+    (r) => isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])
   );
+  let s1_10 = 0;
+  if (filledResultsArch.length > 0) {
+    const totalPass = filledResultsArch.reduce((sum, r) => sum + toNum(r.passPercentage), 0);
+    const avgPass = totalPass / filledResultsArch.length;
+    if (avgPass >= 90) s1_10 = 3;
+    else if (avgPass >= 70) s1_10 = 2;
+    else if (avgPass >= 60) s1_10 = 1;
+  }
 
   // 1.11 CO Attainment (>=70% = 3, 60-69% = 2, 50-59% = 1) -> Max 3 for Arch!
   const s1_11 = Math.min(
@@ -632,21 +623,12 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   const citVal = isFilled(safeData.scopusCitations?.totalCitations || safeData.citationsReceived?.totalCount)
     ? toNum(safeData.scopusCitations?.totalCitations || safeData.citationsReceived?.totalCount)
     : 0;
-  let s2_2 = 0;
-  if (citVal >= 50) s2_2 = 8;
-  else if (citVal >= 25) s2_2 = 5;
-  else if (citVal >= 15) s2_2 = 4;
-  else if (citVal >= 5) s2_2 = 3;
-  else if (citVal >= 1) s2_2 = 1;
+  const s2_2 = Math.min(8, Math.floor(citVal / 5));
 
   const q1CitVal = isFilled(safeData.q1Citations?.totalCitations || safeData.q1Citations?.totalCount)
     ? toNum(safeData.q1Citations?.totalCitations || safeData.q1Citations?.totalCount)
     : 0;
-  let s2_3 = 0;
-  if (q1CitVal >= 25) s2_3 = 7;
-  else if (q1CitVal >= 15) s2_3 = 5;
-  else if (q1CitVal >= 6) s2_3 = 3;
-  else if (q1CitVal >= 1) s2_3 = 1;
+  const s2_3 = Math.min(7, Math.floor(q1CitVal));
 
   const s2_4 = Math.min(
     (safeData.bookPublications || []).reduce((sum, r) => {
@@ -660,7 +642,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   const s2_5 = Math.min(
     (safeData.conferencePapers || []).filter(
       (r) => isRowFullyFilled(r, ['paperTitle', ['proceedingName', 'conferenceName'], 'evidenceLink'])
-    ).length * 1,
+    ).length * 2,
     4
   );
   
@@ -680,7 +662,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   const s2_8 = Math.min(
     (safeData.phdAwarded || []).filter(
-      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['scholarName', 'researchArea', 'vivaDate', 'evidenceLink'])
     ).length * 3,
     6
   );
@@ -723,16 +705,14 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     4
   );
 
-  // Section 4 (Sponsored Research & Consultancy - Arch Rubrics)
+  // Section 4 (Sponsored Research & Consultancy - Arch Rubrics in Lakhs)
   const s4_1 = Math.min(
     (safeData.researchProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['projectName', 'fundingAgency', ['sanctionedAmount', 'amount'], 'evidenceLink'])) return sum;
       const v = toNum(r.sanctionedAmount || r.amount);
-      if (v >= 2000000) return sum + 8;
-      if (v >= 1500000) return sum + 5;
-      if (v >= 1000000) return sum + 3;
-      if (v >= 500000) return sum + 2;
-      if (v >= 100000) return sum + 1;
+      if (v >= 10) return sum + 8;
+      if (v >= 3) return sum + 5;
+      if (v > 0) return sum + 3;
       return sum;
     }, 0),
     8
@@ -742,10 +722,9 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     (safeData.consultancyProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, [['titleOfConsultancy', 'title'], ['clientDetails', 'organization'], ['amountGenerated', 'amount'], 'evidenceLink'])) return sum;
       const v = toNum(r.amountGenerated || r.amount);
-      if (v >= 500000) return sum + 7;
-      if (v >= 300000) return sum + 5;
-      if (v >= 100000) return sum + 3;
-      if (v > 0) return sum + 1;
+      if (v >= 2) return sum + 7;
+      if (v >= 0.5) return sum + 4;
+      if (v > 0) return sum + 2;
       return sum;
     }, 0),
     7
@@ -799,7 +778,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   const s6_1 = Math.min(
     (safeData.fdpAttended || []).filter(
       (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink'])
-    ).length * 2,
+    ).length * 1.5,
     3
   );
   const s6_2 = Math.min(

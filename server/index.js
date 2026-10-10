@@ -187,12 +187,7 @@ const AppraisalSchema = new mongoose.Schema({
     valueAdded: { type: Array, default: [] },
     innovativeMethods: { type: Array, default: [] },
     academicCollaborations: { type: Array, default: [] },
-    mentoring: {
-      menteeCount: { type: String, default: '' },
-      batch: { type: String, default: '2024-28' },
-      description: { type: String, default: '' },
-      evidenceLink: { type: String, default: '' }
-    },
+    mentoring: { type: mongoose.Schema.Types.Mixed, default: [] },
     certifications: { type: Array, default: [] },
     studentFeedback: { type: Array, default: [] },
     resultAnalysis: { type: Array, default: [] },
@@ -431,8 +426,18 @@ function validateSectionOneData(section1Data) {
     }),
   ];
 
-  if (!section1Data.mentoring || typeof section1Data.mentoring !== 'object') {
-    errors.push('mentoring must be an object.');
+  if (Array.isArray(section1Data.mentoring)) {
+    errors.push(
+      ...validateRows(section1Data.mentoring, 'mentoring', {
+        requiresCourseCode: false,
+        requiredTextFields: ['menteeCount', 'description'],
+        selectFieldRules: [
+          { field: 'batch', allowedValues: mentoringBatchOptions },
+        ],
+      })
+    );
+  } else if (!section1Data.mentoring || typeof section1Data.mentoring !== 'object') {
+    errors.push('mentoring must be an object or array.');
   } else {
     const mentoringTouched =
       isFilledString(section1Data.mentoring.menteeCount) ||

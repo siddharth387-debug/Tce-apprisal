@@ -21,6 +21,7 @@ export default function AcademicTimelinePicker({
   placeholder = 'Select Period',
   allowClear = false,
   disabled = false,
+  restrictToBatch = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
@@ -160,6 +161,9 @@ export default function AcademicTimelinePicker({
 
   // Generate standard academic years for the active decade
   const decadeYears = useMemo(() => {
+    if (restrictToBatch) {
+      return currentAcademicYear ? [currentAcademicYear] : [];
+    }
     const years = [];
     for (let y = decadeStart; y <= decadeEnd; y++) {
       const tl = `${y}-${y + 1}`;
@@ -168,7 +172,7 @@ export default function AcademicTimelinePicker({
       }
     }
     return years;
-  }, [decadeStart, decadeEnd, minYear, maxYear, EXCLUDED_PERIODS]);
+  }, [decadeStart, decadeEnd, minYear, maxYear, EXCLUDED_PERIODS, restrictToBatch, currentAcademicYear]);
 
   const handlePrevDecade = (e) => {
     e.stopPropagation();
@@ -349,45 +353,53 @@ export default function AcademicTimelinePicker({
             )}
 
             {/* Decade Header Navigator */}
-            <div className="flex items-center justify-between mb-3 px-1">
-              <button
-                type="button"
-                onClick={handlePrevDecade}
-                disabled={decadeStart - 10 < minYear}
-                className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                title="Previous Decade"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-
-              <div className="flex items-center gap-1.5">
+            {restrictToBatch ? (
+              <div className="flex items-center justify-between mb-3 px-1">
                 <span className="text-xs font-bold text-slate-800 tracking-wide">
-                  Decade {decadeStart} – {decadeEnd}
+                  Academic Batch ({currentAcademicYear})
                 </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between mb-3 px-1">
                 <button
                   type="button"
-                  onClick={handleJumpToCurrent}
-                  className="text-[10px] font-semibold text-[#4A1519] hover:underline px-1.5 py-0.5 rounded bg-[#4A1519]/5"
-                  title="Jump to current active year"
+                  onClick={handlePrevDecade}
+                  disabled={decadeStart - 10 < minYear}
+                  className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  title="Previous Decade"
                 >
-                  Today
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-slate-800 tracking-wide">
+                    Decade {decadeStart} – {decadeEnd}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleJumpToCurrent}
+                    className="text-[10px] font-semibold text-[#4A1519] hover:underline px-1.5 py-0.5 rounded bg-[#4A1519]/5"
+                    title="Jump to current active year"
+                  >
+                    Today
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleNextDecade}
+                  disabled={decadeStart + 10 >= maxYear}
+                  className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  title="Next Decade"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
+                  </svg>
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={handleNextDecade}
-                disabled={decadeStart + 10 >= maxYear}
-                className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                title="Next Decade"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
+            )}
 
             {/* Decade Years Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
@@ -421,74 +433,76 @@ export default function AcademicTimelinePicker({
             </div>
 
             {/* Custom Range Drawer (for Multi-Year CAS / Promotion Reviews / Projects) */}
-            <div className="mt-3 pt-2.5 border-t border-slate-100">
-              {!showCustomRange ? (
-                <button
-                  type="button"
-                  onClick={() => setShowCustomRange(true)}
-                  className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#4A1519] py-1 transition"
-                >
-                  <span>➕</span> Custom Multi-Year Range (CAS / Projects)
-                </button>
-              ) : (
-                <form onSubmit={handleApplyCustomRange} className="space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-700">Custom Multi-Year Period</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowCustomRange(false);
-                        setCustomError('');
-                      }}
-                      className="text-slate-400 hover:text-slate-600 text-xs"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">Start Year</label>
-                      <input
-                        type="number"
-                        min={minYear}
-                        max={maxYear - 1}
-                        value={customStart}
-                        onChange={(e) => setCustomStart(e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
-                      />
-                    </div>
-                    <span className="text-slate-400 mt-3 font-bold">—</span>
-                    <div className="flex-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">End Year</label>
-                      <input
-                        type="number"
-                        min={minYear + 1}
-                        max={maxYear}
-                        value={customEnd}
-                        onChange={(e) => setCustomEnd(e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
-                      />
-                    </div>
-                    <div className="pt-3">
+            {!restrictToBatch && (
+              <div className="mt-3 pt-2.5 border-t border-slate-100">
+                {!showCustomRange ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomRange(true)}
+                    className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#4A1519] py-1 transition"
+                  >
+                    <span>➕</span> Custom Multi-Year Range (CAS / Projects)
+                  </button>
+                ) : (
+                  <form onSubmit={handleApplyCustomRange} className="space-y-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">Custom Multi-Year Period</span>
                       <button
-                        type="submit"
-                        className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-xs font-bold rounded shadow-sm transition"
+                        type="button"
+                        onClick={() => {
+                          setShowCustomRange(false);
+                          setCustomError('');
+                        }}
+                        className="text-slate-400 hover:text-slate-600 text-xs"
                       >
-                        Apply
+                        ✕
                       </button>
                     </div>
-                  </div>
 
-                  {customError && (
-                    <p className="text-[10.5px] font-medium text-red-600">{customError}</p>
-                  )}
-                  <p className="text-[9.5px] text-slate-500 leading-tight">
-                    Example: 2021 to 2024 for multi-year sponsored project or committee tenure.
-                  </p>
-                </form>
-              )}
-            </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">Start Year</label>
+                        <input
+                          type="number"
+                          min={minYear}
+                          max={maxYear - 1}
+                          value={customStart}
+                          onChange={(e) => setCustomStart(e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
+                        />
+                      </div>
+                      <span className="text-slate-400 mt-3 font-bold">—</span>
+                      <div className="flex-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-0.5">End Year</label>
+                        <input
+                          type="number"
+                          min={minYear + 1}
+                          max={maxYear}
+                          value={customEnd}
+                          onChange={(e) => setCustomEnd(e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-slate-300 rounded bg-white text-slate-800 outline-none focus:border-[#4A1519]"
+                        />
+                      </div>
+                      <div className="pt-3">
+                        <button
+                          type="submit"
+                          className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-xs font-bold rounded shadow-sm transition"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+
+                    {customError && (
+                      <p className="text-[10.5px] font-medium text-red-600">{customError}</p>
+                    )}
+                    <p className="text-[9.5px] text-slate-500 leading-tight">
+                      Example: 2021 to 2024 for multi-year sponsored project or committee tenure.
+                    </p>
+                  </form>
+                )}
+              </div>
+            )}
           </div>,
           document.body
         )}
