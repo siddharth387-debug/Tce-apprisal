@@ -164,7 +164,7 @@ export default function AppDateInput({
 
   // Determine current validation error
   const getValidationError = () => {
-    if (!value) return '';
+    if (disabled || !value) return '';
     const iso = parseDateStringToIso(value);
     if (iso === 'invalid') {
       return 'Enter a valid date (DD.MM.YYYY or YYYY-MM-DD)';
@@ -186,7 +186,7 @@ export default function AppDateInput({
     return '';
   };
 
-  const validationError = errorText || getValidationError();
+  const validationError = disabled ? '' : (errorText || getValidationError());
   const hasError = Boolean(validationError);
 
   // Ensure value provided to input is in YYYY-MM-DD format if valid ISO

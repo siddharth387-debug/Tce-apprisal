@@ -437,6 +437,7 @@ function normalizeSection6Data(sec6 = {}) {
       if (p.toLowerCase().includes('present')) {
         isTillDate = true;
         fromDate = p.split(/\s+to\s+/i)[0] || '';
+        toDate = '';
       } else if (p.includes(' to ')) {
         const parts = p.split(/\s+to\s+/i);
         fromDate = parts[0] || '';
@@ -446,6 +447,10 @@ function normalizeSection6Data(sec6 = {}) {
       }
     }
 
+    if (isTillDate) {
+      toDate = '';
+    }
+
     const computedPeriod = (fromDate || toDate || isTillDate)
       ? (isTillDate ? `${fromDate} to Present` : (fromDate && toDate ? `${fromDate} to ${toDate}` : fromDate))
       : (r.period || '');
@@ -453,7 +458,7 @@ function normalizeSection6Data(sec6 = {}) {
     return {
       ...r,
       fromDate,
-      toDate,
+      toDate: isTillDate ? '' : toDate,
       isTillDate,
       period: computedPeriod,
     };
@@ -775,6 +780,9 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
     }
 
     if (column.type === 'date') {
+      if (column.name === 'toDate' && Boolean(row.isTillDate)) {
+        return;
+      }
       if (!trimmed) {
         errors[column.name] = true;
       } else {
@@ -1048,7 +1056,8 @@ function canAddProfessionalMembership(rows) {
 function canAddEditorialBoard(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.bodyName && last.position && (last.fromDate || last.isTillDate || last.period) && last.evidenceLink);
+  const hasDateRequirement = last.fromDate && (last.isTillDate || last.toDate);
+  return !!(last.bodyName && last.position && (hasDateRequirement || last.period) && last.evidenceLink);
 }
 function canAddMoocDeveloped(rows) {
   if (rows.length === 0) return true;
@@ -1647,6 +1656,9 @@ function DynamicArraySection({
   };
 
   const getFieldErrorText = (row, columnName) => {
+    if (columnName === 'toDate' && Boolean(row.isTillDate)) {
+      return '';
+    }
     const propErr = rowErrors?.[row.id]?.[columnName];
 
     if (columnName === 'doi') {
@@ -1743,6 +1755,7 @@ function DynamicArraySection({
   };
 
   const hasRowColumnError = (row, column) => {
+    if (column.name === 'toDate' && Boolean(row.isTillDate)) return false;
     if (rowErrors?.[row.id]?.[column.name]) return true;
     if (column.name === 'courseCode' && isNonEmpty(row[column.name])) {
       if (!isValidCourseCode(row[column.name]) || isDuplicateCourseCode(row[column.name], row.id)) {
@@ -1923,7 +1936,7 @@ function DynamicArraySection({
                       ) : column.type === 'date' ? (
                         <>
                           <AppDateInput
-                            value={row[column.name] || ''}
+                            value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] || '')}
                             onChange={(val) => {
                               onChange(row.id, column.name, val);
                               if (column.endDateField && row[column.endDateField]) {
@@ -1938,10 +1951,10 @@ function DynamicArraySection({
                             batch={effectiveBatch}
                             exactDate={column.isFdpEndDate ? computeExpectedEndDate(row[column.startDateField || 'dateRange'], row.duration) : undefined}
                             startDateForOrdering={column.isEndDate || column.isFdpEndDate ? (row[column.startDateField || 'startDate'] || row.dateRange || row.fromDate) : undefined}
-                            disabled={disabled}
-                            placeholder={column.placeholder || column.label || 'Select Date'}
+                            disabled={disabled || Boolean(column.name === 'toDate' && row.isTillDate)}
+                            placeholder={column.name === 'toDate' && Boolean(row.isTillDate) ? 'Present / Ongoing' : (column.placeholder || column.label || 'Select Date')}
                             onFocus={handleFieldFocus}
-                            errorText={getFieldErrorText(row, column.name)}
+                            errorText={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : getFieldErrorText(row, column.name)}
                           />
                         </>
                       ) : column.type === 'select' ? (
@@ -3803,8 +3816,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         professionalMembership: cleanDraftArray(currentDraft.professionalMembership),
         editorialBoard: cleanDraftArray(currentDraft.editorialBoard).map(r => ({
           ...r,
-          period: (r.fromDate || r.toDate || r.isTillDate)
-            ? (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
+          isTillDate: Boolean(r.isTillDate),
+          toDate: Boolean(r.isTillDate) ? '' : (r.toDate || ''),
+          period: (r.fromDate || (Boolean(r.isTillDate) ? '' : r.toDate) || Boolean(r.isTillDate))
+            ? (Boolean(r.isTillDate) ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
             : (r.period || '')
         })),
         moocDeveloped: cleanDraftArray(currentDraft.moocDeveloped).map(r => ({
@@ -5727,8 +5742,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         professionalMembership: cleanSectionArray(formData.professionalMembership),
         editorialBoard: cleanSectionArray(formData.editorialBoard).map(r => ({
           ...r,
-          period: (r.fromDate || r.toDate || r.isTillDate)
-            ? (r.isTillDate ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
+          isTillDate: Boolean(r.isTillDate),
+          toDate: Boolean(r.isTillDate) ? '' : (r.toDate || ''),
+          period: (r.fromDate || (Boolean(r.isTillDate) ? '' : r.toDate) || Boolean(r.isTillDate))
+            ? (Boolean(r.isTillDate) ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
             : (r.period || '')
         })),
         moocDeveloped: cleanSectionArray(formData.moocDeveloped).map(r => ({
@@ -6052,6 +6069,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       [key]: (current[key] || []).map((row) => {
         if (row.id !== rowId) return row;
         const updated = { ...row, [field]: value };
+        if (field === 'isTillDate' && Boolean(value)) {
+          updated.toDate = '';
+        }
         if (key === 'fdpAttended') {
           if (field === 'duration' || field === 'dateRange') {
             const exp = computeExpectedEndDate(
