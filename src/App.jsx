@@ -665,6 +665,9 @@ function getRoleFromEmail(email) {
   if (userEmail === 'principal@tce.edu') {
     return 'Principal';
   }
+  if (userEmail === 'yuvarajoffl2005@gmail.com') {
+    return 'HOD';
+  }
   if (
     userEmail.startsWith('hod') ||
     userEmail.includes('hod') ||

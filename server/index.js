@@ -822,6 +822,12 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'IQAC Quality Coordinator';
+    } else if (verifiedEmail === 'yuvarajoffl2005@gmail.com') {
+      assignedRole = 'HOD';
+      assignedDesignation = facultyRecord?.designation || 'Professor & Head (HOD)';
+      let rawDept = facultyRecord?.department || 'MCA';
+      assignedDept = normalizeDepartmentCode(rawDept);
+      assignedDeptName = facultyRecord?.departmentName || 'Computer Applications';
     } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
       // Official departmental HOD account (e.g. hodca@tce.edu, hodcse@tce.edu)
       assignedRole = 'HOD';
@@ -847,6 +853,11 @@ app.post('/api/auth/google', async (request, response) => {
     if (assignedRole === 'HOD' && canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
     if (verifiedEmail === 'personalsiddharth387@gmail.com' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu') {
       ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'personalsiddharth387@gmail.com'].forEach(em => {
+        if (!userAliases.includes(em)) userAliases.push(em);
+      });
+    }
+    if (verifiedEmail === 'yuvarajoffl2005@gmail.com') {
+      ['yuvarajoffl2005@gmail.com', 'hodca@tce.edu', 'hodmca@tce.edu'].forEach(em => {
         if (!userAliases.includes(em)) userAliases.push(em);
       });
     }
@@ -1390,7 +1401,8 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       requestEmail === 'principal@tce.edu' ||
       requestEmail === 'iqac@tce.edu' ||
       requestEmail.includes('iqac') ||
-      requestEmail.startsWith('hod')
+      requestEmail.startsWith('hod') ||
+      requestEmail === 'yuvarajoffl2005@gmail.com'
     );
 
     // Faculty mode check: If caller explicitly requests individual faculty mode (e.g. self-appraisal), or lacks elevated privileges
