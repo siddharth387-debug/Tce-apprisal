@@ -825,6 +825,10 @@ app.post('/api/auth/google', async (request, response) => {
       }
     }
 
+    if (!facultyRecord && verifiedEmail === 'yuvar6535@gmail.com') {
+      facultyRecord = (await FacultyMember.findOne({ staffId: 'PRINCIPAL' })) || (await FacultyMember.findOne({ email: 'principal@tce.edu' }));
+    }
+
     // Auto-link alternate email in directory so cross-device logins share identical identity
     if (facultyRecord && verifiedEmail && !facultyRecord.alternateEmails?.includes(verifiedEmail)) {
       try {
@@ -850,7 +854,7 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'Registrar';
-    } else if (verifiedEmail === 'principal@tce.edu') {
+    } else if (verifiedEmail === 'principal@tce.edu' || verifiedEmail === 'yuvar6535@gmail.com') {
       assignedRole = 'Principal';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
@@ -896,6 +900,11 @@ app.post('/api/auth/google', async (request, response) => {
     }
     if (verifiedEmail === 'yuvarajoffl2005@gmail.com') {
       ['yuvarajoffl2005@gmail.com', 'hodca@tce.edu', 'hodmca@tce.edu'].forEach(em => {
+        if (!userAliases.includes(em)) userAliases.push(em);
+      });
+    }
+    if (verifiedEmail === 'principal@tce.edu' || verifiedEmail === 'yuvar6535@gmail.com') {
+      ['principal@tce.edu', 'yuvar6535@gmail.com'].forEach(em => {
         if (!userAliases.includes(em)) userAliases.push(em);
       });
     }
@@ -1027,7 +1036,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const userRole = (req.user?.role || '').toUpperCase().trim();
 
     // Institutional Governance Guard: Principal is an apex executive role and never submits self-appraisals
-    if (userRole === 'PRINCIPAL' || verifiedEmail === 'principal@tce.edu') {
+    if (userRole === 'PRINCIPAL' || verifiedEmail === 'principal@tce.edu' || verifiedEmail === 'yuvar6535@gmail.com') {
       console.log('⛔ Principal account is an apex administrative role and does not submit self-appraisals.');
       return res.status(403).json({ success: false, message: 'Principal account is for institutional review and governance only. Self-appraisal submission is disabled.' });
     }
@@ -1437,6 +1446,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       requestEmail === 'personalsiddharth387@gmail.com' ||
       requestEmail === 'registrar@tce.edu' ||
       requestEmail === 'principal@tce.edu' ||
+      requestEmail === 'yuvar6535@gmail.com' ||
       requestEmail === 'iqac@tce.edu' ||
       requestEmail.includes('iqac') ||
       requestEmail === 'karthikesavan@student.tce.edu' ||
@@ -1461,6 +1471,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
                                      requestEmail === 'personalsiddharth387@gmail.com' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
+                                     requestEmail === 'yuvar6535@gmail.com' ||
                                      requestEmail === 'iqac@tce.edu' ||
                                      requestEmail.includes('iqac') ||
                                      requestEmail === 'karthikesavan@student.tce.edu' ||
@@ -1520,7 +1531,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     }
 
     const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu' || requestEmail.includes('iqac');
-    const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu';
+    const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu' || requestEmail === 'yuvar6535@gmail.com';
 
     if (isIQACUser) {
       const allowedHodStatuses = [
