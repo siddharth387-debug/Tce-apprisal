@@ -7142,8 +7142,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       <div className="absolute right-0 top-full mt-1.5 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100">
                         {[
                           { mode: 'all', label: 'All Scores' },
-                          { mode: 'min', label: '>= Given' },
-                          { mode: 'exact', label: 'Exact Given' },
+                          { mode: 'min', label: `>= ${hodScoreSliderValue}` },
+                          { mode: 'exact', label: `Exact ${hodScoreSliderValue}` },
                         ].map((opt) => {
                           const isSelected =
                             opt.mode === 'all'
