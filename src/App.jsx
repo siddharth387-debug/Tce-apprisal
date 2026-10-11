@@ -2520,6 +2520,7 @@ const LandingPage = React.memo(function LandingPage({
 // Read-only drill-down view of a submitted appraisal record.
 // When hodControls is provided, a feedback textarea and action buttons render at the bottom.
 function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, iqacControls, onExportPDF, isHodView, isIqacView }) {
+  if (!appraisal) return null;
   const facultyName = appraisal.facultyName || appraisal.name || "Faculty Member";
   const facultyEmail = appraisal.facultyEmail || appraisal.email || "";
   const getFirstPopulatedArray = (arrayKey, ...sources) => {
@@ -3676,14 +3677,26 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => iqacControls.onVerify('IQAC Approved')}
+                onClick={() => {
+                  try {
+                    iqacControls?.onVerify('IQAC Approved');
+                  } catch (e) {
+                    console.error('Approval action error:', e);
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 hover:bg-blue-800 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
               >
                 <span>✔</span> Approve
               </button>
               <button
                 type="button"
-                onClick={() => iqacControls.onVerify('Not Approved')}
+                onClick={() => {
+                  try {
+                    iqacControls?.onVerify('Not Approved');
+                  } catch (e) {
+                    console.error('Not Approval action error:', e);
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 hover:bg-rose-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
               >
                 <span>⚠️</span> Not Approve
@@ -4706,11 +4719,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Approved') => {
     try {
       const cleanId = extractStringId(recordId);
+      const roleTitle = effectiveRole === 'Principal' ? 'Principal' : 'IQAC';
       let trimmedRemarks = '';
       if (customRemarks !== null) {
         trimmedRemarks = String(customRemarks).trim();
       } else {
-        const inputRemarks = window.prompt("✔ (Optional) Enter IQAC audit remarks or notes for this appraisal approval:");
+        const inputRemarks = window.prompt(`✔ (Optional) Enter ${roleTitle} audit remarks or notes for this appraisal approval:`);
         if (inputRemarks === null) return;
         trimmedRemarks = inputRemarks.trim();
       }
@@ -4742,31 +4756,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         return rec;
       }));
 
-      // Update selectedAppraisal state if currently open in modal
-      setSelectedAppraisal(prev => {
-        if (!prev) return null;
-        const prevIdStr = extractStringId(prev._id || prev.id);
-        const prevEmail = (prev.facultyEmail || prev.email || '').toLowerCase().trim();
-        const isMatch = (cleanId && prevIdStr === cleanId) || 
-                        (targetEmail && prevEmail === targetEmail && (!recordTimeline || prev.timeline === recordTimeline));
-        if (isMatch) {
-          return {
-            ...prev,
-            iqacStatus: targetStatus,
-            appraisalStatus: isNotApprovedTarget
-              ? (prev.appraisalStatus === 'IQAC Approved' ? 'Approved' : (prev.appraisalStatus || 'Approved'))
-              : (prev.appraisalStatus || 'Approved'),
-            ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-            iqacEvaluatedAt: new Date().toISOString(),
-            iqacEvaluatedBy: roleTitle,
-            principalApprovalStatus: targetStatus === 'Approved' ? (prev.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
-          };
-        }
-        return prev;
-      });
+      // Safely close Audit Data view so user returns to list with updated status
+      setSelectedAppraisal(null);
+      setSelectedReviewAppraisal(null);
+      setIqacRemarksInput('');
+      setHodRemarksInput('');
+      setHodSubsectionRemarks({});
+      setHodSubsectionScores({});
 
-      const roleLabel = isPrincipal ? 'Principal' : 'IQAC';
-      setSubmitSuccess(`Appraisal audit status updated to [${targetStatus}] by ${roleLabel}!`);
+      setSubmitSuccess(`Appraisal audit status updated to [${targetStatus}] by ${roleTitle}!`);
 
       const activeToken = getAuthToken() || user?.token;
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
@@ -4778,7 +4776,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           timeline: recordTimeline,
           iqacStatus: targetStatus,
           iqacAuditRemarks: trimmedRemarks,
-          evaluatorRole: effectiveRole === 'Principal' ? 'Principal' : 'IQAC'
+          evaluatorRole: roleTitle
         },
         { headers }
       );
