@@ -3850,9 +3850,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
   const [leadershipStatusFilter, setLeadershipStatusFilter] = useState('ALL'); // 'ALL' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'NOT_APPROVED_HOD' | 'IQAC_APPROVED' | 'NOT_APPROVED_IQAC' | 'RATIFIED'
   
-  // HoD Score Filter State
-  const [hodScoreSliderValue, setHodScoreSliderValue] = useState(100);
-  const [hodScoreFilterMode, setHodScoreFilterMode] = useState('all'); // 'all' | 'min' (>=) | 'exact' (==) | 'range' (0 to N)
+  // HoD, IQAC & Principal Score Filter State
+  const [hodScoreSliderValue, setHodScoreSliderValue] = useState(200);
+  const [hodScoreFilterMode, setHodScoreFilterMode] = useState('default'); // 'all' | 'min' (>=) | 'exact' (==) | 'default' (0 to N)
   const [isScorePopoverOpen, setIsScorePopoverOpen] = useState(false);
   const scorePopoverRef = useRef(null);
 
@@ -6644,16 +6644,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
     }
 
-    // Score Filter for HoD & IQAC
-    if ((isHod || isIQAC) && hodScoreFilterMode !== 'all') {
-      const N = Number(hodScoreSliderValue) || 0;
-      displayInboxRows = displayInboxRows.filter((row) => {
-        const totalScore = Number(row.totalScore) || 0;
-        if (hodScoreFilterMode === 'min') return totalScore >= N;
-        if (hodScoreFilterMode === 'exact') return totalScore === N;
-        if (hodScoreFilterMode === 'range') return totalScore >= 0 && totalScore <= N;
-        return true;
-      });
+    // Score Filter for HoD, IQAC & Principal
+    if (isHod || isIQAC || isPrincipal) {
+      const safeN = isNaN(Number(hodScoreSliderValue)) ? 200 : Number(hodScoreSliderValue);
+      if (hodScoreFilterMode === 'all') {
+        // All Scores: shows all records, ignores slider value
+      } else if (hodScoreFilterMode === 'min') {
+        displayInboxRows = displayInboxRows.filter((row) => (Number(row.totalScore) || 0) >= safeN);
+      } else if (hodScoreFilterMode === 'exact') {
+        displayInboxRows = displayInboxRows.filter((row) => (Number(row.totalScore) || 0) === safeN);
+      } else {
+        // Default behavior (0 to given value): score between 0 and N (score <= N)
+        // At slider = 200, ALL records must be shown
+        if (safeN < 200) {
+          displayInboxRows = displayInboxRows.filter((row) => {
+            const totalScore = Number(row.totalScore) || 0;
+            return totalScore >= 0 && totalScore <= safeN;
+          });
+        }
+      }
     }
 
     if (isIQAC) {
@@ -6747,8 +6756,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
 
-        {/* Score Range Filter & Measurement Scheme Toolbar (Registrar & Leadership - Removed for HoD & IQAC) */}
-        {!isHod && !isIQAC && (isPrincipal || isRegistrar || isMasterUser) && (
+        {/* Score Range Filter & Measurement Scheme Toolbar (Registrar & Leadership - Removed for HoD, IQAC & Principal) */}
+        {!isHod && !isIQAC && !isPrincipal && (isRegistrar || isMasterUser) && (
           <div className="mt-4 p-4 bg-gradient-to-r from-blue-900/10 via-slate-50 to-blue-900/10 border border-blue-200 rounded-xl space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -6991,7 +7000,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         targetScore: hodScoreSliderValue,
                         scoreFrom: 0,
                         scoreTo: hodScoreSliderValue,
-                        scoreFilterMode: hodScoreFilterMode,
+                        scoreFilterMode: (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? 'range' : hodScoreFilterMode,
                         showExcludedArchive: iqacShowExcludedOnly,
                       });
                     }}
@@ -7089,7 +7098,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 ))}
               </div>
 
-              {(isHod || isIQAC) && (
+              {(isHod || isIQAC || isPrincipal) && (
                 <div className="relative flex items-center gap-2 shrink-0">
                   <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Filter</span>
                   <input
@@ -7098,7 +7107,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     max="200"
                     step="1"
                     value={hodScoreSliderValue}
-                    onChange={(e) => setHodScoreSliderValue(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setHodScoreSliderValue(val);
+                      if (hodScoreFilterMode === 'all') {
+                        setHodScoreFilterMode('default');
+                      }
+                    }}
                     className="w-24 sm:w-28 accent-[#4A1519] cursor-pointer"
                   />
                   <span className="text-xs font-bold text-slate-800 tabular-nums min-w-[24px] text-center select-none">
@@ -7111,7 +7126,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       aria-label="Filter by score"
                       title="Filter by score"
                       className={`p-1.5 rounded-md border text-xs transition flex items-center justify-center cursor-pointer ${
-                        hodScoreFilterMode !== 'all' || isScorePopoverOpen
+                        hodScoreFilterMode === 'min' ||
+                        hodScoreFilterMode === 'exact' ||
+                        (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ||
+                        isScorePopoverOpen
                           ? 'bg-[#4A1519] text-white border-[#4A1519] shadow-sm'
                           : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900 shadow-2xs'
                       }`}
@@ -7124,27 +7142,32 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       <div className="absolute right-0 top-full mt-1.5 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-xl z-50 animate-in fade-in zoom-in-95 duration-100">
                         {[
                           { mode: 'all', label: 'All Scores' },
-                          { mode: 'min', label: `Score ≥ ${hodScoreSliderValue}` },
-                          { mode: 'exact', label: `Exact (${hodScoreSliderValue})` },
-                          { mode: 'range', label: `Range (0–${hodScoreSliderValue})` },
-                        ].map((opt) => (
-                          <button
-                            key={opt.mode}
-                            type="button"
-                            onClick={() => {
-                              setHodScoreFilterMode(opt.mode);
-                              setIsScorePopoverOpen(false);
-                            }}
-                            className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-semibold transition flex items-center justify-between cursor-pointer ${
-                              hodScoreFilterMode === opt.mode
-                                ? 'bg-[#4A1519] text-white shadow-xs'
-                                : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                            }`}
-                          >
-                            <span>{opt.label}</span>
-                            {hodScoreFilterMode === opt.mode && <span className="font-bold">✓</span>}
-                          </button>
-                        ))}
+                          { mode: 'min', label: '>= Given' },
+                          { mode: 'exact', label: 'Exact Given' },
+                        ].map((opt) => {
+                          const isSelected =
+                            opt.mode === 'all'
+                              ? (hodScoreFilterMode === 'all' || (hodScoreFilterMode === 'default' && hodScoreSliderValue >= 200))
+                              : hodScoreFilterMode === opt.mode;
+                          return (
+                            <button
+                              key={opt.mode}
+                              type="button"
+                              onClick={() => {
+                                setHodScoreFilterMode(opt.mode);
+                                setIsScorePopoverOpen(false);
+                              }}
+                              className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-semibold transition flex items-center justify-between cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#4A1519] text-white shadow-xs'
+                                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                              }`}
+                            >
+                              <span>{opt.label}</span>
+                              {isSelected && <span className="font-bold">✓</span>}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -7172,7 +7195,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <tr>
                     <td colSpan={9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
                       {isIQAC 
-                        ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : hodScoreFilterMode === 'range' ? `0 – ${hodScoreSliderValue}` : ''} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
+                        ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? `0 – ${hodScoreSliderValue}` : ''} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
                         : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
                     </td>
                   </tr>
