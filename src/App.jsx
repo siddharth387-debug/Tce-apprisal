@@ -41,6 +41,105 @@ const STATS = [
   { value: '350+', label: 'Faculty' },
 ];
 
+export const isHodApprovedOrLater = (recordOrStatus) => {
+  if (!recordOrStatus) return false;
+  const status = typeof recordOrStatus === 'string'
+    ? recordOrStatus
+    : (recordOrStatus.appraisalStatus || '');
+  const normStatus = String(status).toUpperCase().trim();
+  const HOD_APPROVED_OR_LATER_STATUSES = [
+    'APPROVED',
+    'HOD APPROVED',
+    'IQAC APPROVED',
+    'NOT APPROVED BY IQAC',
+    'RATIFIED',
+    'ENDORSED',
+    'PRINCIPAL APPROVED'
+  ];
+  if (HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus)) return true;
+  if (typeof recordOrStatus === 'object') {
+    const pStatus = String(recordOrStatus.principalApprovalStatus || '').toUpperCase().trim();
+    if (pStatus === 'RATIFIED' || pStatus === 'ENDORSED') return true;
+    const iqStatus = String(recordOrStatus.iqacStatus || '').toUpperCase().trim();
+    if (iqStatus === 'IQAC APPROVED' || iqStatus === 'NOT APPROVED BY IQAC') return true;
+  }
+  return false;
+};
+
+export const SUBSECTION_LABEL_MAP = {
+  '1.1': '1.1 Courses Handled',
+  '1.2': '1.2 Course Files',
+  '1.3': '1.3 Course Design',
+  '1.4': '1.4 Value-Added Courses',
+  '1.5': '1.5 Innovative Methods',
+  '1.6': '1.6 Academic Collaborations',
+  '1.7': '1.7 Mentoring System',
+  '1.8': '1.8 NPTEL / Certifications',
+  '1.9': '1.9 Student Feedback',
+  '1.10': '1.10 Result Analysis',
+  '1.11': '1.11 CO Attainment',
+  '2.1': '2.1 Journal Publications',
+  '2.2': '2.2 Citations Received',
+  '2.3': '2.3 Total Q1 Citations',
+  '2.4': '2.4 Books / Chapters',
+  '2.5': '2.5 Conference Publications',
+  '2.6': '2.6 Research Collaborations',
+  '2.7': '2.7 PhD Scholars (Registered)',
+  '2.8': '2.8 PhD Scholars (Awarded)',
+  '3.1': '3.1 Patents Published',
+  '3.2': '3.2 Patents Granted',
+  '3.3': '3.3 Transfer of Technology',
+  '3.4': '3.4 Prototypes Developed',
+  '3.5': '3.5 Hackathon Mentoring & Prizes',
+  '3.6': '3.6 Architectural Design Competitions',
+  '4.1': '4.1 Sponsored Research Projects',
+  '4.2': '4.2 Consultancy Projects',
+  '5.1': '5.1 International Engagement',
+  '5.2': '5.2 Visiting Positions',
+  '5.3': '5.3 Foreign Student Mentoring',
+  '5.4': '5.4 Global Research Grants',
+  '5.5': '5.5 International Advisory Boards',
+  '5.6': '5.6 Architectural Heritage Documentation',
+  '6.1': '6.1 FDP / Workshops Attended',
+  '6.2': '6.2 Programs / FDPs Organized',
+  '6.3': '6.3 Invited Talks / Resource Person',
+  '6.4': '6.4 Professional Body Memberships',
+  '6.5': '6.5 Awards and Recognitions',
+  '6.6': '6.6 Editorial / Reviewer Roles',
+  '7.1': '7.1 Partial Delivery by Industry',
+  '7.2': '7.2 Industrial Visits Organized',
+  '7.3': '7.3 Student Internship Mentoring',
+  '7.4': '7.4 Industry MoUs Signed',
+  '8.1': '8.1 Student Project Publications',
+  '8.2': '8.2 Student Co-curricular Mentoring',
+  '8.3': '8.3 Student Innovation / Startups',
+  '8.4': '8.4 Architectural Exhibition Guidance',
+  '9.1': '9.1 Department Level Activities',
+  '9.2': '9.2 College Level Activities',
+  '9.3': '9.3 Institutional Development Responsibilities',
+};
+
+export const getSectionAndSubsectionLabel = (subKey) => {
+  const sectionPrefixMap = {
+    '1': 'Section I - Teaching & Learning',
+    '2': 'Section II - Research Publications',
+    '3': 'Section III - Patents and Innovation',
+    '4': 'Section IV - Sponsored Research and Consultancy',
+    '5': 'Section V - International Engagement & Rankings',
+    '6': 'Section VI - Faculty Development & Professional Activities',
+    '7': 'Section VII - Industry Interaction & Internship',
+    '8': 'Section VIII - Student Development Activities',
+    '9': 'Section IX - Institutional Development',
+  };
+  const subName = SUBSECTION_LABEL_MAP[subKey] || `Subsection ${subKey}`;
+  const majorSec = String(subKey).split('.')[0];
+  const secName = sectionPrefixMap[majorSec];
+  if (secName) {
+    return `${secName} (${subName})`;
+  }
+  return subName;
+};
+
 export const getCurrentAcademicYear = () => {
   // Institutional active evaluation cycle at TCE is 2025-2026
   // For years past 2026, rolls automatically based on June cutoff
@@ -1826,7 +1925,7 @@ function DynamicArraySection({
         <div className="mb-3 bg-amber-50/90 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-900 font-medium flex items-center gap-2">
           <span className="text-sm">💬</span>
           <div>
-            <span className="font-bold text-[#4A1519]">HoD Feedback:</span> "{hodRemark}"
+            <span className="font-bold text-[#4A1519]">{title ? `${title}:` : 'HoD Remarks:'}</span> "{hodRemark}"
           </div>
         </div>
       ) : null}
@@ -2430,6 +2529,11 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const effectiveScoreObj = computeEffectiveScores(fullData, activeHodScores);
   const scoreObj = effectiveScoreObj;
 
+  const [expandedSections, setExpandedSections] = useState({});
+  const toggleSection = (secKey) => {
+    setExpandedSections((prev) => ({ ...prev, [secKey]: !prev[secKey] }));
+  };
+
   const [loadingAiKey, setLoadingAiKey] = useState(null);
   const [principalRemarksInput, setPrincipalRemarksInput] = useState(principalControls?.remarks || appraisal.principalRemarks || '');
   const [isEndorsing, setIsEndorsing] = useState(false);
@@ -2514,34 +2618,25 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     const isOverridden = effScore !== autoScore;
 
     return (
-      <div className="mt-2.5 bg-gradient-to-r from-amber-50/90 to-orange-50/60 border border-amber-200 rounded-lg p-3 space-y-2.5">
-        {/* Dual Score Evaluation Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
-          {/* Box 1: Automated System Score (Locked) */}
-          <div className="bg-white/90 border border-slate-200 rounded-md px-3 py-2 flex items-center justify-between shadow-xs">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
-                🤖 Automated Score
-              </span>
-              <span className="text-[11px] font-medium text-slate-600">Calculated via Rubric</span>
-            </div>
-            <div className="text-right">
-              <span className="text-sm font-black text-slate-800">{autoScore}</span>
-              <span className="text-xs text-slate-400 font-semibold"> / {maxMark}</span>
-            </div>
+      <div className="mt-2.5 bg-gradient-to-r from-amber-50/90 to-orange-50/60 border border-amber-200 rounded-lg p-2.5 sm:p-3">
+        {/* Evaluation Row: Automated Score | Your Score | Remarks in ONE row on desktop */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+          {/* 1. Automated Score: single line */}
+          <div className="bg-white/90 border border-slate-200 rounded-md px-3 py-1.5 flex items-center justify-between lg:justify-start gap-2 shadow-xs whitespace-nowrap shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+              🤖 Automated Score:
+            </span>
+            <span className="text-xs font-black text-slate-800 whitespace-nowrap">
+              {autoScore} <span className="text-[11px] text-slate-400 font-semibold">/ {maxMark}</span>
+            </span>
           </div>
 
-          {/* Box 2: HoD Evaluated Score Box */}
+          {/* 2. Your Score: single line */}
           {hodControls ? (
-            <div className={`bg-white rounded-md px-3 py-1.5 border ${isOverridden ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-amber-200'} shadow-xs flex items-center justify-between`}>
-              <div className="flex-1 mr-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A1519] flex items-center gap-1">
-                  <span>👨‍🏫</span> HoD Awarded Score:
-                </span>
-                <span className="text-[10px] text-slate-500 block">
-                  {isOverridden ? '⚡ Overriding system score' : 'Leave blank for system score'}
-                </span>
-              </div>
+            <div className={`bg-white rounded-md px-3 py-1 border ${isOverridden ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-amber-200'} shadow-xs flex items-center justify-between lg:justify-start gap-2 whitespace-nowrap shrink-0`}>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#4A1519] flex items-center gap-1 whitespace-nowrap">
+                <span>👨‍🏫</span> Your Score:
+              </span>
               <div className="flex items-center gap-1">
                 <input
                   type="number"
@@ -2559,66 +2654,45 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                     }
                   }}
                   placeholder={String(autoScore)}
-                  className="w-14 h-8 text-center text-xs font-black text-[#4A1519] bg-amber-50/60 border border-amber-300 rounded outline-none focus:bg-white focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519]"
+                  className="w-14 h-7 text-center text-xs font-black text-[#4A1519] bg-amber-50/60 border border-amber-300 rounded outline-none focus:bg-white focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519]"
                 />
                 <span className="text-xs font-bold text-slate-500">/ {maxMark}</span>
               </div>
             </div>
           ) : (
-            <div className="bg-white/90 border border-amber-200 rounded-md px-3 py-2 flex items-center justify-between shadow-xs">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A1519] block">
-                  👨‍🏫 Final Evaluated Mark
-                </span>
-                <span className="text-[10px] text-slate-500">
-                  {isOverridden ? '⚡ Manually evaluated by HoD' : 'Matches system calculation'}
-                </span>
-              </div>
-              <div className="text-right">
-                <span className="text-sm font-black text-[#4A1519]">{effScore}</span>
-                <span className="text-xs text-slate-400 font-semibold"> / {maxMark}</span>
-              </div>
+            <div className="bg-white/90 border border-amber-200 rounded-md px-3 py-1.5 flex items-center justify-between lg:justify-start gap-2 shadow-xs whitespace-nowrap shrink-0">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#4A1519] flex items-center gap-1 whitespace-nowrap">
+                <span>👨‍🏫</span> Your Score:
+              </span>
+              <span className="text-xs font-black text-[#4A1519] whitespace-nowrap">
+                {effScore} <span className="text-[11px] text-slate-400 font-semibold">/ {maxMark}</span>
+              </span>
             </div>
           )}
-        </div>
 
-        {/* Feedback Notes Section */}
-        {hodControls ? (
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[10.5px] font-bold text-[#4A1519] flex items-center gap-1.5">
-                <span>💬</span> HoD Feedback Remarks for {label}:
+          {/* 3. Remarks box: single line on desktop */}
+          {hodControls ? (
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#4A1519] shrink-0 whitespace-nowrap">
+                Remarks:
               </label>
-              <div className="flex items-center gap-1.5">
-                {hodControls.subsectionRemarks?.[subKey] && (
-                  <span className="text-[9px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.2 rounded">
-                    Saved Note
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleAiSuggestSubsection(subKey, label, effScore, maxMark)}
-                  disabled={loadingAiKey === subKey}
-                  className="text-[9.5px] font-bold px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 transition flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
-                  title="Generate AI observation for this subsection based on awarded marks"
-                >
-                  {loadingAiKey === subKey ? '⏳ AI Drafting...' : '✨ AI Suggest'}
-                </button>
-              </div>
+              <input
+                type="text"
+                value={hodControls.subsectionRemarks?.[subKey] || ''}
+                onChange={(e) => hodControls.onSubsectionRemarkChange(subKey, e.target.value)}
+                placeholder="Remarks"
+                className="w-full text-xs px-2.5 py-1.5 bg-white border border-amber-200 rounded-md outline-none focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519]/20 text-slate-800"
+              />
             </div>
-            <input
-              type="text"
-              value={hodControls.subsectionRemarks?.[subKey] || ''}
-              onChange={(e) => hodControls.onSubsectionRemarkChange(subKey, e.target.value)}
-              placeholder={`Enter feedback / rationale for ${label}...`}
-              className="w-full text-xs px-2.5 py-1.5 bg-white border border-amber-200 rounded-md outline-none focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519]/20 text-slate-800"
-            />
-          </div>
-        ) : appraisal.subsectionRemarks?.[subKey] ? (
-          <div className="bg-white/90 border border-amber-200/80 rounded-md p-2 text-xs text-amber-900 font-medium">
-            💬 <span className="font-bold text-[#4A1519]">HoD Feedback:</span> "{appraisal.subsectionRemarks[subKey]}"
-          </div>
-        ) : null}
+          ) : appraisal.subsectionRemarks?.[subKey] ? (
+            <div className="flex-1 min-w-0 bg-white/90 border border-amber-200/80 rounded-md px-2.5 py-1.5 text-xs text-amber-900 font-medium flex items-center gap-1.5">
+              <span className="font-bold text-[#4A1519] shrink-0 whitespace-nowrap">
+                {getSectionAndSubsectionLabel(subKey)}:
+              </span>
+              <span className="truncate">"{appraisal.subsectionRemarks[subKey]}"</span>
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   };
@@ -3091,161 +3165,296 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
       {/* Section I Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+        <div
+          onClick={() => toggleSection('section1')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION I: Teaching &amp; Learning</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.total || 0} / 50</span>
-        </div>
-        {!isSection1Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section1Arrays)}
-            {/* 1.7 Mentoring System */}
-            {sec1.mentoring && (
-              <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                  1.7 Mentoring System
-                </p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-3">
-                  <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mentee Count</span><p>{sec1.mentoring.menteeCount || '—'}</p></div>
-                  <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Batch</span><p>{sec1.mentoring.batch || '—'}</p></div>
-                  <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">HOD Review</span><p>{sec1.mentoring.hodReview || 'Pending'}</p></div>
-                  <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Description</span><p className="mt-0.5 leading-4">{sec1.mentoring.description || '—'}</p></div>
-                  <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Evidence</span><p className="mt-0.5">{sec1.mentoring.evidenceLink ? (<a href={sec1.mentoring.evidenceLink} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800">Link ↗</a>) : '—'}</p></div>
-                </div>
-                {renderHoDSubsectionScoringAndFeedback('1.7', '1.7 Mentoring System')}
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.total || 0} / 50</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section1'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section1'] && (
+          !isSection1Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section1Arrays)}
+              {/* 1.7 Mentoring System */}
+              {sec1.mentoring && (
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                    1.7 Mentoring System
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-3">
+                    <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mentee Count</span><p>{sec1.mentoring.menteeCount || '—'}</p></div>
+                    <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Batch</span><p>{sec1.mentoring.batch || '—'}</p></div>
+                    <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">HOD Review</span><p>{sec1.mentoring.hodReview || 'Pending'}</p></div>
+                    <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Description</span><p className="mt-0.5 leading-4">{sec1.mentoring.description || '—'}</p></div>
+                    <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Evidence</span><p className="mt-0.5">{sec1.mentoring.evidenceLink ? (<a href={sec1.mentoring.evidenceLink} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800">Link ↗</a>) : '—'}</p></div>
+                  </div>
+                  {renderHoDSubsectionScoringAndFeedback('1.7', '1.7 Mentoring System')}
+                </div>
+              )}
+            </div>
+          )
         )}
       </div>
 
       {/* Section II Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+        <div
+          onClick={() => toggleSection('section2')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION II: Research Publications</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section2Total || 0} / 55</span>
-        </div>
-        {!isSection2Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {/* Citations Summary */}
-            <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-2 space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-                <div><span className="text-slate-500">2.2 Citations Received (3 Yrs):</span> <span className="font-bold text-slate-800">{sec2.citationsReceived?.totalCount || '0'}</span></div>
-                <div><span className="text-slate-500">2.3 Total Q1 Citations:</span> <span className="font-bold text-slate-800">{sec2.q1Citations?.totalCount || '0'}</span></div>
-              </div>
-              {renderHoDSubsectionScoringAndFeedback('2.2', '2.2 Citations Received')}
-              {renderHoDSubsectionScoringAndFeedback('2.3', '2.3 Total Q1 Citations')}
-            </div>
-            {renderSubTableGroup(section2Arrays)}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section2Total || 0} / 55</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section2'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section2'] && (
+          !isSection2Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {/* Citations Summary */}
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-2 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs font-medium">
+                  <div><span className="text-slate-500">2.2 Citations Received (3 Yrs):</span> <span className="font-bold text-slate-800">{sec2.citationsReceived?.totalCount || '0'}</span></div>
+                  <div><span className="text-slate-500">2.3 Total Q1 Citations:</span> <span className="font-bold text-slate-800">{sec2.q1Citations?.totalCount || '0'}</span></div>
+                </div>
+                {renderHoDSubsectionScoringAndFeedback('2.2', '2.2 Citations Received')}
+                {renderHoDSubsectionScoringAndFeedback('2.3', '2.3 Total Q1 Citations')}
+              </div>
+              {renderSubTableGroup(section2Arrays)}
+            </div>
+          )
         )}
       </div>
 
       {/* Section III Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+        <div
+          onClick={() => toggleSection('section3')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION III: Patents and Innovation</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section3Total || 0} / 15</span>
-        </div>
-        {!isSection3Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section3Arrays)}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section3Total || 0} / 15</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section3'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section3'] && (
+          !isSection3Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section3Arrays)}
+            </div>
+          )
         )}
       </div>
 
       {/* Section IV Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+        <div
+          onClick={() => toggleSection('section4')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION IV: Sponsored Research and Consultancy</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section4Total || 0} / 15</span>
-        </div>
-        {!isSection4Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section4Arrays)}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section4Total || 0} / 15</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section4'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section4'] && (
+          !isSection4Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section4Arrays)}
+            </div>
+          )
         )}
       </div>
 
       {/* Section V Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-          <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION V: International Engagement & Rankings</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section5Total || 0} / 10</span>
-        </div>
-        {!isSection5Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section5Arrays)}
+        <div
+          onClick={() => toggleSection('section5')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
+          <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION V: International Engagement &amp; Rankings</h4>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section5Total || 0} / 10</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section5'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section5'] && (
+          !isSection5Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section5Arrays)}
+            </div>
+          )
         )}
       </div>
 
       {/* Section VI Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-          <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VI: Faculty Development & Professional Activities</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section6Total || 0} / 20</span>
-        </div>
-        {!isSection6Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section6Arrays)}
+        <div
+          onClick={() => toggleSection('section6')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
+          <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VI: Faculty Development &amp; Professional Activities</h4>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section6Total || 0} / 20</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section6'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section6'] && (
+          !isSection6Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section6Arrays)}
+            </div>
+          )
         )}
       </div>
 
       {/* Section VII Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-          <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VII: Industry Interaction & Internship</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section7Total || 0} / 10</span>
-        </div>
-        {!isSection7Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section7Arrays)}
+        <div
+          onClick={() => toggleSection('section7')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
+          <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VII: Industry Interaction &amp; Internship</h4>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section7Total || 0} / 10</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section7'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section7'] && (
+          !isSection7Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section7Arrays)}
+            </div>
+          )
         )}
       </div>
 
       {/* Section VIII Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+        <div
+          onClick={() => toggleSection('section8')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VIII: Student Development Activities</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section8Total || 0} / 5</span>
-        </div>
-        {!isSection8Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section8Arrays)}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section8Total || 0} / 5</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section8'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section8'] && (
+          !isSection8Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section8Arrays)}
+            </div>
+          )
         )}
       </div>
 
       {/* Section IX Card */}
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-3.5 space-y-2 glass-card-float hover:bg-white/95">
-        <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+        <div
+          onClick={() => toggleSection('section9')}
+          className="flex justify-between items-center border-b border-slate-100 pb-2 cursor-pointer select-none"
+        >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION IX: Institutional Development</h4>
-          <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section9Total || 0} / 20</span>
-        </div>
-        {!isSection9Populated ? (
-          <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
-        ) : (
-          <div className="space-y-2 mt-2">
-            {renderSubTableGroup(section9Arrays)}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section9Total || 0} / 20</span>
+            <svg
+              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section9'] ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
+        </div>
+        {expandedSections['section9'] && (
+          !isSection9Populated ? (
+            <p className="text-xs text-gray-400 italic py-2">Section completely unpopulated by faculty.</p>
+          ) : (
+            <div className="space-y-2 mt-2">
+              {renderSubTableGroup(section9Arrays)}
+            </div>
+          )
         )}
       </div>
 
@@ -5122,6 +5331,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     // Timeline filtering:
     if (selectedTimeline !== 'All') {
       rows = rows.filter(r => r.timeline === selectedTimeline);
+    }
+
+    // IQAC role visibility: Only appraisals approved by HoD or later (Approved, IQAC Approved, Not Approved by IQAC, Ratified)
+    if (isIQAC) {
+      rows = rows.filter(r => isHodApprovedOrLater(r));
     }
 
     return rows.map((record) => {
@@ -7314,11 +7528,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               📊 <span className="font-bold text-blue-900">IQAC Audit Note:</span> "{row.iqacAuditRemarks}"
                             </div>
                           )}
-                          {row.hodRemarks ? (
+                          {row.hodRemarks && (
                             <div className="bg-gray-50/80 border border-gray-100 rounded-lg p-2 text-[11px]">
-                              💬 <span className="font-semibold text-gray-700">HOD Feedback:</span> "{row.hodRemarks}"
+                              💬 <span className="font-semibold text-gray-700">HOD Remarks:</span> "{row.hodRemarks}"
                             </div>
-                          ) : (!row.principalRemarks && !row.iqacAuditRemarks) ? (
+                          )}
+                          {row.subsectionRemarks && Object.keys(row.subsectionRemarks).some(k => row.subsectionRemarks[k] && String(row.subsectionRemarks[k]).trim()) && (
+                            <div className="space-y-1 mt-1">
+                              {Object.entries(row.subsectionRemarks).map(([subKey, remark]) => {
+                                if (!remark || !String(remark).trim()) return null;
+                                return (
+                                  <div key={subKey} className="bg-amber-50/80 border border-amber-200/70 rounded-lg p-2 text-[11px] text-amber-950">
+                                    💬 <span className="font-bold text-[#4A1519]">{getSectionAndSubsectionLabel(subKey)}:</span> "{remark}"
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {!row.hodRemarks && (!row.subsectionRemarks || !Object.keys(row.subsectionRemarks).some(k => row.subsectionRemarks[k] && String(row.subsectionRemarks[k]).trim())) && (!row.principalRemarks && !row.iqacAuditRemarks) ? (
                             <span className="text-gray-300 italic">—</span>
                           ) : null}
                         </td>
@@ -9198,25 +9425,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       : '📋 FACULTY APPRAISAL WORKBENCH'}
           </span>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Real-time Cloud Auto-Save Status Pill & Manual Save Button */}
+            {/* Real-time Cloud Auto-Save Status Pill */}
             {(!isPrincipal && !isRegistrar && (!isReviewMode || (isIQACUser && iqacWorkspaceMode === 'self_appraisal'))) && (
               <>
-                {activeView !== 'overview' && (
-                  <button
-                    type="button"
-                    onClick={handleManualSaveDraft}
-                    disabled={isManualSaving || isSubmitting}
-                    className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[10.5px] font-bold transition-all shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 ${
-                      justSavedDraft
-                        ? 'bg-emerald-500 text-white border border-emerald-400'
-                        : 'bg-white text-[#4A1519] hover:bg-red-50 border border-red-200'
-                    }`}
-                    title="Save current appraisal progress immediately to MongoDB Atlas"
-                  >
-                    <span>{isManualSaving ? '⏳' : justSavedDraft ? '✓' : '💾'}</span>
-                    <span>{isManualSaving ? 'Saving...' : justSavedDraft ? 'Saved!' : 'Save Draft'}</span>
-                  </button>
-                )}
                 <span className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-bold border transition-all shrink-0 ${
                   cloudSyncState === 'saving'
                     ? 'bg-amber-400/20 text-amber-200 border-amber-300/40 animate-pulse'

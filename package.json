@@ -27,6 +27,7 @@
     "jspdf-autotable": "^5.0.8",
     "jwt-decode": "^4.0.0",
     "mongoose": "^9.9.2",
+    "nodemailer": "^10.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",

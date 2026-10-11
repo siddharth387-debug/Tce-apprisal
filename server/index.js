@@ -12,6 +12,32 @@ import XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { computeEffectiveScores } from '../src/scoringEngine.js';
 import { scheduleDailyAutoBackup, runDatabaseBackup } from './autoBackup.js';
+import { sendRejectionEmail } from './mailer.js';
+
+export const isHodApprovedOrLater = (recordOrStatus) => {
+  if (!recordOrStatus) return false;
+  const status = typeof recordOrStatus === 'string'
+    ? recordOrStatus
+    : (recordOrStatus.appraisalStatus || '');
+  const normStatus = String(status).toUpperCase().trim();
+  const HOD_APPROVED_OR_LATER_STATUSES = [
+    'APPROVED',
+    'HOD APPROVED',
+    'IQAC APPROVED',
+    'NOT APPROVED BY IQAC',
+    'RATIFIED',
+    'ENDORSED',
+    'PRINCIPAL APPROVED'
+  ];
+  if (HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus)) return true;
+  if (typeof recordOrStatus === 'object') {
+    const pStatus = String(recordOrStatus.principalApprovalStatus || '').toUpperCase().trim();
+    if (pStatus === 'RATIFIED' || pStatus === 'ENDORSED') return true;
+    const iqStatus = String(recordOrStatus.iqacStatus || '').toUpperCase().trim();
+    if (iqStatus === 'IQAC APPROVED' || iqStatus === 'NOT APPROVED BY IQAC') return true;
+  }
+  return false;
+};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1481,10 +1507,15 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
+    const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu' || requestEmail.includes('iqac');
+
     const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
     const seenMap = new Map();
     const records = [];
     for (const doc of rawRecords) {
+      if (isIQACUser && !isHodApprovedOrLater(doc)) {
+        continue;
+      }
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
       const tlKey = (doc.timeline || '').trim();
       const deptKey = (doc.department || '').toUpperCase() === 'ARCH' ? '_ARCH' : '';
@@ -1976,6 +2007,50 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
     }
 
     console.log(`✅ Success: Status updated to [${appraisalStatus}] with Score [${evaluatedConvertedScore}] for ${targetRecord.email}`);
+
+    // Trigger notification email if appraisal is marked 'Not Approved' / Rejected
+    const isRejection = String(appraisalStatus).toUpperCase().trim() === 'NOT APPROVED' || String(appraisalStatus).toUpperCase().trim() === 'REJECTED';
+    if (isRejection) {
+      try {
+        let hodName = 'Head of Department';
+        let hodDept = targetRecord.department || '';
+        const authHeader = req.headers['authorization'];
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          try {
+            const decoded = jwt.verify(authHeader.split(' ')[1], jwtSecret);
+            if (decoded?.name) hodName = decoded.name;
+            if (decoded?.department) hodDept = decoded.department;
+          } catch (e) {
+            // ignore
+          }
+        }
+        if (!hodName || hodName === 'Head of Department') {
+          if (hodDept) {
+            const hodMember = await FacultyMember.findOne({ department: new RegExp(`^${hodDept}$`, 'i'), role: 'HOD' });
+            if (hodMember?.name) hodName = hodMember.name;
+          }
+        }
+
+        const facultyRecipient = (targetRecord.facultyEmail || targetRecord.email || email || '').toLowerCase().trim();
+        const facName = targetRecord.facultyName || targetRecord.name || '';
+        const appTimeline = targetRecord.timeline || timeline || '';
+
+        sendRejectionEmail({
+          toEmail: facultyRecipient,
+          facultyName: facName,
+          timeline: appTimeline,
+          hodName,
+          hodDepartment: hodDept,
+          hodRemarks: hodRemarks || '',
+          subsectionRemarks: subsectionRemarks || {},
+        }).catch((mailErr) => {
+          console.error('❌ [Mailer] Background rejection email error:', mailErr.message);
+        });
+      } catch (mailTriggerErr) {
+        console.error('❌ [Mailer] Failed to trigger rejection email:', mailTriggerErr.message);
+      }
+    }
+
     return res.status(200).json({ success: true, message: "Evaluation status and scores recorded successfully." });
 
   } catch (err) {
