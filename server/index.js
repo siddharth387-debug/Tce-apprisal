@@ -39,6 +39,18 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
   return false;
 };
 
+export const isIqacApprovedRecord = (row) => {
+  if (!row) return false;
+  const iqStatus = String(row.iqacStatus || '').toUpperCase().trim();
+  if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
+    return false;
+  }
+  if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
+    return false;
+  }
+  return iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED' || (iqStatus.includes('APPROVED') && !iqStatus.includes('NOT'));
+};
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -1099,7 +1111,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       principalApprovalStatus: existingDoc?.principalApprovalStatus || 'Pending',
       principalRemarks: existingDoc?.principalRemarks || '',
       principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
-      appraisalStatus: (existingDoc?.iqacStatus || '').toUpperCase().includes('IQAC') || (existingDoc?.iqacStatus || '').toUpperCase().includes('VERIF') ? 'IQAC Approved' : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft'),
+      appraisalStatus: isIqacApprovedRecord(existingDoc) ? 'IQAC Approved' : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft'),
     };
 
     const options = { upsert: true, new: true, runValidators: false, setDefaultsOnInsert: true };
@@ -1508,6 +1520,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     }
 
     const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu' || requestEmail.includes('iqac');
+    const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu';
 
     if (isIQACUser) {
       const allowedHodStatuses = [
@@ -1527,6 +1540,15 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
           { iqacStatus: { $in: ['IQAC Approved', 'IQAC APPROVED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC'] } }
         ]
       };
+    } else if (isPrincipalUser) {
+      const approvedIqacStatuses = [
+        'Approved', 'APPROVED', 'approved',
+        'IQAC Approved', 'IQAC APPROVED', 'iqac approved'
+      ];
+      queryFilter = {
+        ...queryFilter,
+        iqacStatus: { $in: approvedIqacStatuses }
+      };
     }
 
     const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
@@ -1534,6 +1556,9 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     const records = [];
     for (const doc of rawRecords) {
       if (isIQACUser && !isHodApprovedOrLater(doc)) {
+        continue;
+      }
+      if (isPrincipalUser && !isIqacApprovedRecord(doc)) {
         continue;
       }
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
@@ -2095,11 +2120,14 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       return res.status(404).json({ success: false, message: "No matching appraisal record found." });
     }
 
-    const newStatus = iqacStatus || 'IQAC Approved';
-    const isNotApprovedIqac = ['Needs Clarification', 'NEEDS CLARIFICATION', 'Not Approved', 'NOT APPROVED', 'Rejected', 'REJECTED'].includes(newStatus);
+    const newStatus = iqacStatus || 'Approved';
+    const isNotApprovedIqac = ['Needs Clarification', 'NEEDS CLARIFICATION', 'Not Approved', 'NOT APPROVED', 'Rejected', 'REJECTED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC'].includes(newStatus);
+    const normalizedIqacStatus = isNotApprovedIqac ? 'Not Approved' : 'Approved';
     const updateFields = {
-      iqacStatus: newStatus,
-      appraisalStatus: isNotApprovedIqac ? (targetRecord.appraisalStatus || 'Approved') : 'IQAC Approved',
+      iqacStatus: normalizedIqacStatus,
+      appraisalStatus: isNotApprovedIqac
+        ? (targetRecord.appraisalStatus === 'IQAC Approved' ? 'Approved' : (targetRecord.appraisalStatus || 'Approved'))
+        : 'Approved',
       iqacAuditRemarks: iqacAuditRemarks !== undefined ? iqacAuditRemarks : (targetRecord.iqacAuditRemarks || ''),
       ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
       iqacEvaluatedAt: new Date(),
