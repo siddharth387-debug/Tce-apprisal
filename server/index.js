@@ -1509,6 +1509,26 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
 
     const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu' || requestEmail.includes('iqac');
 
+    if (isIQACUser) {
+      const allowedHodStatuses = [
+        'Approved', 'APPROVED', 'approved',
+        'HoD Approved', 'HOD APPROVED', 'hod approved',
+        'IQAC Approved', 'IQAC APPROVED', 'iqac approved',
+        'Not Approved by IQAC', 'NOT APPROVED BY IQAC',
+        'Ratified', 'RATIFIED', 'ratified',
+        'Endorsed', 'ENDORSED', 'endorsed',
+        'Principal Approved', 'PRINCIPAL APPROVED'
+      ];
+      queryFilter = {
+        ...queryFilter,
+        $or: [
+          { appraisalStatus: { $in: allowedHodStatuses } },
+          { principalApprovalStatus: { $in: ['Ratified', 'RATIFIED', 'Endorsed', 'ENDORSED'] } },
+          { iqacStatus: { $in: ['IQAC Approved', 'IQAC APPROVED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC'] } }
+        ]
+      };
+    }
+
     const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
     const seenMap = new Map();
     const records = [];
@@ -2008,8 +2028,9 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
 
     console.log(`✅ Success: Status updated to [${appraisalStatus}] with Score [${evaluatedConvertedScore}] for ${targetRecord.email}`);
 
-    // Trigger notification email if appraisal is marked 'Not Approved' / Rejected
-    const isRejection = String(appraisalStatus).toUpperCase().trim() === 'NOT APPROVED' || String(appraisalStatus).toUpperCase().trim() === 'REJECTED';
+    // Trigger notification email if appraisal is marked 'Not Approved' / Rejected / Returned
+    const normApStatus = String(appraisalStatus).toUpperCase().trim();
+    const isRejection = ['NOT APPROVED', 'REJECTED', 'FIX NEEDED', 'RETURNED'].includes(normApStatus);
     if (isRejection) {
       try {
         let hodName = 'Head of Department';
@@ -2075,9 +2096,10 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
     }
 
     const newStatus = iqacStatus || 'IQAC Approved';
+    const isNotApprovedIqac = ['Needs Clarification', 'NEEDS CLARIFICATION', 'Not Approved', 'NOT APPROVED', 'Rejected', 'REJECTED'].includes(newStatus);
     const updateFields = {
       iqacStatus: newStatus,
-      appraisalStatus: newStatus === 'Needs Clarification' ? (targetRecord.appraisalStatus || 'Pending') : 'IQAC Approved',
+      appraisalStatus: isNotApprovedIqac ? (targetRecord.appraisalStatus || 'Approved') : 'IQAC Approved',
       iqacAuditRemarks: iqacAuditRemarks !== undefined ? iqacAuditRemarks : (targetRecord.iqacAuditRemarks || ''),
       ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
       iqacEvaluatedAt: new Date(),
