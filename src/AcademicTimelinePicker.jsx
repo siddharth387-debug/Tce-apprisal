@@ -456,7 +456,7 @@ export default function AcademicTimelinePicker({
             </div>
 
             {/* Custom Range Drawer (for Multi-Year CAS / Promotion Reviews / Projects) */}
-            {!restrictToBatch && (
+            {!restrictToBatch && !createdTimelines && (
               <div className="mt-3 pt-2.5 border-t border-slate-100">
                 {!showCustomRange ? (
                   <button

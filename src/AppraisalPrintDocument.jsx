@@ -337,24 +337,34 @@ export default function AppraisalPrintDocument({
           { key: 'collaborationType', label: 'Collaboration Nature' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.academicCollaborations, '1.6')}
-        {sectionData.mentoring && (sectionData.mentoring.menteeCount || sectionData.mentoring.description) && (
-          <div className="mb-3 border border-slate-300 rounded p-2 text-[10px] break-inside-avoid">
-            <div className="flex justify-between items-center mb-0.5">
-              <h4 className="font-bold text-[#4A1519] uppercase">1.7 Mentoring System</h4>
-              <span className="font-bold text-slate-800">Score: {effectiveScoreObj.effectiveMap['1.7']} / 2 Marks</span>
-            </div>
-            <p><strong>Mentee Count:</strong> {sectionData.mentoring.menteeCount || '0'} | <strong>Batch:</strong> {sectionData.mentoring.batch || '—'}</p>
-            <p className="mt-0.5"><strong>Description:</strong> {sectionData.mentoring.description || '—'}</p>
-            {sectionData.mentoring.evidenceLink && (
-              <p className="mt-0.5"><a href={formatExternalLink(sectionData.mentoring.evidenceLink)} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline font-medium cursor-pointer" style={{ color: '#1d4ed8', textDecoration: 'underline' }}>View Proof ↗</a></p>
-            )}
-            {subRemarks['1.7'] && (
-              <div className="mt-1 bg-amber-50/90 border-l-2 border-[#4A1519] px-2 py-0.5 text-[9.5px] italic text-slate-800">
-                <strong className="font-semibold text-[#4A1519] not-italic">HoD Remark (1.7):</strong> "{subRemarks['1.7']}"
+        {(() => {
+          const mentoringItems = Array.isArray(sectionData.mentoring)
+            ? sectionData.mentoring.filter(m => m && (m.menteeCount || m.description))
+            : (sectionData.mentoring && (sectionData.mentoring.menteeCount || sectionData.mentoring.description) ? [sectionData.mentoring] : []);
+          if (mentoringItems.length === 0) return null;
+          return (
+            <div className="mb-3 border border-slate-300 rounded p-2 text-[10px] break-inside-avoid">
+              <div className="flex justify-between items-center mb-0.5">
+                <h4 className="font-bold text-[#4A1519] uppercase">1.7 Mentoring System</h4>
+                <span className="font-bold text-slate-800">Score: {effectiveScoreObj.effectiveMap['1.7']} / 2 Marks</span>
               </div>
-            )}
-          </div>
-        )}
+              {mentoringItems.map((mItem, mIdx) => (
+                <div key={mIdx} className="border-b border-slate-200/60 pb-1.5 mb-1.5 last:border-b-0 last:pb-0 last:mb-0">
+                  <p><strong>Mentee Count:</strong> {mItem.menteeCount || '0'} | <strong>Batch:</strong> {mItem.batch || '—'}</p>
+                  <p className="mt-0.5"><strong>Description:</strong> {mItem.description || '—'}</p>
+                  {mItem.evidenceLink && (
+                    <p className="mt-0.5"><a href={formatExternalLink(mItem.evidenceLink)} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline font-medium cursor-pointer" style={{ color: '#1d4ed8', textDecoration: 'underline' }}>View Proof ↗</a></p>
+                  )}
+                </div>
+              ))}
+              {subRemarks['1.7'] && (
+                <div className="mt-1 bg-amber-50/90 border-l-2 border-[#4A1519] px-2 py-0.5 text-[9.5px] italic text-slate-800">
+                  <strong className="font-semibold text-[#4A1519] not-italic">HoD Remark (1.7):</strong> "{subRemarks['1.7']}"
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {renderTable('1.8 NPTEL / SWAYAM Certifications', [
           { key: 'courseName', label: 'Course Title' },
           { key: 'platform', label: 'Platform' },

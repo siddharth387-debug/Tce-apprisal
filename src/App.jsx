@@ -193,6 +193,16 @@ export const getCurrentAcademicYear = () => {
   return month >= 6 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
 };
 
+export const getReviewerAppraisalYear = () => {
+  // Appraisal year for leadership/reviewers is the previous academic year of the ongoing year
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-indexed (Jan = 1, June = 6)
+  const currentAcademicStart = month >= 6 ? year : year - 1;
+  const appraisalStart = Math.max(2025, currentAcademicStart - 1);
+  return `${appraisalStart}-${appraisalStart + 1}`;
+};
+
 export const generateTimelines = (startYear = 2025, endYear = 2100) => {
   const list = [];
   for (let y = startYear; y < endYear; y++) {
@@ -670,16 +680,8 @@ function flattenAppraisalRecord(record) {
         evidenceLink: m.evidenceLink || '',
       },
     ];
-  } else if (!res.mentoring || (Array.isArray(res.mentoring) && res.mentoring.length === 0)) {
-    res.mentoring = [
-      {
-        id: 'mentoring-1',
-        menteeCount: '',
-        batch: '',
-        description: '',
-        evidenceLink: '',
-      },
-    ];
+  } else if (!res.mentoring) {
+    res.mentoring = [];
   }
   let effectiveIqacStatus = record.iqacStatus || 'Pending';
   const normIq = String(effectiveIqacStatus).toUpperCase().trim();
@@ -1443,14 +1445,19 @@ function unusedComputeSectionScores(sectionData = {}, role) {
     4
   );
 
-  const mentoringScore =
-    sectionData.mentoring?.menteeCount &&
-    toNumber(sectionData.mentoring.menteeCount) > 0 &&
-    isNonEmpty(sectionData.mentoring.batch) &&
-    isNonEmpty(sectionData.mentoring.description) &&
-    isValidEvidenceLink(sectionData.mentoring.evidenceLink)
-      ? 2
-      : 0;
+  const mentoringList = Array.isArray(sectionData.mentoring)
+    ? sectionData.mentoring
+    : (sectionData.mentoring ? [sectionData.mentoring] : []);
+  const mentoringScore = mentoringList.some(
+    (row) =>
+      row?.menteeCount &&
+      toNumber(row.menteeCount) > 0 &&
+      isNonEmpty(row.batch) &&
+      isNonEmpty(row.description) &&
+      isValidEvidenceLink(row.evidenceLink)
+  )
+    ? 2
+    : 0;
 
   const certificationsScore = Math.min(
     ((sectionData.certifications || []).filter(
@@ -2564,7 +2571,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     studentFeedback: getFirstPopulatedArray('studentFeedback', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
     resultAnalysis: getFirstPopulatedArray('resultAnalysis', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
     coAttainment: getFirstPopulatedArray('coAttainment', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
-    mentoring: appraisal.section1Data?.mentoring || appraisal.sectionData?.mentoring || fullData.mentoring || {},
+    mentoring: appraisal.section1Data?.mentoring ?? appraisal.sectionData?.mentoring ?? fullData.mentoring ?? [],
   }), [appraisal, fullData]);
 
   const sec2 = useMemo(() => ({
@@ -2796,8 +2803,11 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: '2.8 PhD Scholars (Awarded)', rows: (sec2.phdAwarded || []).filter(r => !isRowBlank(r)), fields: ['scholarName', 'researchArea', 'evidenceLink'] },
   ];
 
-  const isSection1Populated = section1Arrays.some(s => s.rows.length > 0) ||
-    Boolean(sec1.mentoring && (sec1.mentoring.menteeCount || sec1.mentoring.description || sec1.mentoring.evidenceLink));
+  const mentoringItems = Array.isArray(sec1.mentoring)
+    ? sec1.mentoring.filter(m => m && (m.menteeCount || m.description || m.evidenceLink))
+    : (sec1.mentoring && (sec1.mentoring.menteeCount || sec1.mentoring.description || sec1.mentoring.evidenceLink) ? [sec1.mentoring] : []);
+
+  const isSection1Populated = section1Arrays.some(s => s.rows.length > 0) || mentoringItems.length > 0;
 
   const isSection2Populated = section2Arrays.some(s => s.rows.length > 0) ||
     Boolean(sec2.citationsReceived?.totalCount || sec2.q1Citations?.totalCount);
@@ -3286,7 +3296,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             <div className="space-y-2 mt-2">
               {renderSubTableGroup(section1Arrays)}
               {/* 1.7 Mentoring System */}
-              {sec1.mentoring && (() => {
+              {(() => {
+                const mList = Array.isArray(sec1.mentoring)
+                  ? sec1.mentoring
+                  : (sec1.mentoring ? [sec1.mentoring] : []);
                 const auto1_7 = effectiveScoreObj.autoMap['1.7'] ?? 0;
                 const eff1_7 = effectiveScoreObj.effectiveMap['1.7'] ?? auto1_7;
                 const max1_7 = SUBSECTION_MAX_MARKS['1.7'] || 10;
@@ -3302,13 +3315,21 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                         </span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-3">
-                      <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mentee Count</span><p>{sec1.mentoring.menteeCount || '—'}</p></div>
-                      <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Batch</span><p>{sec1.mentoring.batch || '—'}</p></div>
-                      <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">HOD Review</span><p>{sec1.mentoring.hodReview || 'Pending'}</p></div>
-                      <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Description</span><p className="mt-0.5 leading-4">{sec1.mentoring.description || '—'}</p></div>
-                      <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Evidence</span><p className="mt-0.5">{sec1.mentoring.evidenceLink ? (<a href={sec1.mentoring.evidenceLink} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800">Link ↗</a>) : '—'}</p></div>
-                    </div>
+                    {mList.length === 0 ? (
+                      <p className="text-[11px] text-slate-400 italic">No mentoring records submitted.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {mList.map((mItem, mIdx) => (
+                          <div key={mItem.id || mIdx} className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-3 pt-2 border-t border-slate-200 first:border-0 first:pt-0">
+                            <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mentee Count</span><p>{mItem.menteeCount || '—'}</p></div>
+                            <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Batch</span><p>{mItem.batch || '—'}</p></div>
+                            <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">HOD Review</span><p>{mItem.hodReview || 'Pending'}</p></div>
+                            <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Description</span><p className="mt-0.5 leading-4">{mItem.description || '—'}</p></div>
+                            <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Evidence</span><p className="mt-0.5">{mItem.evidenceLink ? (<a href={mItem.evidenceLink} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800">Link ↗</a>) : '—'}</p></div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {renderHoDSubsectionScoringAndFeedback('1.7', '1.7 Mentoring System')}
                   </div>
                 );
@@ -3919,8 +3940,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   }, [isScorePopoverOpen]);
 
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
+  const isSingleYearRole = isHod || isIQAC || isPrincipal;
+  const reviewerAppraisalYear = getReviewerAppraisalYear();
   
-  const [selectedTimeline, setSelectedTimeline] = useState('2025-2026');
+  const [selectedTimeline, setSelectedTimeline] = useState(() => isSingleYearRole ? reviewerAppraisalYear : '2025-2026');
+
+  useEffect(() => {
+    if (isSingleYearRole && selectedTimeline !== reviewerAppraisalYear) {
+      setSelectedTimeline(reviewerAppraisalYear);
+    }
+  }, [isSingleYearRole, reviewerAppraisalYear, selectedTimeline]);
   const [activeReviewTab, setActiveReviewTab] = useState('inbox');
 
   // IQAC Bulk Selection State
@@ -4211,7 +4240,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         studioPedagogy: cleanDraftArray(currentDraft.studioPedagogy),
         educationalTours: cleanDraftArray(currentDraft.educationalTours),
         academicCollaborations: cleanDraftArray(currentDraft.academicCollaborations),
-        mentoring: currentDraft.mentoring || {},
+        mentoring: Array.isArray(currentDraft.mentoring) ? cleanDraftArray(currentDraft.mentoring) : (currentDraft.mentoring || {}),
         certifications: cleanDraftArray(currentDraft.certifications),
         studentFeedback: cleanDraftArray(currentDraft.studentFeedback),
         resultAnalysis: cleanDraftArray(currentDraft.resultAnalysis),
@@ -6265,7 +6294,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         academicCollaborations: cleanSectionArray(formData.academicCollaborations),
         certifications: cleanSectionArray(formData.certifications),
         studentFeedback: cleanSectionArray(formData.studentFeedback),
-        mentoring: formData.mentoring || {},
+        mentoring: Array.isArray(formData.mentoring) ? cleanSectionArray(formData.mentoring) : (formData.mentoring || {}),
       };
 
       const cleanedSection2Data = {
@@ -6871,29 +6900,29 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm shadow-black/5 hover:bg-white/95 hover:border-[#4A1519]/20 glass-card-float">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-xl">
-            <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-              {isPrincipal ? '🎓 Principal Review Dashboard' : isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
-            </p>
-            {!isHod && !isIQAC && (
+            {isPrincipal ? (
+              <h2 className="text-xl font-semibold text-slate-900">
+                Campus-Wide Accreditation &amp; Analytics
+              </h2>
+            ) : (
               <>
-                <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                  {isPrincipal
-                    ? 'Campus-Wide Accreditation & Analytics'
-                    : isRegistrar
-                      ? 'Campus-Wide Appraisal Overview'
-                      : isIQAC
-                        ? 'NAAC / NIRF Benchmark & Quality Audit'
-                        : `Appraisal for ${selectedTimeline}`}
-                </h2>
-                <p className="mt-1 text-xs text-slate-500">
-                  {isPrincipal
-                    ? 'College-wide performance insights, NIRF/NAAC accreditation readiness, and departmental benchmarks across all 16 academic departments.'
-                    : isRegistrar
-                      ? 'Monitor, filter, and validate annual faculty performance submissions across all 16 TCE academic departments.'
-                      : isIQAC
-                        ? 'Audit faculty submissions, filter by score range (e.g. 10 to 20) or target threshold (e.g. Score = 100), verify accreditation evidence, and curate NAAC lists.'
-                        : 'Select the academic year and create your Section I submission when ready.'}
+                <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                  {isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
                 </p>
+                {!isHod && !isIQAC && (
+                  <>
+                    <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                      {isRegistrar
+                        ? 'Campus-Wide Appraisal Overview'
+                        : `Appraisal for ${selectedTimeline}`}
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {isRegistrar
+                        ? 'Monitor, filter, and validate annual faculty performance submissions across all 16 TCE academic departments.'
+                        : 'Select the academic year and create your Section I submission when ready.'}
+                    </p>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -6935,11 +6964,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
                 }
               }}
-              isReviewMode={!isHod && !isIQAC && !isPrincipal && isReviewMode}
-              currentAcademicYear={getCurrentAcademicYear()}
+              isReviewMode={!isSingleYearRole && isReviewMode}
+              currentAcademicYear={isSingleYearRole ? reviewerAppraisalYear : getCurrentAcademicYear()}
               minYear={FIRST_ACADEMIC_YEAR}
               maxYear={2100}
-              createdTimelines={isHod || isIQAC || isPrincipal || !isReviewMode ? createdTimelines : undefined}
+              createdTimelines={isSingleYearRole ? [reviewerAppraisalYear] : (!isReviewMode ? createdTimelines : undefined)}
             />
 
             {isReviewMode && (
@@ -8400,10 +8429,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           subtitle="(Calculation Rubric: Mentee Count > 0 with complete mentoring details = 2 marks | Else = 0 marks)"
           subScore={scores.sub1_7 || 0}
           maxScore={2}
-          rows={Array.isArray(currentSectionData.mentoring) ? currentSectionData.mentoring : (currentSectionData.mentoring ? [currentSectionData.mentoring] : [{ id: 'mentoring-1', menteeCount: '', batch: '', description: '', evidenceLink: '' }])}
+          rows={Array.isArray(currentSectionData.mentoring) ? currentSectionData.mentoring : (currentSectionData.mentoring ? [currentSectionData.mentoring] : [])}
           rowErrors={sectionValidation.rowErrors?.mentoring}
           canAdd={canAddMentoring(Array.isArray(currentSectionData.mentoring) ? currentSectionData.mentoring : [])}
-          canRemove={Array.isArray(currentSectionData.mentoring) && currentSectionData.mentoring.length > 1}
           disabled={!isEditable}
           onAdd={() =>
             addArrayRow('mentoring', {

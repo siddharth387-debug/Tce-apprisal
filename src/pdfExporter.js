@@ -406,7 +406,10 @@ export const exportAppraisalToPDF = ({
   }
 
   // 1.7 Mentoring System Card
-  if (sectionData.mentoring && (sectionData.mentoring.menteeCount || sectionData.mentoring.description)) {
+  const mentoringItems = Array.isArray(sectionData.mentoring)
+    ? sectionData.mentoring.filter(m => m && (m.menteeCount || m.description))
+    : (sectionData.mentoring && (sectionData.mentoring.menteeCount || sectionData.mentoring.description) ? [sectionData.mentoring] : []);
+  if (mentoringItems.length > 0) {
     if (currentY > pageHeight - 25) { doc.addPage(); currentY = margin; }
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
@@ -436,7 +439,6 @@ export const exportAppraisalToPDF = ({
     doc.text(' / 2 Marks', mScoreOff + doc.getTextWidth(mScoreStr), currentY);
     currentY += 2;
 
-    const mentoringUrl = formatExternalLink(sectionData.mentoring.evidenceLink);
     autoTable(doc, {
       startY: currentY,
       margin: { left: margin, right: margin },
@@ -444,12 +446,15 @@ export const exportAppraisalToPDF = ({
       styles: { fontSize: 7, cellPadding: 1.2, textColor: [30, 41, 59], lineColor: [203, 213, 225], lineWidth: 0.15 },
       headStyles: { fillColor: [255, 255, 255], textColor: [148, 163, 184], fontStyle: 'bold', lineColor: [203, 213, 225], lineWidth: 0.15 },
       head: [['Mentee Count', 'Batch', 'Description', 'Evidence Link']],
-      body: [[
-        sectionData.mentoring.menteeCount || '0',
-        sectionData.mentoring.batch || '-',
-        sectionData.mentoring.description || '-',
-        mentoringUrl ? { content: 'View Proof', rawUrl: mentoringUrl, isEvidenceLink: true } : '-'
-      ]],
+      body: mentoringItems.map((m) => {
+        const mentoringUrl = formatExternalLink(m.evidenceLink);
+        return [
+          m.menteeCount || '0',
+          m.batch || '-',
+          m.description || '-',
+          mentoringUrl ? { content: 'View Proof', rawUrl: mentoringUrl, isEvidenceLink: true } : '-'
+        ];
+      }),
       didDrawCell: (data) => {
         if (data.cell.raw && typeof data.cell.raw === 'object' && data.cell.raw.isEvidenceLink && data.cell.raw.rawUrl) {
           doc.link(data.cell.x, data.cell.y, data.cell.width, data.cell.height, { url: data.cell.raw.rawUrl });
