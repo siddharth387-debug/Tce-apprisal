@@ -69,7 +69,16 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
 export const isIqacApprovedRecord = (row) => {
   if (!row) return false;
   const iqStatus = String(row.iqacStatus || '').toUpperCase().trim();
+  if (iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED') {
+    return true;
+  }
   if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
+    const prStatus = String(row.principalApprovalStatus || '').toUpperCase().trim();
+    const apStatus = String(row.appraisalStatus || '').toUpperCase().trim();
+    if (['RATIFIED', 'ENDORSED', 'APPROVED', 'PRINCIPAL APPROVED'].includes(prStatus) ||
+        ['RATIFIED', 'ENDORSED', 'IQAC APPROVED', 'PRINCIPAL APPROVED'].includes(apStatus)) {
+      return true;
+    }
     return false;
   }
   if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
@@ -81,11 +90,16 @@ export const isIqacApprovedRecord = (row) => {
 export const isIqacNotApprovedRecord = (row) => {
   if (!row) return false;
   const iqStatus = String(row.iqacStatus || '').toUpperCase().trim();
-  if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
-    return false;
-  }
   if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
     return true;
+  }
+  if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
+    const prStatus = String(row.principalApprovalStatus || '').toUpperCase().trim();
+    const apStatus = String(row.appraisalStatus || '').toUpperCase().trim();
+    if (prStatus === 'NOT APPROVED' || apStatus === 'NOT APPROVED BY IQAC') {
+      return true;
+    }
+    return false;
   }
   return false;
 };
@@ -667,6 +681,21 @@ function flattenAppraisalRecord(record) {
       },
     ];
   }
+  let effectiveIqacStatus = record.iqacStatus || 'Pending';
+  const normIq = String(effectiveIqacStatus).toUpperCase().trim();
+  const normPr = String(record.principalApprovalStatus || '').toUpperCase().trim();
+  const normAp = String(record.appraisalStatus || '').toUpperCase().trim();
+
+  if (normIq === 'APPROVED' || normIq === 'IQAC APPROVED') {
+    effectiveIqacStatus = 'Approved';
+  } else if (normIq === 'NOT APPROVED' || normIq === 'NOT APPROVED BY IQAC' || normIq === 'REJECTED' || normIq === 'NEEDS CLARIFICATION') {
+    effectiveIqacStatus = 'Not Approved';
+  } else if (['RATIFIED', 'ENDORSED', 'APPROVED', 'PRINCIPAL APPROVED'].includes(normPr) || ['RATIFIED', 'ENDORSED', 'IQAC APPROVED', 'PRINCIPAL APPROVED'].includes(normAp)) {
+    effectiveIqacStatus = 'Approved';
+  } else if (normAp === 'NOT APPROVED BY IQAC' || normPr === 'NOT APPROVED') {
+    effectiveIqacStatus = 'Not Approved';
+  }
+
   return {
     ...res,
     ...(record.section9Data || {}),
@@ -676,12 +705,13 @@ function flattenAppraisalRecord(record) {
     subsectionRemarks: record.subsectionRemarks || rawSec.subsectionRemarks || {},
     hodSubsectionScores: record.hodSubsectionScores || rawSec.hodSubsectionScores || {},
     systemScore: record.systemScore || 0,
-    iqacStatus: record.iqacStatus || 'Pending',
+    iqacStatus: effectiveIqacStatus,
     iqacAuditRemarks: record.iqacAuditRemarks || '',
     iqacExcluded: Boolean(record.iqacExcluded),
     iqacEvaluatedAt: record.iqacEvaluatedAt || null,
+    iqacEvaluatedBy: record.iqacEvaluatedBy || '',
     principalRemarks: record.principalRemarks || '',
-    principalApprovalStatus: record.principalApprovalStatus || 'Pending',
+    principalApprovalStatus: record.principalApprovalStatus || (effectiveIqacStatus === 'Approved' ? 'Approved' : 'Pending'),
     principalEndorsedAt: record.principalEndorsedAt || null,
   };
 }
@@ -4704,7 +4734,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               ? (rec.appraisalStatus === 'IQAC Approved' ? 'Approved' : (rec.appraisalStatus || 'Approved'))
               : (rec.appraisalStatus || 'Approved'),
             ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-            iqacEvaluatedAt: new Date().toISOString()
+            iqacEvaluatedAt: new Date().toISOString(),
+            iqacEvaluatedBy: roleTitle,
+            principalApprovalStatus: targetStatus === 'Approved' ? (rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
           };
         }
         return rec;
@@ -4725,7 +4757,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               ? (prev.appraisalStatus === 'IQAC Approved' ? 'Approved' : (prev.appraisalStatus || 'Approved'))
               : (prev.appraisalStatus || 'Approved'),
             ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-            iqacEvaluatedAt: new Date().toISOString()
+            iqacEvaluatedAt: new Date().toISOString(),
+            iqacEvaluatedBy: roleTitle,
+            principalApprovalStatus: targetStatus === 'Approved' ? (prev.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
           };
         }
         return prev;
@@ -4749,9 +4783,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { headers }
       );
       
-      // Delay sync to ensure MongoDB updateMany completes before re-fetching
-      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
-      setTimeout(() => syncHistoryFromCloud(user, effectiveRole, currentDeptParam), 1500);
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user?.department || 'ALL');
+      await syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
       console.error('IQAC/Principal Verification Error:', err);
       setSubmitError(err.response?.data?.message || 'Failed to update verification status.');
@@ -4797,7 +4830,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             : 'Approved',
           ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
           iqacEvaluatedAt: new Date().toISOString(),
-          iqacEvaluatedBy: roleTitle
+          iqacEvaluatedBy: roleTitle,
+          principalApprovalStatus: targetStatus === 'Approved' ? (rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
         };
       }
       return rec;
@@ -4815,7 +4849,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             : 'Approved',
           ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
           iqacEvaluatedAt: new Date().toISOString(),
-          iqacEvaluatedBy: roleTitle
+          iqacEvaluatedBy: roleTitle,
+          principalApprovalStatus: targetStatus === 'Approved' ? (prev.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
         };
       }
       return prev;
@@ -4966,6 +5001,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         iqacExcluded: Boolean(record.iqacExcluded),
         iqacAuditRemarks: record.iqacAuditRemarks || '',
         iqacEvaluatedAt: record.iqacEvaluatedAt || null,
+        iqacEvaluatedBy: record.iqacEvaluatedBy || '',
+        principalApprovalStatus: record.principalApprovalStatus || 'Pending',
         hodRemarks: record.hodRemarks || '',
         subsectionRemarks: record.subsectionRemarks || {},
         hodSubsectionScores: record.hodSubsectionScores || {},
@@ -5595,11 +5632,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         departmentName: record.departmentName || '',
         designation: record.designation || 'Assistant Professor',
         appraisalStatus: record.appraisalStatus || 'Pending',
-        iqacStatus: record.iqacStatus || 'Pending',
+        iqacStatus: flattenedData.iqacStatus || record.iqacStatus || 'Pending',
         iqacExcluded: Boolean(record.iqacExcluded),
         iqacAuditRemarks: record.iqacAuditRemarks || '',
         iqacEvaluatedAt: record.iqacEvaluatedAt || null,
-        iqacEvaluatedBy: record.iqacEvaluatedBy || '',
+        iqacEvaluatedBy: flattenedData.iqacEvaluatedBy || record.iqacEvaluatedBy || '',
+        principalApprovalStatus: flattenedData.principalApprovalStatus || record.principalApprovalStatus || 'Pending',
         hodRemarks: record.hodRemarks || '',
         subsectionRemarks: record.subsectionRemarks || {},
         hodSubsectionScores: record.hodSubsectionScores || {},

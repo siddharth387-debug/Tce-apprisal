@@ -32,9 +32,9 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
   if (HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus)) return true;
   if (typeof recordOrStatus === 'object') {
     const pStatus = String(recordOrStatus.principalApprovalStatus || '').toUpperCase().trim();
-    if (pStatus === 'RATIFIED' || pStatus === 'ENDORSED') return true;
+    if (['RATIFIED', 'ENDORSED', 'APPROVED', 'NOT APPROVED'].includes(pStatus)) return true;
     const iqStatus = String(recordOrStatus.iqacStatus || '').toUpperCase().trim();
-    if (iqStatus === 'IQAC APPROVED' || iqStatus === 'NOT APPROVED BY IQAC') return true;
+    if (['APPROVED', 'IQAC APPROVED', 'NOT APPROVED', 'NOT APPROVED BY IQAC'].includes(iqStatus)) return true;
   }
   return false;
 };
@@ -42,7 +42,16 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
 export const isIqacApprovedRecord = (row) => {
   if (!row) return false;
   const iqStatus = String(row.iqacStatus || '').toUpperCase().trim();
+  if (iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED') {
+    return true;
+  }
   if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
+    const prStatus = String(row.principalApprovalStatus || '').toUpperCase().trim();
+    const apStatus = String(row.appraisalStatus || '').toUpperCase().trim();
+    if (['RATIFIED', 'ENDORSED', 'APPROVED', 'PRINCIPAL APPROVED'].includes(prStatus) ||
+        ['RATIFIED', 'ENDORSED', 'IQAC APPROVED', 'PRINCIPAL APPROVED'].includes(apStatus)) {
+      return true;
+    }
     return false;
   }
   if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
@@ -50,6 +59,93 @@ export const isIqacApprovedRecord = (row) => {
   }
   return iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED' || (iqStatus.includes('APPROVED') && !iqStatus.includes('NOT'));
 };
+
+export const isIqacNotApprovedRecord = (row) => {
+  if (!row) return false;
+  const iqStatus = String(row.iqacStatus || '').toUpperCase().trim();
+  if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
+    return true;
+  }
+  if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
+    const prStatus = String(row.principalApprovalStatus || '').toUpperCase().trim();
+    const apStatus = String(row.appraisalStatus || '').toUpperCase().trim();
+    if (prStatus === 'NOT APPROVED' || apStatus === 'NOT APPROVED BY IQAC') {
+      return true;
+    }
+    return false;
+  }
+  return false;
+};
+
+export const isIqacPendingRecord = (row) => {
+  if (!row) return false;
+  return !isIqacApprovedRecord(row) && !isIqacNotApprovedRecord(row);
+};
+
+export function applyLeadershipDecision({ targetRecord, decision, evaluatorRole, remarks = '', excluded = undefined }) {
+  const normDecision = String(decision || '').toUpperCase().trim();
+  const isNotApproved = ['NEEDS CLARIFICATION', 'NOT APPROVED', 'REJECTED', 'NOT APPROVED BY IQAC'].includes(normDecision) || normDecision.includes('NOT');
+  const finalStatus = isNotApproved ? 'Not Approved' : (normDecision === 'PENDING' ? 'Pending' : 'Approved');
+
+  const now = new Date();
+  const updateFields = {
+    iqacStatus: finalStatus,
+    iqacAuditRemarks: remarks !== undefined && remarks !== null ? String(remarks) : (targetRecord?.iqacAuditRemarks || ''),
+    ...(excluded !== undefined ? { iqacExcluded: Boolean(excluded) } : {}),
+    iqacEvaluatedAt: finalStatus === 'Pending' ? null : now,
+    iqacEvaluatedBy: finalStatus === 'Pending' ? '' : (evaluatorRole || 'IQAC'),
+    updatedAt: now
+  };
+
+  if (finalStatus === 'Approved') {
+    updateFields.appraisalStatus = 'Approved';
+    updateFields.principalApprovalStatus = targetRecord?.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved';
+  } else if (finalStatus === 'Not Approved') {
+    updateFields.appraisalStatus = 'Approved';
+    updateFields.principalApprovalStatus = 'Not Approved';
+  } else {
+    updateFields.principalApprovalStatus = 'Pending';
+  }
+
+  return { updateFields, finalStatus };
+}
+
+export function normalizeAppraisalLeadershipDecision(doc) {
+  if (!doc) return doc;
+  const rawIq = String(doc.iqacStatus || '').toUpperCase().trim();
+  const rawPr = String(doc.principalApprovalStatus || '').toUpperCase().trim();
+  const rawAp = String(doc.appraisalStatus || '').toUpperCase().trim();
+
+  if (rawIq === 'APPROVED' || rawIq === 'IQAC APPROVED') {
+    doc.iqacStatus = 'Approved';
+    if (!doc.iqacEvaluatedBy) {
+      doc.iqacEvaluatedBy = rawPr === 'RATIFIED' ? 'Principal' : 'IQAC';
+    }
+    return doc;
+  }
+  if (rawIq === 'NOT APPROVED' || rawIq === 'NOT APPROVED BY IQAC' || rawIq === 'REJECTED' || rawIq === 'NEEDS CLARIFICATION') {
+    doc.iqacStatus = 'Not Approved';
+    if (!doc.iqacEvaluatedBy) {
+      doc.iqacEvaluatedBy = rawPr === 'NOT APPROVED' ? 'Principal' : 'IQAC';
+    }
+    return doc;
+  }
+
+  if (['RATIFIED', 'ENDORSED', 'APPROVED', 'PRINCIPAL APPROVED'].includes(rawPr) ||
+      ['RATIFIED', 'ENDORSED', 'IQAC APPROVED', 'PRINCIPAL APPROVED'].includes(rawAp)) {
+    doc.iqacStatus = 'Approved';
+    if (!doc.iqacEvaluatedBy) {
+      doc.iqacEvaluatedBy = (rawPr === 'RATIFIED' || rawAp === 'RATIFIED' || rawPr === 'APPROVED') ? 'Principal' : 'IQAC';
+    }
+  } else if (rawAp === 'NOT APPROVED BY IQAC' || rawPr === 'NOT APPROVED') {
+    doc.iqacStatus = 'Not Approved';
+    if (!doc.iqacEvaluatedBy) {
+      doc.iqacEvaluatedBy = rawPr === 'NOT APPROVED' ? 'Principal' : 'IQAC';
+    }
+  }
+
+  return doc;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1118,6 +1214,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       iqacAuditRemarks: existingDoc?.iqacAuditRemarks || '',
       iqacExcluded: Boolean(existingDoc?.iqacExcluded),
       iqacEvaluatedAt: existingDoc?.iqacEvaluatedAt || null,
+      iqacEvaluatedBy: existingDoc?.iqacEvaluatedBy || '',
       principalApprovalStatus: existingDoc?.principalApprovalStatus || 'Pending',
       principalRemarks: existingDoc?.principalRemarks || '',
       principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
@@ -1565,6 +1662,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
           continue;
         }
       }
+      normalizeAppraisalLeadershipDecision(doc);
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
       const tlKey = (doc.timeline || '').trim();
       const deptKey = (doc.department || '').toUpperCase() === 'ARCH' ? '_ARCH' : '';
@@ -2124,21 +2222,14 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       return res.status(404).json({ success: false, message: "No matching appraisal record found." });
     }
 
-    const newStatus = iqacStatus || 'Approved';
-    const isNotApprovedIqac = ['Needs Clarification', 'NEEDS CLARIFICATION', 'Not Approved', 'NOT APPROVED', 'Rejected', 'REJECTED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC'].includes(newStatus);
     const evaluatorRole = req.body.evaluatorRole || req.body.evaluatedBy || (req.user?.role === 'Principal' ? 'Principal' : 'IQAC');
-    const updateFields = {
-      iqacStatus: normalizedIqacStatus,
-      appraisalStatus: isNotApprovedIqac
-        ? (targetRecord.appraisalStatus === 'IQAC Approved' ? 'Approved' : (targetRecord.appraisalStatus || 'Approved'))
-        : 'Approved',
-      iqacAuditRemarks: iqacAuditRemarks !== undefined ? iqacAuditRemarks : (targetRecord.iqacAuditRemarks || ''),
-      ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
-      iqacEvaluatedAt: new Date(),
-      iqacEvaluatedBy: evaluatorRole,
-      principalApprovalStatus: normalizedIqacStatus === 'Approved' ? (targetRecord.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Pending',
-      updatedAt: new Date()
-    };
+    const { updateFields, finalStatus } = applyLeadershipDecision({
+      targetRecord,
+      decision: iqacStatus,
+      evaluatorRole,
+      remarks: iqacAuditRemarks,
+      excluded: iqacExcluded
+    });
 
     const updatedRecord = await Appraisal.findByIdAndUpdate(
       targetRecord._id,
@@ -2158,10 +2249,10 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       );
     }
 
-    console.log(`✅ ${evaluatorRole} Verified: ID [${id}] updated to status [${newStatus}]`);
+    console.log(`✅ ${evaluatorRole} Verified: ID [${id}] updated to status [${finalStatus}]`);
     return res.status(200).json({
       success: true,
-      message: `Appraisal successfully marked as ${newStatus} by ${evaluatorRole}.`,
+      message: `Appraisal successfully marked as ${finalStatus} by ${evaluatorRole}.`,
       updatedRecord
     });
   } catch (err) {
@@ -2236,19 +2327,35 @@ app.post(['/api/appraisals/endorse', '/appraisals/endorse'], async (req, res) =>
     }
 
     const now = new Date();
+    const updateFields = {
+      appraisalStatus: 'Ratified',
+      principalApprovalStatus: 'Ratified',
+      principalEndorsedAt: now,
+      principalRemarks: (remarks || '').trim(),
+      isLocked: true,
+      iqacStatus: 'Approved',
+      iqacEvaluatedBy: 'Principal',
+      iqacEvaluatedAt: now,
+      updatedAt: now
+    };
     await Appraisal.collection.updateOne(
       { _id: targetRecord._id },
       {
-        $set: {
-          appraisalStatus: 'Ratified',
-          principalApprovalStatus: 'Ratified',
-          principalEndorsedAt: now,
-          principalRemarks: (remarks || '').trim(),
-          isLocked: true,
-          updatedAt: now
-        }
+        $set: updateFields
       }
     );
+
+    const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
+    if (targetEmail) {
+      const timelineFilter = targetRecord.timeline ? { timeline: targetRecord.timeline } : {};
+      await Appraisal.updateMany(
+        {
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
+          ...timelineFilter
+        },
+        { $set: updateFields }
+      );
+    }
 
     console.log(`🎓 Institutional Endorsement Secured: Appraisal for ${targetRecord.email} [Timeline: ${targetRecord.timeline}] ratified by Principal.`);
     return res.status(200).json({
@@ -2260,6 +2367,9 @@ app.post(['/api/appraisals/endorse', '/appraisals/endorse'], async (req, res) =>
         principalApprovalStatus: 'Ratified',
         principalEndorsedAt: now,
         principalRemarks: (remarks || '').trim(),
+        iqacStatus: 'Approved',
+        iqacEvaluatedBy: 'Principal',
+        iqacEvaluatedAt: now,
         isLocked: true
       }
     });
