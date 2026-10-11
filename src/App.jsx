@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import { GoogleLogin } from '@react-oauth/google';
 import axios from 'axios';
 import tceBanner from './tce-banner.png';
 import tceLogo from './tce-logo.png';
@@ -2230,7 +2230,7 @@ function DynamicArraySection({
   );
 }
 
-function LandingPage({
+const LandingPage = React.memo(function LandingPage({
   googleClientId,
   onLogin,
   sessionTimedOut = false,
@@ -2251,70 +2251,77 @@ function LandingPage({
     [googleClientId]
   );
 
-  const handleGoogleSuccess = async (credentialResponse, forceTerminateOther = false) => {
-    setErrorMessage('');
-    setSessionConflictData(null);
-
-    const credentialToken = credentialResponse?.credential || pendingCredential;
-    if (!credentialToken) {
-      setErrorMessage('Google sign-in did not return a valid credential token.');
-      return;
-    }
-
-    try {
-      if (forceTerminateOther) {
-        setIsTerminatingOther(true);
-      }
-      const authResponse = await axios.post(
-        `${API_BASE_URL}/auth/google`,
-        { credential: credentialToken, forceTerminateOther },
-        { withCredentials: true }
-      );
-      const backendUser = authResponse.data?.user;
-      const backendToken = authResponse.data?.token;
-      const userEmail = (backendUser?.email || '').toLowerCase();
-      const assignedRole = backendUser?.role || getRoleFromEmail(userEmail);
-
-      if (!userEmail || !backendToken) {
-        setErrorMessage('Authentication succeeded but no active session token was issued.');
-        return;
-      }
-
-      setPendingCredential(null);
+  const handleGoogleSuccess = React.useCallback(
+    async (credentialResponse, forceTerminateOther = false) => {
+      setErrorMessage('');
       setSessionConflictData(null);
 
-      onLogin({
-        id: backendUser?.id || '',
-        name: backendUser?.name || 'Staff User',
-        email: userEmail,
-        personalEmail: backendUser?.personalEmail || userEmail,
-        hodEmail: backendUser?.hodEmail || '',
-        alternateEmails: backendUser?.alternateEmails || [userEmail],
-        picture: backendUser?.picture || '',
-        role: assignedRole,
-        department: backendUser?.department || 'CSE',
-        departmentName: backendUser?.departmentName || '',
-        designation: backendUser?.designation || 'Faculty',
-        token: backendToken,
-      });
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 409 && error.response?.data?.sessionConflict) {
-          setPendingCredential(credentialToken);
-          setSessionConflictData(error.response.data);
-          return;
-        }
-        setErrorMessage(
-          error.response?.data?.message || 'Google authentication failed. Please try again.'
-        );
+      const credentialToken = credentialResponse?.credential || pendingCredential;
+      if (!credentialToken) {
+        setErrorMessage('Google sign-in did not return a valid credential token.');
         return;
       }
 
-      setErrorMessage(error instanceof Error ? error.message : 'Google sign-in failed.');
-    } finally {
-      setIsTerminatingOther(false);
-    }
-  };
+      try {
+        if (forceTerminateOther) {
+          setIsTerminatingOther(true);
+        }
+        const authResponse = await axios.post(
+          `${API_BASE_URL}/auth/google`,
+          { credential: credentialToken, forceTerminateOther },
+          { withCredentials: true }
+        );
+        const backendUser = authResponse.data?.user;
+        const backendToken = authResponse.data?.token;
+        const userEmail = (backendUser?.email || '').toLowerCase();
+        const assignedRole = backendUser?.role || getRoleFromEmail(userEmail);
+
+        if (!userEmail || !backendToken) {
+          setErrorMessage('Authentication succeeded but no active session token was issued.');
+          return;
+        }
+
+        setPendingCredential(null);
+        setSessionConflictData(null);
+
+        onLogin({
+          id: backendUser?.id || '',
+          name: backendUser?.name || 'Staff User',
+          email: userEmail,
+          personalEmail: backendUser?.personalEmail || userEmail,
+          hodEmail: backendUser?.hodEmail || '',
+          alternateEmails: backendUser?.alternateEmails || [userEmail],
+          picture: backendUser?.picture || '',
+          role: assignedRole,
+          department: backendUser?.department || 'CSE',
+          departmentName: backendUser?.departmentName || '',
+          designation: backendUser?.designation || 'Faculty',
+          token: backendToken,
+        });
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 409 && error.response?.data?.sessionConflict) {
+            setPendingCredential(credentialToken);
+            setSessionConflictData(error.response.data);
+            return;
+          }
+          setErrorMessage(
+            error.response?.data?.message || 'Google authentication failed. Please try again.'
+          );
+          return;
+        }
+
+        setErrorMessage(error instanceof Error ? error.message : 'Google sign-in failed.');
+      } finally {
+        setIsTerminatingOther(false);
+      }
+    },
+    [pendingCredential, onLogin]
+  );
+
+  const handleGoogleError = React.useCallback(() => {
+    setErrorMessage('Google sign-in was cancelled or could not be completed.');
+  }, []);
 
   return (
     <div className="flex min-h-screen w-full flex-col md:flex-row overflow-x-hidden">
@@ -2450,23 +2457,17 @@ function LandingPage({
           <div className="mt-6 sm:mt-8 rounded-2xl border border-slate-200/90 bg-slate-50/70 backdrop-blur-sm px-3 sm:px-4 py-5 sm:py-6 shadow-sm hover:bg-white transition-all duration-200">
             <div className="flex justify-center max-w-full overflow-hidden">
               {resolvedClientId ? (
-                <GoogleOAuthProvider clientId={resolvedClientId}>
-                  <GoogleLogin
-                    onSuccess={handleGoogleSuccess}
-                    onError={() =>
-                      setErrorMessage(
-                        'Google sign-in was cancelled or could not be completed.'
-                      )
-                    }
-                    auto_select
-                    useOneTap={false}
-                    shape="pill"
-                    size="large"
-                    text="signin_with"
-                    theme="outline"
-                    width="280"
-                  />
-                </GoogleOAuthProvider>
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  auto_select
+                  useOneTap={false}
+                  shape="pill"
+                  size="large"
+                  text="signin_with"
+                  theme="outline"
+                  width="280"
+                />
               ) : (
                 <p className="text-center text-sm text-amber-700">
                   Add a valid Google client ID to enable sign-in.
@@ -2485,7 +2486,7 @@ function LandingPage({
       </section>
     </div>
   );
-}
+});
 
 // Read-only drill-down view of a submitted appraisal record.
 // When hodControls is provided, a feedback textarea and action buttons render at the bottom.
@@ -10146,15 +10147,23 @@ export default function App() {
     }
   }, []);
 
+  const handleClearSessionTimedOut = React.useCallback(() => {
+    setSessionTimedOut(false);
+  }, []);
+
+  const handleClearSessionTerminatedNotice = React.useCallback(() => {
+    setSessionTerminatedNotice(false);
+  }, []);
+
   if (user === null) {
     return (
       <LandingPage 
         googleClientId={googleClientId} 
         onLogin={handleLogin} 
         sessionTimedOut={sessionTimedOut}
-        onClearSessionTimedOut={() => setSessionTimedOut(false)}
+        onClearSessionTimedOut={handleClearSessionTimedOut}
         sessionTerminatedNotice={sessionTerminatedNotice}
-        onClearSessionTerminatedNotice={() => setSessionTerminatedNotice(false)}
+        onClearSessionTerminatedNotice={handleClearSessionTerminatedNotice}
       />
     );
   }

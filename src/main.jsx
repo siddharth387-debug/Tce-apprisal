@@ -1,7 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
 import './index.css';
+
+const googleClientId =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  (typeof window !== 'undefined' ? window.__GOOGLE_CLIENT_ID__ || '' : '');
 
 const rootElement = document.getElementById('root');
 
@@ -11,6 +16,8 @@ if (!rootElement) {
 
 ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <App />
+    </GoogleOAuthProvider>
   </React.StrictMode>
 );
