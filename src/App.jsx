@@ -3856,23 +3856,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [isScorePopoverOpen, setIsScorePopoverOpen] = useState(false);
   const scorePopoverRef = useRef(null);
 
-  // IQAC Bulk Selection State
-  const [isIqacSelectMode, setIsIqacSelectMode] = useState(false);
-  const [selectedIqacRowIds, setSelectedIqacRowIds] = useState([]);
-
-  useEffect(() => {
-    setIsIqacSelectMode(false);
-    setSelectedIqacRowIds([]);
-  }, [
-    leadershipStatusFilter,
-    selectedDeptFilter,
-    selectedTimeline,
-    hodScoreSliderValue,
-    hodScoreFilterMode,
-    iqacShowExcludedOnly,
-    activeReviewTab
-  ]);
-
   useEffect(() => {
     if (!isScorePopoverOpen) return;
     const handleDocClick = (e) => {
@@ -3897,6 +3880,23 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   
   const [selectedTimeline, setSelectedTimeline] = useState('2025-2026');
   const [activeReviewTab, setActiveReviewTab] = useState('inbox');
+
+  // IQAC Bulk Selection State
+  const [isIqacSelectMode, setIsIqacSelectMode] = useState(false);
+  const [selectedIqacRowIds, setSelectedIqacRowIds] = useState([]);
+
+  useEffect(() => {
+    setIsIqacSelectMode(false);
+    setSelectedIqacRowIds([]);
+  }, [
+    leadershipStatusFilter,
+    selectedDeptFilter,
+    selectedTimeline,
+    hodScoreSliderValue,
+    hodScoreFilterMode,
+    iqacShowExcludedOnly,
+    activeReviewTab
+  ]);
   const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
   const [sectionAuditSearch, setSectionAuditSearch] = useState('');
   const [activeView, setActiveView] = useState('overview');
