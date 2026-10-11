@@ -2458,6 +2458,8 @@ function LandingPage({
                         'Google sign-in was cancelled or could not be completed.'
                       )
                     }
+                    auto_select
+                    useOneTap={false}
                     shape="pill"
                     size="large"
                     text="signin_with"
@@ -10012,6 +10014,10 @@ function saveUserToStorage(userProfile) {
 
   try {
     window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userProfile));
+    if (userProfile?.token) {
+      window.localStorage.setItem('userToken', userProfile.token);
+      window.localStorage.setItem('token', userProfile.token);
+    }
   } catch (error) {
     console.error('Failed to save user to storage:', error);
   }
