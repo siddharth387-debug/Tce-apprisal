@@ -3856,6 +3856,23 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [isScorePopoverOpen, setIsScorePopoverOpen] = useState(false);
   const scorePopoverRef = useRef(null);
 
+  // IQAC Bulk Selection State
+  const [isIqacSelectMode, setIsIqacSelectMode] = useState(false);
+  const [selectedIqacRowIds, setSelectedIqacRowIds] = useState([]);
+
+  useEffect(() => {
+    setIsIqacSelectMode(false);
+    setSelectedIqacRowIds([]);
+  }, [
+    leadershipStatusFilter,
+    selectedDeptFilter,
+    selectedTimeline,
+    hodScoreSliderValue,
+    hodScoreFilterMode,
+    iqacShowExcludedOnly,
+    activeReviewTab
+  ]);
+
   useEffect(() => {
     if (!isScorePopoverOpen) return;
     const handleDocClick = (e) => {
@@ -4741,6 +4758,101 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       // Do NOT call syncHistoryFromCloud here — it would overwrite the optimistic state with stale server data
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
+
+  const handleIqacBulkAction = useCallback(async (action) => {
+    if (!selectedIqacRowIds || selectedIqacRowIds.length === 0) return;
+    const targetStatus = action === 'Approved' ? 'Approved' : 'Not Approved';
+    const isNotApprovedTarget = targetStatus === 'Not Approved';
+
+    const promptMessage = action === 'Approved'
+      ? `✔ (Optional) Enter IQAC audit remarks or notes for approving ${selectedIqacRowIds.length} selected appraisal(s):`
+      : `⚠️ (Optional) Enter IQAC audit remarks / notes for marking ${selectedIqacRowIds.length} selected appraisal(s) as Not Approved:`;
+    const inputRemarks = window.prompt(promptMessage);
+    if (inputRemarks === null) return;
+    const trimmedRemarks = inputRemarks.trim();
+
+    const selectedIdSet = new Set(selectedIqacRowIds.map(String));
+    const selectedRecords = appraisals.filter(rec => selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id))));
+    if (selectedRecords.length === 0) return;
+
+    // Optimistic local state update (0 ms instant UI render)
+    setAppraisals(prev => prev.map(rec => {
+      const recIdStr = String(rec._id || rec.id);
+      if (selectedIdSet.has(recIdStr) || (rec._id && selectedIdSet.has(String(rec._id)))) {
+        return {
+          ...rec,
+          iqacStatus: targetStatus,
+          appraisalStatus: isNotApprovedTarget
+            ? (rec.appraisalStatus === 'IQAC Approved' ? 'Approved' : (rec.appraisalStatus || 'Approved'))
+            : 'Approved',
+          ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
+          iqacEvaluatedAt: new Date().toISOString()
+        };
+      }
+      return rec;
+    }));
+
+    setSelectedAppraisal(prev => {
+      if (!prev) return null;
+      const prevIdStr = String(prev._id || prev.id);
+      if (selectedIdSet.has(prevIdStr) || (prev._id && selectedIdSet.has(String(prev._id)))) {
+        return {
+          ...prev,
+          iqacStatus: targetStatus,
+          appraisalStatus: isNotApprovedTarget
+            ? (prev.appraisalStatus === 'IQAC Approved' ? 'Approved' : (prev.appraisalStatus || 'Approved'))
+            : 'Approved',
+          ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
+          iqacEvaluatedAt: new Date().toISOString()
+        };
+      }
+      return prev;
+    });
+
+    setIsSubmitting(true);
+    try {
+      const activeToken = getAuthToken() || user?.token;
+      const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+
+      const results = await Promise.allSettled(
+        selectedRecords.map(rec => {
+          const cleanId = extractStringId(rec._id || rec.id);
+          return axios.post(
+            `${API_BASE_URL}/appraisals/iqac-verify`,
+            {
+              id: cleanId,
+              email: rec.facultyEmail || rec.email || '',
+              timeline: rec.timeline || '',
+              iqacStatus: targetStatus,
+              iqacAuditRemarks: trimmedRemarks
+            },
+            { headers }
+          );
+        })
+      );
+
+      const fulfilledCount = results.filter(r => r.status === 'fulfilled').length;
+      const rejectedList = selectedRecords.filter((_, idx) => results[idx].status === 'rejected');
+
+      if (rejectedList.length === 0) {
+        setSubmitSuccess(`Successfully updated ${fulfilledCount} appraisal(s) to [${targetStatus}] by IQAC.`);
+      } else {
+        const failedNames = rejectedList.map(r => r.facultyName || r.facultyEmail || r.id).join(', ');
+        setSubmitError(`Updated ${fulfilledCount} appraisal(s). Failed for ${rejectedList.length} record(s): ${failedNames}`);
+      }
+
+      setSelectedIqacRowIds([]);
+      setIsIqacSelectMode(false);
+
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user?.department || 'ALL');
+      await syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+    } catch (err) {
+      console.error('IQAC Bulk Action Error:', err);
+      setSubmitError('Failed to execute bulk update.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [selectedIqacRowIds, appraisals, user, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, syncHistoryFromCloud]);
 
   const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState, recordEmail = '', recordTimeline = '') => {
     try {
@@ -6674,6 +6786,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       });
     }
 
+    const isIqacBulkSelectAllowed = isIQAC && (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING');
+
     return (
     <div className="space-y-3">
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm shadow-black/5 hover:bg-white/95 hover:border-[#4A1519]/20 glass-card-float">
@@ -7098,8 +7212,32 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 ))}
               </div>
 
-              {(isHod || isIQAC || isPrincipal) && (
-                <div className="relative flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-3 shrink-0">
+                {isIqacBulkSelectAllowed && isIqacSelectMode && (
+                  <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                    <button
+                      type="button"
+                      disabled={selectedIqacRowIds.length === 0 || isSubmitting}
+                      onClick={() => handleIqacBulkAction('Approved')}
+                      className="text-[11px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      title="Approve all selected records by IQAC"
+                    >
+                      <span>✔</span> Approved
+                    </button>
+                    <button
+                      type="button"
+                      disabled={selectedIqacRowIds.length === 0 || isSubmitting}
+                      onClick={() => handleIqacBulkAction('Not Approved')}
+                      className="text-[11px] bg-rose-700 hover:bg-rose-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      title="Mark all selected records as Not Approved by IQAC"
+                    >
+                      <span>⚠️</span> Not Approved
+                    </button>
+                  </div>
+                )}
+
+                {(isHod || isIQAC || isPrincipal) && (
+                  <div className="relative flex items-center gap-2 shrink-0">
                   <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Filter</span>
                   <input
                     type="range"
@@ -7170,15 +7308,36 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         })}
                       </div>
                     )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-left">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+                  {isIqacBulkSelectAllowed && isIqacSelectMode && (
+                    <th className="py-2.5 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={
+                          displayInboxRows.length > 0 &&
+                          displayInboxRows.every((r) => selectedIqacRowIds.includes(String(r._id || r.id)))
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIqacRowIds(displayInboxRows.map((r) => String(r._id || r.id)));
+                          } else {
+                            setSelectedIqacRowIds([]);
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-slate-300 text-[#4A1519] focus:ring-[#4A1519] cursor-pointer"
+                        title="Select / Deselect all visible records"
+                      />
+                    </th>
+                  )}
                   <th className="py-2.5 px-3">Faculty Name</th>
                   <th className="py-2.5 px-3">Designation</th>
                   <th className="py-2.5 px-3">Faculty Email</th>
@@ -7187,13 +7346,35 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <th className="py-2.5 px-3">Date Submitted</th>
                   <th className="py-2.5 px-3">{isIQAC ? 'Final Score' : 'Evaluated Score'}</th>
                   <th className="py-2.5 px-3">{isHod || isIQAC ? 'Status' : 'Validation State'}</th>
-                  <th className="py-2.5 px-3 text-right">Action</th>
+                  <th className="py-2.5 px-3 text-right">
+                    {isIqacBulkSelectAllowed ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsIqacSelectMode((prev) => {
+                            if (prev) setSelectedIqacRowIds([]);
+                            return !prev;
+                          });
+                        }}
+                        className={`px-2.5 py-0.5 text-[10.5px] font-bold rounded transition cursor-pointer border ${
+                          isIqacSelectMode
+                            ? 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300'
+                            : 'bg-[#4A1519] text-white border-[#4A1519] hover:bg-[#3B1013]'
+                        }`}
+                        title={isIqacSelectMode ? 'Cancel selection' : 'Select records for bulk action'}
+                      >
+                        {isIqacSelectMode ? 'Cancel' : 'Select'}
+                      </button>
+                    ) : (
+                      'Action'
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {displayInboxRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
+                    <td colSpan={isIqacBulkSelectAllowed && isIqacSelectMode ? 10 : 9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
                       {isIQAC 
                         ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? `0 – ${hodScoreSliderValue}` : ''} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
                         : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
@@ -7201,6 +7382,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   </tr>
                 ) : (
                   displayInboxRows.map((row) => {
+                    const rowId = String(row._id || row.id);
+                    const isRowSelected = selectedIqacRowIds.includes(rowId);
                     const totalScore = row.totalScore || 0;
                     const formattedDate = row.submittedAt || row.createdAt
                       ? new Date(row.submittedAt || row.createdAt).toLocaleDateString('en-GB')
@@ -7213,8 +7396,27 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     return (
                       <tr
                         key={row.id || row._id}
-                        className={`border-b border-slate-100/80 text-xs text-slate-700 hover:bg-[#4A1519]/5 hover:backdrop-blur-xs transition-all duration-200 ${row.iqacExcluded ? 'bg-rose-50/40' : ''}`}
+                        className={`border-b border-slate-100/80 text-xs text-slate-700 hover:bg-[#4A1519]/5 hover:backdrop-blur-xs transition-all duration-200 ${
+                          isRowSelected ? 'bg-blue-50/70' : row.iqacExcluded ? 'bg-rose-50/40' : ''
+                        }`}
                       >
+                        {isIqacBulkSelectAllowed && isIqacSelectMode && (
+                          <td className="py-2.5 px-3 w-10 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isRowSelected}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) {
+                                  setSelectedIqacRowIds((prev) => [...prev, rowId]);
+                                } else {
+                                  setSelectedIqacRowIds((prev) => prev.filter((id) => id !== rowId));
+                                }
+                              }}
+                              className="h-4 w-4 rounded border-slate-300 text-[#4A1519] focus:ring-[#4A1519] cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="py-2.5 px-3 font-semibold text-slate-900">
                           <div>{row.facultyName}</div>
                           {(isPrincipal || isRegistrar || isIQAC || isHod) && row.iqacAuditRemarks && (
@@ -7363,43 +7565,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               </button>
                             )}
 
-                            {isIQAC && (
-                              <>
-                                {!isIqacApprovedRecord(row) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleIqacVerifySubmission(row._id ? String(row._id) : row.id, row.facultyEmail || row.email, row.timeline, null, 'IQAC Approved')}
-                                    disabled={isSubmitting}
-                                    className="text-[10.5px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 disabled:opacity-50"
-                                    title="Approve faculty appraisal submission by IQAC Audit"
-                                  >
-                                    <span>✔</span> Approve
-                                  </button>
-                                )}
-                                {!isIqacNotApprovedRecord(row) && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleIqacVerifySubmission(row._id ? String(row._id) : row.id, row.facultyEmail || row.email, row.timeline, null, 'Not Approved')}
-                                    disabled={isSubmitting}
-                                    className="text-[10.5px] bg-rose-700 hover:bg-rose-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 disabled:opacity-50"
-                                    title="Mark faculty appraisal as Not Approved by IQAC Audit"
-                                  >
-                                    <span>⚠️</span> Not Approve
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleIqacToggleExclusion(row._id ? String(row._id) : row.id, Boolean(row.iqacExcluded), row.facultyEmail || row.email, row.timeline)}
-                                  disabled={isSubmitting}
-                                  className={`text-[10.5px] px-2 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 ${row.iqacExcluded ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
-                                  title={row.iqacExcluded ? 'Restore entry to active IQAC list' : 'Soft-hide entry from active IQAC list (Does NOT delete database record)'}
-                                >
-                                  <span>{row.iqacExcluded ? '↩ Restore' : '🚫 Hide'}</span>
-                                </button>
-                              </>
-                            )}
-
-                            {!isIQAC && (
+                            {!isIQAC && !isHod && (
                               <button
                                 onClick={() => handleDeleteAppraisalRecord(row._id || row.id)}
                                 className="text-xs text-gray-400 hover:text-red-600 transition p-1"
