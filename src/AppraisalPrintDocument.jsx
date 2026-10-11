@@ -751,9 +751,8 @@ export default function AppraisalPrintDocument({
           <div>
             <div className="h-10"></div>
             <div className="border-t border-slate-400 pt-1 font-bold text-slate-800">
-              Signature of Faculty Member
+              FACULTY
             </div>
-            <div className="text-[9px] text-slate-500 mt-0.5">Date: {submissionDate}</div>
           </div>
           <div>
             <div className="h-10 flex flex-col items-center justify-end pb-1">
@@ -768,9 +767,8 @@ export default function AppraisalPrintDocument({
               )}
             </div>
             <div className="border-t border-slate-400 pt-1 font-bold text-slate-800">
-              Signature of Head of Department
+              HOD
             </div>
-            <div className="text-[9px] text-slate-500 mt-0.5">With Seal &amp; Date</div>
           </div>
           <div>
             <div className="h-10 flex flex-col items-center justify-end pb-1">
@@ -781,12 +779,7 @@ export default function AppraisalPrintDocument({
               )}
             </div>
             <div className="border-t border-slate-400 pt-1 font-bold text-slate-800">
-              Signature of Dean / Principal
-            </div>
-            <div className="text-[9px] text-slate-500 mt-0.5">
-              {(record.principalApprovalStatus === 'Ratified' || record.principalEndorsedAt) && record.principalEndorsedAt
-                ? `Ratified: ${new Date(record.principalEndorsedAt).toLocaleDateString('en-GB')}`
-                : 'Institutional Seal & Date'}
+              PRINCIPAL
             </div>
           </div>
         </div>

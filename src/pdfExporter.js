@@ -691,23 +691,10 @@ export const exportAppraisalToPDF = ({
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(30, 41, 59);
-  doc.text('Signature of Faculty Member', margin + colW / 2, sigY + 3.5, { align: 'center' });
-  doc.text('Signature of Head of Department', margin + colW * 1.5, sigY + 3.5, { align: 'center' });
-  doc.text('Signature of Principal', margin + colW * 2.5, sigY + 3.5, { align: 'center' });
+  doc.text('FACULTY', margin + colW / 2, sigY + 3.5, { align: 'center' });
+  doc.text('HOD', margin + colW * 1.5, sigY + 3.5, { align: 'center' });
+  doc.text('PRINCIPAL', margin + colW * 2.5, sigY + 3.5, { align: 'center' });
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(`Date: ${submissionDate}`, margin + colW / 2, sigY + 6.5, { align: 'center' });
-  doc.text('With Seal & Date', margin + colW * 1.5, sigY + 6.5, { align: 'center' });
-  doc.text(
-    (record.principalApprovalStatus === 'Ratified' || record.principalEndorsedAt) && record.principalEndorsedAt
-      ? `Ratified: ${new Date(record.principalEndorsedAt).toLocaleDateString('en-GB')}`
-      : 'Institutional Seal & Date',
-    margin + colW * 2.5,
-    sigY + 6.5,
-    { align: 'center' }
-  );
 
   // ── Save Native PDF File ──────────────────────────────────────────────────
   const facultyCleanName = (user?.name || 'Faculty').trim().replace(/[^a-zA-Z0-9_-]/g, '_');

@@ -6892,12 +6892,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     [val]: prev[val] || createEmptySectionState(),
                   }));
                 }
+                if (isReviewMode && user) {
+                  const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) 
+                    ? selectedDeptFilter 
+                    : (effectiveRole === 'HOD' ? normalizeDepartmentCode(user.department) : (user.department || 'ALL'));
+                  syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
+                }
               }}
-              isReviewMode={!isHod && isReviewMode}
+              isReviewMode={!isHod && !isIQAC && !isPrincipal && isReviewMode}
               currentAcademicYear={getCurrentAcademicYear()}
               minYear={FIRST_ACADEMIC_YEAR}
               maxYear={2100}
-              createdTimelines={isHod ? createdTimelines : (!isReviewMode ? createdTimelines : undefined)}
+              createdTimelines={isHod || isIQAC || isPrincipal || !isReviewMode ? createdTimelines : undefined}
             />
 
             {isReviewMode && (
