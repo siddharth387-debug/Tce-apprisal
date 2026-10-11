@@ -3847,7 +3847,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [iqacScoreTo, setIqacScoreTo] = useState(200);
   const [iqacScoreFilterMode, setIqacScoreFilterMode] = useState('all'); // 'all' | 'min' (>=) | 'exact' (==) | 'range' (from-to)
   const [iqacStatusWorkflowFilter, setIqacStatusWorkflowFilter] = useState('ALL'); // 'ALL' | 'APPROVED' | 'PENDING'
-  const [iqacShowExcludedOnly, setIqacShowExcludedOnly] = useState(false);
   const [leadershipStatusFilter, setLeadershipStatusFilter] = useState('ALL'); // 'ALL' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'NOT_APPROVED_HOD' | 'IQAC_APPROVED' | 'NOT_APPROVED_IQAC' | 'RATIFIED'
   
   // HoD, IQAC & Principal Score Filter State
@@ -3894,7 +3893,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     selectedTimeline,
     hodScoreSliderValue,
     hodScoreFilterMode,
-    iqacShowExcludedOnly,
     activeReviewTab
   ]);
   const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
@@ -6701,9 +6699,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
 
   const renderOverview = () => {
-    const iqacActiveCount = selectedInboxRows.filter(r => !r.iqacExcluded).length;
-    const iqacExcludedCount = selectedInboxRows.filter(r => r.iqacExcluded).length;
-
     // Tally counts across all workflow concepts for the active department/timeline scope
     const statusCounts = { ALL: selectedInboxRows.length, DRAFT: 0, PENDING: 0, APPROVED: 0, NOT_APPROVED_HOD: 0, IQAC_APPROVED: 0, NOT_APPROVED_IQAC: 0, RATIFIED: 0, NOT_APPROVED: 0 };
     if (isIQAC) {
@@ -6778,12 +6773,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
 
     if (isIQAC) {
-      displayInboxRows = displayInboxRows.filter((row) => {
-        // Soft exclusion archive filter (Active Audit List vs Excluded Archive)
-        if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
-        if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
-        return true;
-      });
+      displayInboxRows = displayInboxRows.filter((row) => !row.iqacExcluded);
     }
 
     const isIqacBulkSelectAllowed = isIQAC && (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING');
@@ -7086,44 +7076,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {isIQAC && (
-                <>
-                  <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => setIqacShowExcludedOnly(false)}
-                      className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      <span>📋</span> Active Audit List ({iqacActiveCount})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIqacShowExcludedOnly(true)}
-                      className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      <span>🚫</span> Excluded Archive ({iqacExcludedCount})
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportIqacRosterPDF({
-                        rows: displayInboxRows,
-                        timeline: selectedTimeline,
-                        departmentFilter: selectedDeptFilter,
-                        targetScore: hodScoreSliderValue,
-                        scoreFrom: 0,
-                        scoreTo: hodScoreSliderValue,
-                        scoreFilterMode: (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? 'range' : hodScoreFilterMode,
-                        showExcludedArchive: iqacShowExcludedOnly,
-                      });
-                    }}
-                    className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
-                    title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
-                  >
-                    <span>📄</span> Export Audit PDF
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportIqacRosterPDF({
+                      rows: displayInboxRows,
+                      timeline: selectedTimeline,
+                      departmentFilter: selectedDeptFilter,
+                      targetScore: hodScoreSliderValue,
+                      scoreFrom: 0,
+                      scoreTo: hodScoreSliderValue,
+                      scoreFilterMode: (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? 'range' : hodScoreFilterMode,
+                      showExcludedArchive: false,
+                    });
+                  }}
+                  className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
+                  title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
+                >
+                  <span>📄</span> Export Audit PDF
+                </button>
               )}
 
               <div className="flex rounded-md shadow-sm border border-slate-200 p-1 bg-slate-50">
@@ -7376,7 +7347,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <tr>
                     <td colSpan={isIqacBulkSelectAllowed && isIqacSelectMode ? 10 : 9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
                       {isIQAC 
-                        ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? `0 – ${hodScoreSliderValue}` : ''} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
+                        ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? `0 – ${hodScoreSliderValue}` : ''}.`
                         : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
                     </td>
                   </tr>
