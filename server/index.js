@@ -217,6 +217,7 @@ const AppraisalSchema = new mongoose.Schema({
   iqacExcluded: { type: Boolean, default: false },
   iqacAuditRemarks: { type: String, default: '' },
   iqacEvaluatedAt: { type: Date, default: null },
+  iqacEvaluatedBy: { type: String, default: '' },
   isLocked: { type: Boolean, default: false },
   section1Data: {
     coursesHandled: { type: Array, default: [] },
@@ -1533,8 +1534,9 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu' || requestEmail.includes('iqac');
     const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu' || requestEmail === 'yuvar6535@gmail.com';
 
-    if (isIQACUser) {
-      const allowedHodStatuses = [
+    if (isIQACUser || isPrincipalUser) {
+      const allowedStatuses = [
+        'Draft', 'DRAFT', 'draft',
         'Approved', 'APPROVED', 'approved',
         'HoD Approved', 'HOD APPROVED', 'hod approved',
         'IQAC Approved', 'IQAC APPROVED', 'iqac approved',
@@ -1546,19 +1548,10 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       queryFilter = {
         ...queryFilter,
         $or: [
-          { appraisalStatus: { $in: allowedHodStatuses } },
-          { principalApprovalStatus: { $in: ['Ratified', 'RATIFIED', 'Endorsed', 'ENDORSED'] } },
-          { iqacStatus: { $in: ['IQAC Approved', 'IQAC APPROVED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC'] } }
+          { appraisalStatus: { $in: allowedStatuses } },
+          { principalApprovalStatus: { $in: ['Ratified', 'RATIFIED', 'Endorsed', 'ENDORSED', 'Approved', 'APPROVED'] } },
+          { iqacStatus: { $in: ['IQAC Approved', 'IQAC APPROVED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC', 'Approved', 'Not Approved'] } }
         ]
-      };
-    } else if (isPrincipalUser) {
-      const approvedIqacStatuses = [
-        'Approved', 'APPROVED', 'approved',
-        'IQAC Approved', 'IQAC APPROVED', 'iqac approved'
-      ];
-      queryFilter = {
-        ...queryFilter,
-        iqacStatus: { $in: approvedIqacStatuses }
       };
     }
 
@@ -1566,11 +1559,11 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     const seenMap = new Map();
     const records = [];
     for (const doc of rawRecords) {
-      if (isIQACUser && !isHodApprovedOrLater(doc)) {
-        continue;
-      }
-      if (isPrincipalUser && !isIqacApprovedRecord(doc)) {
-        continue;
+      if (isIQACUser || isPrincipalUser) {
+        const isDraft = String(doc.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+        if (!isDraft && !isHodApprovedOrLater(doc)) {
+          continue;
+        }
       }
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
       const tlKey = (doc.timeline || '').trim();
@@ -2133,7 +2126,7 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
 
     const newStatus = iqacStatus || 'Approved';
     const isNotApprovedIqac = ['Needs Clarification', 'NEEDS CLARIFICATION', 'Not Approved', 'NOT APPROVED', 'Rejected', 'REJECTED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC'].includes(newStatus);
-    const normalizedIqacStatus = isNotApprovedIqac ? 'Not Approved' : 'Approved';
+    const evaluatorRole = req.body.evaluatorRole || req.body.evaluatedBy || (req.user?.role === 'Principal' ? 'Principal' : 'IQAC');
     const updateFields = {
       iqacStatus: normalizedIqacStatus,
       appraisalStatus: isNotApprovedIqac
@@ -2142,6 +2135,8 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       iqacAuditRemarks: iqacAuditRemarks !== undefined ? iqacAuditRemarks : (targetRecord.iqacAuditRemarks || ''),
       ...(iqacExcluded !== undefined ? { iqacExcluded: Boolean(iqacExcluded) } : {}),
       iqacEvaluatedAt: new Date(),
+      iqacEvaluatedBy: evaluatorRole,
+      principalApprovalStatus: normalizedIqacStatus === 'Approved' ? (targetRecord.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Pending',
       updatedAt: new Date()
     };
 
@@ -2163,10 +2158,10 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
       );
     }
 
-    console.log(`✅ IQAC Verified: ID [${id}] updated to status [${newStatus}]`);
+    console.log(`✅ ${evaluatorRole} Verified: ID [${id}] updated to status [${newStatus}]`);
     return res.status(200).json({
       success: true,
-      message: `Appraisal successfully marked as ${newStatus} by IQAC Quality Audit.`,
+      message: `Appraisal successfully marked as ${newStatus} by ${evaluatorRole}.`,
       updatedRecord
     });
   } catch (err) {

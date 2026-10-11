@@ -4731,7 +4731,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         return prev;
       });
 
-      setSubmitSuccess(`Appraisal audit status updated to [${targetStatus}] by IQAC!`);
+      const roleLabel = isPrincipal ? 'Principal' : 'IQAC';
+      setSubmitSuccess(`Appraisal audit status updated to [${targetStatus}] by ${roleLabel}!`);
 
       const activeToken = getAuthToken() || user?.token;
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
@@ -4742,7 +4743,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           email: recordEmail,
           timeline: recordTimeline,
           iqacStatus: targetStatus,
-          iqacAuditRemarks: trimmedRemarks
+          iqacAuditRemarks: trimmedRemarks,
+          evaluatorRole: effectiveRole === 'Principal' ? 'Principal' : 'IQAC'
         },
         { headers }
       );
@@ -4751,8 +4753,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user.department || 'ALL');
       setTimeout(() => syncHistoryFromCloud(user, effectiveRole, currentDeptParam), 1500);
     } catch (err) {
-      console.error('IQAC Verification Error:', err);
-      setSubmitError(err.response?.data?.message || 'Failed to update IQAC verification status.');
+      console.error('IQAC/Principal Verification Error:', err);
+      setSubmitError(err.response?.data?.message || 'Failed to update verification status.');
       // Do NOT call syncHistoryFromCloud here — it would overwrite the optimistic state with stale server data
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
@@ -4762,21 +4764,31 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const targetStatus = action === 'Approved' ? 'Approved' : 'Not Approved';
     const isNotApprovedTarget = targetStatus === 'Not Approved';
 
+    const selectedIdSet = new Set(selectedIqacRowIds.map(String));
+    let selectedRecords = appraisals.filter(rec => selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id))));
+    if (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING') {
+      selectedRecords = selectedRecords.filter(r => isIqacPendingRecord(r));
+    } else if (leadershipStatusFilter === 'APPROVED') {
+      selectedRecords = selectedRecords.filter(r => isIqacApprovedRecord(r));
+    } else if (leadershipStatusFilter === 'NOT_APPROVED') {
+      selectedRecords = selectedRecords.filter(r => isIqacNotApprovedRecord(r));
+    }
+    if (selectedRecords.length === 0) return;
+
+    const roleTitle = isPrincipal ? 'Principal' : 'IQAC';
     const promptMessage = action === 'Approved'
-      ? `✔ (Optional) Enter IQAC audit remarks or notes for approving ${selectedIqacRowIds.length} selected appraisal(s):`
-      : `⚠️ (Optional) Enter IQAC audit remarks / notes for marking ${selectedIqacRowIds.length} selected appraisal(s) as Not Approved:`;
+      ? `✔ (Optional) Enter ${roleTitle} audit remarks or notes for approving ${selectedRecords.length} selected appraisal(s):`
+      : `⚠️ (Optional) Enter ${roleTitle} audit remarks / notes for marking ${selectedRecords.length} selected appraisal(s) as Not Approved:`;
     const inputRemarks = window.prompt(promptMessage);
     if (inputRemarks === null) return;
     const trimmedRemarks = inputRemarks.trim();
 
-    const selectedIdSet = new Set(selectedIqacRowIds.map(String));
-    const selectedRecords = appraisals.filter(rec => selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id))));
-    if (selectedRecords.length === 0) return;
+    const finalTargetIdSet = new Set(selectedRecords.map(r => String(r._id || r.id)));
 
     // Optimistic local state update (0 ms instant UI render)
     setAppraisals(prev => prev.map(rec => {
       const recIdStr = String(rec._id || rec.id);
-      if (selectedIdSet.has(recIdStr) || (rec._id && selectedIdSet.has(String(rec._id)))) {
+      if (finalTargetIdSet.has(recIdStr) || (rec._id && finalTargetIdSet.has(String(rec._id)))) {
         return {
           ...rec,
           iqacStatus: targetStatus,
@@ -4784,7 +4796,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             ? (rec.appraisalStatus === 'IQAC Approved' ? 'Approved' : (rec.appraisalStatus || 'Approved'))
             : 'Approved',
           ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-          iqacEvaluatedAt: new Date().toISOString()
+          iqacEvaluatedAt: new Date().toISOString(),
+          iqacEvaluatedBy: roleTitle
         };
       }
       return rec;
@@ -4793,7 +4806,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     setSelectedAppraisal(prev => {
       if (!prev) return null;
       const prevIdStr = String(prev._id || prev.id);
-      if (selectedIdSet.has(prevIdStr) || (prev._id && selectedIdSet.has(String(prev._id)))) {
+      if (finalTargetIdSet.has(prevIdStr) || (prev._id && finalTargetIdSet.has(String(prev._id)))) {
         return {
           ...prev,
           iqacStatus: targetStatus,
@@ -4801,7 +4814,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             ? (prev.appraisalStatus === 'IQAC Approved' ? 'Approved' : (prev.appraisalStatus || 'Approved'))
             : 'Approved',
           ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-          iqacEvaluatedAt: new Date().toISOString()
+          iqacEvaluatedAt: new Date().toISOString(),
+          iqacEvaluatedBy: roleTitle
         };
       }
       return prev;
@@ -4822,7 +4836,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               email: rec.facultyEmail || rec.email || '',
               timeline: rec.timeline || '',
               iqacStatus: targetStatus,
-              iqacAuditRemarks: trimmedRemarks
+              iqacAuditRemarks: trimmedRemarks,
+              evaluatorRole: roleTitle
             },
             { headers }
           );
@@ -4833,7 +4848,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const rejectedList = selectedRecords.filter((_, idx) => results[idx].status === 'rejected');
 
       if (rejectedList.length === 0) {
-        setSubmitSuccess(`Successfully updated ${fulfilledCount} appraisal(s) to [${targetStatus}] by IQAC.`);
+        setSubmitSuccess(`Successfully updated ${fulfilledCount} appraisal(s) to [${targetStatus}] by ${roleTitle}.`);
       } else {
         const failedNames = rejectedList.map(r => r.facultyName || r.facultyEmail || r.id).join(', ');
         setSubmitError(`Updated ${fulfilledCount} appraisal(s). Failed for ${rejectedList.length} record(s): ${failedNames}`);
@@ -4845,12 +4860,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user?.department || 'ALL');
       await syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
-      console.error('IQAC Bulk Action Error:', err);
+      console.error('Bulk Action Error:', err);
       setSubmitError('Failed to execute bulk update.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedIqacRowIds, appraisals, user, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, syncHistoryFromCloud]);
+  }, [selectedIqacRowIds, appraisals, user, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, leadershipStatusFilter, syncHistoryFromCloud]);
 
   const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState, recordEmail = '', recordTimeline = '') => {
     try {
@@ -5556,14 +5571,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       rows = rows.filter(r => r.timeline === selectedTimeline);
     }
 
-    // IQAC role visibility: Only appraisals approved by HoD or later (Approved, IQAC Approved, Not Approved by IQAC, Ratified)
-    if (isIQAC) {
-      rows = rows.filter(r => isHodApprovedOrLater(r));
-    }
-
-    // Principal role visibility: Only appraisals whose current IQAC decision is Approved
-    if (isPrincipal) {
-      rows = rows.filter(r => isIqacApprovedRecord(r));
+    // IQAC & Principal role visibility: All appraisals approved by HoD or later, plus Drafts for the Draft tab
+    if (isIQAC || isPrincipal) {
+      rows = rows.filter(r => {
+        const isDraft = String(r.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+        return isDraft || isHodApprovedOrLater(r);
+      });
     }
 
     return rows.map((record) => {
@@ -5586,6 +5599,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         iqacExcluded: Boolean(record.iqacExcluded),
         iqacAuditRemarks: record.iqacAuditRemarks || '',
         iqacEvaluatedAt: record.iqacEvaluatedAt || null,
+        iqacEvaluatedBy: record.iqacEvaluatedBy || '',
         hodRemarks: record.hodRemarks || '',
         subsectionRemarks: record.subsectionRemarks || {},
         hodSubsectionScores: record.hodSubsectionScores || {},
@@ -6700,12 +6714,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const renderOverview = () => {
     // Tally counts across all workflow concepts for the active department/timeline scope
-    const statusCounts = { ALL: selectedInboxRows.length, DRAFT: 0, PENDING: 0, APPROVED: 0, NOT_APPROVED_HOD: 0, IQAC_APPROVED: 0, NOT_APPROVED_IQAC: 0, RATIFIED: 0, NOT_APPROVED: 0 };
-    if (isIQAC) {
+    const statusCounts = { ALL: 0, DRAFT: 0, PENDING: 0, APPROVED: 0, NOT_APPROVED_HOD: 0, IQAC_APPROVED: 0, NOT_APPROVED_IQAC: 0, RATIFIED: 0, NOT_APPROVED: 0 };
+    if (isIQAC || isPrincipal) {
       selectedInboxRows.forEach((row) => {
-        if (isIqacApprovedRecord(row)) statusCounts.APPROVED++;
-        else if (isIqacNotApprovedRecord(row)) statusCounts.NOT_APPROVED++;
-        else statusCounts.PENDING++;
+        const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+        if (isDraft) {
+          statusCounts.DRAFT++;
+        } else {
+          statusCounts.ALL++;
+          if (isIqacApprovedRecord(row)) statusCounts.APPROVED++;
+          else if (isIqacNotApprovedRecord(row)) statusCounts.NOT_APPROVED++;
+          else statusCounts.PENDING++;
+        }
       });
     } else {
       selectedInboxRows.forEach((row) => {
@@ -6721,24 +6741,43 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         if (isIqacNotApprovedRecord(row)) statusCounts.NOT_APPROVED_IQAC++;
         if (prStatus === 'RATIFIED' || apStatus === 'RATIFIED') statusCounts.RATIFIED++;
       });
+      statusCounts.ALL = selectedInboxRows.length;
     }
 
     let displayInboxRows = selectedInboxRows;
 
-    // Leadership Concept Status Filter (All | Drafts | Pending | Approved | Not Approved by HoD | IQAC Approved | Not Approved by IQAC | Ratified)
-    if (leadershipStatusFilter !== 'ALL') {
-      if (isIQAC) {
+    if (isIQAC || isPrincipal) {
+      if (leadershipStatusFilter === 'ALL') {
         displayInboxRows = displayInboxRows.filter((row) => {
-          if (leadershipStatusFilter === 'PENDING') return isIqacPendingRecord(row);
-          if (leadershipStatusFilter === 'APPROVED') return isIqacApprovedRecord(row);
-          if (leadershipStatusFilter === 'NOT_APPROVED' || leadershipStatusFilter === 'RATIFIED') return isIqacNotApprovedRecord(row);
-          return true;
+          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+          return !isDraft;
         });
-      } else {
+      } else if (leadershipStatusFilter === 'DRAFT') {
+        displayInboxRows = displayInboxRows.filter((row) => {
+          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+          return isDraft;
+        });
+      } else if (leadershipStatusFilter === 'PENDING') {
+        displayInboxRows = displayInboxRows.filter((row) => {
+          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+          return !isDraft && isIqacPendingRecord(row);
+        });
+      } else if (leadershipStatusFilter === 'APPROVED') {
+        displayInboxRows = displayInboxRows.filter((row) => {
+          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+          return !isDraft && isIqacApprovedRecord(row);
+        });
+      } else if (leadershipStatusFilter === 'NOT_APPROVED' || leadershipStatusFilter === 'RATIFIED') {
+        displayInboxRows = displayInboxRows.filter((row) => {
+          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
+          return !isDraft && isIqacNotApprovedRecord(row);
+        });
+      }
+    } else {
+      if (leadershipStatusFilter !== 'ALL') {
         displayInboxRows = displayInboxRows.filter((row) => {
           const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
           const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
-          const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
           if (leadershipStatusFilter === 'DRAFT') return apStatus === 'DRAFT';
           if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || !apStatus;
           if (leadershipStatusFilter === 'APPROVED') return apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED';
@@ -6772,11 +6811,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
     }
 
-    if (isIQAC) {
+    if (isIQAC || isPrincipal) {
       displayInboxRows = displayInboxRows.filter((row) => !row.iqacExcluded);
     }
 
-    const isIqacBulkSelectAllowed = isIQAC && (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING');
+    const isBulkSelectAllowed = (isIQAC || isPrincipal) && ['ALL', 'PENDING', 'APPROVED', 'NOT_APPROVED'].includes(leadershipStatusFilter);
+    const isRowSelectable = (row) => {
+      if (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING') {
+        return isIqacPendingRecord(row);
+      }
+      if (leadershipStatusFilter === 'APPROVED') {
+        return isIqacApprovedRecord(row);
+      }
+      if (leadershipStatusFilter === 'NOT_APPROVED') {
+        return isIqacNotApprovedRecord(row);
+      }
+      return false;
+    };
+    const selectableInboxRows = displayInboxRows.filter(isRowSelectable);
 
     return (
     <div className="space-y-3">
@@ -6784,7 +6836,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-xl">
             <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-              {isPrincipal ? '🎓 Apex Executive Governance & Oversight' : isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
+              {isPrincipal ? '🎓 Principal Review Dashboard' : isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
             </p>
             {!isHod && !isIQAC && (
               <>
@@ -7066,7 +7118,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center w-full gap-3 sm:gap-4 mb-4">
             <div>
               <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                {isPrincipal ? 'Institutional Executive Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : isIQAC ? 'IQAC Accreditation & Quality Audit Dashboard' : isHod ? 'FACULTY APPRAISAL DASHBOARD' : 'Department Faculty Appraisal Dashboard'}
+                {isPrincipal ? 'Principal Review Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : isIQAC ? 'IQAC Accreditation & Quality Audit Dashboard' : isHod ? 'FACULTY APPRAISAL DASHBOARD' : 'Department Faculty Appraisal Dashboard'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Showing {displayInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
@@ -7075,7 +7127,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              {isIQAC && (
+              {(isIQAC || isPrincipal) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -7091,7 +7143,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     });
                   }}
                   className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
-                  title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
+                  title="Export Audit Report as PDF"
                 >
                   <span>📄</span> Export Audit PDF
                 </button>
@@ -7103,7 +7155,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'inbox' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                  {isHod || isIQAC ? 'Inbox' : 'Inbox Roster'}
+                  {isHod || isIQAC || isPrincipal ? 'Inbox' : 'Inbox Roster'}
                 </button>
                 {!isHod && (
                   <button
@@ -7119,7 +7171,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'section_audit' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-                  {isHod || isIQAC ? 'Section Audit' : 'Section / Criteria Audit'}
+                  {isHod || isIQAC || isPrincipal ? 'Section Audit' : 'Section / Criteria Audit'}
                 </button>
               </div>
             </div>
@@ -7130,7 +7182,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {/* Quick Status Concept Filter Toolbar for Leadership & HoD */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                {!isHod && !isIQAC && (
+                {!isHod && !isIQAC && !isPrincipal && (
                   <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
                     <span>🎯</span> Status Concept:
                   </span>
@@ -7142,12 +7194,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       { key: 'PENDING', label: 'Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
                       { key: 'APPROVED', label: 'Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
                       { key: 'NOT_APPROVED_HOD', label: 'Not Approved', count: statusCounts.NOT_APPROVED_HOD, color: 'bg-rose-600 text-white' },
-                      { key: 'IQAC_APPROVED', label: 'Approved by IQAC', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
-                      { key: 'NOT_APPROVED_IQAC', label: 'Not Approved by IQAC', count: statusCounts.NOT_APPROVED_IQAC, color: 'bg-orange-600 text-white' },
+                      { key: 'IQAC_APPROVED', label: 'Approved by Principal / IQAC', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
+                      { key: 'NOT_APPROVED_IQAC', label: 'Not Approved by Principal / IQAC', count: statusCounts.NOT_APPROVED_IQAC, color: 'bg-orange-600 text-white' },
                     ]
-                  : isIQAC
+                  : (isIQAC || isPrincipal)
                     ? [
                         { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
+                        { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
                         { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
                         { key: 'APPROVED', label: '✔ Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
                         { key: 'NOT_APPROVED', label: '⚠️ Not Approved', count: statusCounts.NOT_APPROVED, color: 'bg-rose-600 text-white' },
@@ -7184,26 +7237,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
-                {isIqacBulkSelectAllowed && isIqacSelectMode && (
+                {isBulkSelectAllowed && isIqacSelectMode && (
                   <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
-                    <button
-                      type="button"
-                      disabled={selectedIqacRowIds.length === 0 || isSubmitting}
-                      onClick={() => handleIqacBulkAction('Approved')}
-                      className="text-[11px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      title="Approve all selected records by IQAC"
-                    >
-                      <span>✔</span> Approved
-                    </button>
-                    <button
-                      type="button"
-                      disabled={selectedIqacRowIds.length === 0 || isSubmitting}
-                      onClick={() => handleIqacBulkAction('Not Approved')}
-                      className="text-[11px] bg-rose-700 hover:bg-rose-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      title="Mark all selected records as Not Approved by IQAC"
-                    >
-                      <span>⚠️</span> Not Approved
-                    </button>
+                    {(leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING' || leadershipStatusFilter === 'NOT_APPROVED') && (
+                      <button
+                        type="button"
+                        disabled={selectedIqacRowIds.length === 0 || isSubmitting}
+                        onClick={() => handleIqacBulkAction('Approved')}
+                        className="text-[11px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        title={`Approve all selected records by ${isPrincipal ? 'Principal' : 'IQAC'}`}
+                      >
+                        <span>✔</span> Approved
+                      </button>
+                    )}
+                    {(leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING' || leadershipStatusFilter === 'APPROVED') && (
+                      <button
+                        type="button"
+                        disabled={selectedIqacRowIds.length === 0 || isSubmitting}
+                        onClick={() => handleIqacBulkAction('Not Approved')}
+                        className="text-[11px] bg-rose-700 hover:bg-rose-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        title={`Mark all selected records as Not Approved by ${isPrincipal ? 'Principal' : 'IQAC'}`}
+                      >
+                        <span>⚠️</span> Not Approved
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -7289,23 +7346,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <table className="min-w-full text-left">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
-                  {isIqacBulkSelectAllowed && isIqacSelectMode && (
+                  {isBulkSelectAllowed && isIqacSelectMode && (
                     <th className="py-2.5 px-3 w-10 text-center">
                       <input
                         type="checkbox"
                         checked={
-                          displayInboxRows.length > 0 &&
-                          displayInboxRows.every((r) => selectedIqacRowIds.includes(String(r._id || r.id)))
+                          selectableInboxRows.length > 0 &&
+                          selectableInboxRows.every((r) => selectedIqacRowIds.includes(String(r._id || r.id)))
                         }
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedIqacRowIds(displayInboxRows.map((r) => String(r._id || r.id)));
+                            setSelectedIqacRowIds(selectableInboxRows.map((r) => String(r._id || r.id)));
                           } else {
                             setSelectedIqacRowIds([]);
                           }
                         }}
-                        className="h-4 w-4 rounded border-slate-300 text-[#4A1519] focus:ring-[#4A1519] cursor-pointer"
-                        title="Select / Deselect all visible records"
+                        disabled={selectableInboxRows.length === 0}
+                        className="h-4 w-4 rounded border-slate-300 text-[#4A1519] focus:ring-[#4A1519] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title="Select / Deselect all selectable records"
                       />
                     </th>
                   )}
@@ -7315,10 +7373,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <th className="py-2.5 px-3">Dept</th>
                   <th className="py-2.5 px-3">Academic Year</th>
                   <th className="py-2.5 px-3">Date Submitted</th>
-                  <th className="py-2.5 px-3">{isIQAC ? 'Final Score' : 'Evaluated Score'}</th>
-                  <th className="py-2.5 px-3">{isHod || isIQAC ? 'Status' : 'Validation State'}</th>
+                  <th className="py-2.5 px-3">{(isIQAC || isPrincipal) ? 'Final Score' : 'Evaluated Score'}</th>
+                  <th className="py-2.5 px-3">{(isHod || isIQAC || isPrincipal) ? 'Status' : 'Validation State'}</th>
                   <th className="py-2.5 px-3 text-right">
-                    {isIqacBulkSelectAllowed ? (
+                    {isBulkSelectAllowed ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -7345,8 +7403,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <tbody>
                 {displayInboxRows.length === 0 ? (
                   <tr>
-                    <td colSpan={isIqacBulkSelectAllowed && isIqacSelectMode ? 10 : 9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
-                      {isIQAC 
+                    <td colSpan={isBulkSelectAllowed && isIqacSelectMode ? 10 : 9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
+                      {(isIQAC || isPrincipal) 
                         ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? `0 – ${hodScoreSliderValue}` : ''}.`
                         : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
                     </td>
@@ -7371,28 +7429,32 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           isRowSelected ? 'bg-blue-50/70' : row.iqacExcluded ? 'bg-rose-50/40' : ''
                         }`}
                       >
-                        {isIqacBulkSelectAllowed && isIqacSelectMode && (
+                        {isBulkSelectAllowed && isIqacSelectMode && (
                           <td className="py-2.5 px-3 w-10 text-center">
-                            <input
-                              type="checkbox"
-                              checked={isRowSelected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                if (e.target.checked) {
-                                  setSelectedIqacRowIds((prev) => [...prev, rowId]);
-                                } else {
-                                  setSelectedIqacRowIds((prev) => prev.filter((id) => id !== rowId));
-                                }
-                              }}
-                              className="h-4 w-4 rounded border-slate-300 text-[#4A1519] focus:ring-[#4A1519] cursor-pointer"
-                            />
+                            {isRowSelectable(row) ? (
+                              <input
+                                type="checkbox"
+                                checked={isRowSelected}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  if (e.target.checked) {
+                                    setSelectedIqacRowIds((prev) => [...prev, rowId]);
+                                  } else {
+                                    setSelectedIqacRowIds((prev) => prev.filter((id) => id !== rowId));
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-slate-300 text-[#4A1519] focus:ring-[#4A1519] cursor-pointer"
+                              />
+                            ) : (
+                              <span className="text-slate-300 font-bold select-none" title="Already decided (view-only in this tab)">—</span>
+                            )}
                           </td>
                         )}
                         <td className="py-2.5 px-3 font-semibold text-slate-900">
                           <div>{row.facultyName}</div>
                           {(isPrincipal || isRegistrar || isIQAC || isHod) && row.iqacAuditRemarks && (
-                            <div className={`text-[10px] font-medium px-2 py-0.5 rounded mt-1 border max-w-xs ${row.iqacExcluded ? 'bg-rose-100/80 text-rose-900 border-rose-200' : 'bg-blue-50 text-blue-900 border-blue-200'}`}>
-                              💬 <strong>IQAC Note:</strong> "{row.iqacAuditRemarks}"
+                            <div className="text-[10px] text-blue-900 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 mt-1 max-w-xs font-normal">
+                              💬 {row.iqacEvaluatedBy ? `${row.iqacEvaluatedBy} Note:` : 'Audit Note:'} "{row.iqacAuditRemarks}"
                             </div>
                           )}
                         </td>
@@ -7416,7 +7478,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         </td>
                         <td className="py-2.5 px-3">
                           {(() => {
-                            if (isIQAC) {
+                            if (isIQAC || isPrincipal) {
+                              if (activeStatus === 'DRAFT') {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-slate-100 text-slate-700 border border-slate-300 shadow-sm flex items-center gap-1 w-fit">
+                                    <span>📝</span> Draft
+                                  </span>
+                                );
+                              }
                               if (isIqacApprovedRecord(row)) {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
@@ -7448,6 +7517,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   <span>⚠️</span> Needs Clarification
                                 </span>
                               );
+                            } else if (isIqacNotApprovedRecord(row)) {
+                              return (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-orange-100 text-orange-900 border border-orange-300 shadow-sm flex items-center gap-1 w-fit">
+                                  <span>⚠️</span> Not Approved by Principal / IQAC
+                                </span>
+                              );
                             } else if (isRatified && isIqacApproved) {
                               return (
                                 <div className="flex flex-col gap-1 items-start">
@@ -7455,14 +7530,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                     <span>🔒</span> Ratified
                                   </span>
                                   <span className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
-                                    <span>📊</span> IQAC Approved
+                                    <span>📊</span> Approved by Principal / IQAC
                                   </span>
                                 </div>
                               );
                             } else if (isIqacApproved) {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
-                                  <span>📊</span> IQAC Approved
+                                  <span>📊</span> Approved by Principal / IQAC
                                 </span>
                               );
                             } else if (isRatified) {
@@ -7532,11 +7607,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 }}
                                 className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 cursor-pointer"
                               >
-                                {isIQAC ? 'Audit Data' : 'Review Data'}
+                                {(isIQAC || isPrincipal) ? 'Audit Data' : 'Review Data'}
                               </button>
                             )}
 
-                            {!isIQAC && !isHod && (
+                            {!isIQAC && !isPrincipal && !isHod && (
                               <button
                                 onClick={() => handleDeleteAppraisalRecord(row._id || row.id)}
                                 className="text-xs text-gray-400 hover:text-red-600 transition p-1"
@@ -7940,7 +8015,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DetailedReviewView
           appraisal={selectedAppraisal}
           isHodView={isHod}
-          isIqacView={isIQAC}
+          isIqacView={isIQAC || isPrincipal}
           onClose={() => {
             setSelectedAppraisal(null);
             setSelectedReviewAppraisal(null);
@@ -7959,13 +8034,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             onSubsectionScoreChange: (key, val) => setHodSubsectionScores(prev => ({ ...prev, [key]: val })),
             onAction: processHodReviewAction,
           } : null}
-          principalControls={isPrincipal && selectedAppraisal ? {
-            onEndorse: handlePrincipalEndorse,
-            isRatified: selectedAppraisal.principalApprovalStatus === 'Ratified' || selectedAppraisal.appraisalStatus === 'Ratified',
-            endorsedAt: selectedAppraisal.principalEndorsedAt,
-            remarks: selectedAppraisal.principalRemarks,
-          } : null}
-          iqacControls={isIQAC && selectedAppraisal ? {
+          principalControls={null}
+          iqacControls={(isIQAC || isPrincipal) && selectedAppraisal ? {
             remarksValue: iqacRemarksInput,
             onRemarksChange: setIqacRemarksInput,
             onVerify: (targetStatus) => handleIqacVerifySubmission(selectedAppraisal._id || selectedAppraisal.id, selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline, iqacRemarksInput, targetStatus),
