@@ -2487,7 +2487,7 @@ function LandingPage({
 
 // Read-only drill-down view of a submitted appraisal record.
 // When hodControls is provided, a feedback textarea and action buttons render at the bottom.
-function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, iqacControls, onExportPDF, isHodView }) {
+function DetailedReviewView({ appraisal, onClose, hodControls, principalControls, iqacControls, onExportPDF, isHodView, isIqacView }) {
   const facultyName = appraisal.facultyName || appraisal.name || "Faculty Member";
   const facultyEmail = appraisal.facultyEmail || appraisal.email || "";
   const getFirstPopulatedArray = (arrayKey, ...sources) => {
@@ -2646,6 +2646,20 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     const autoScore = effectiveScoreObj.autoMap[subKey] ?? 0;
     const effScore = effectiveScoreObj.effectiveMap[subKey] ?? autoScore;
     const isOverridden = effScore !== autoScore;
+
+    if (isIqacView) {
+      if (appraisal.subsectionRemarks?.[subKey]) {
+        return (
+          <div className="mt-2 bg-white/90 border border-amber-200/80 rounded-md px-2.5 py-1.5 text-xs text-amber-900 font-medium flex items-center gap-1.5">
+            <span className="font-bold text-[#4A1519] shrink-0 whitespace-nowrap">
+              HOD Remark:
+            </span>
+            <span>"{appraisal.subsectionRemarks[subKey]}"</span>
+          </div>
+        );
+      }
+      return null;
+    }
 
     return (
       <div className="mt-2.5 bg-gradient-to-r from-amber-50/90 to-orange-50/60 border border-amber-200 rounded-lg p-2.5 sm:p-3">
@@ -2878,12 +2892,22 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const renderSubTableGroup = (groups) => {
     return groups.map(({ label, rows, fields }) => {
       const subKey = label.split(' ')[0];
-      const hasRowMarks = ['2.1', '2.4', '2.5', '2.7', '2.8'].includes(subKey);
+      const maxMark = SUBSECTION_MAX_MARKS[subKey] || 10;
+      const autoScore = effectiveScoreObj.autoMap[subKey] ?? 0;
+      const effScore = effectiveScoreObj.effectiveMap[subKey] ?? autoScore;
+      const hasRowMarks = !isIqacView && ['2.1', '2.4', '2.5', '2.7', '2.8'].includes(subKey);
       return (
         <div key={label} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 mb-2">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-            {label}
-          </p>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+              {label}
+            </p>
+            {isIqacView && (
+              <span className="text-xs font-bold text-[#4A1519]">
+                Score: <span className="font-black">{effScore} / {maxMark}</span>
+              </span>
+            )}
+          </div>
           {rows.length === 0 ? (
             <p className="text-[11px] text-slate-400 italic">No entries submitted.</p>
           ) : (
@@ -2985,16 +3009,24 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             {facultyName} <span className="text-xs font-normal text-slate-500">({facultyEmail})</span>
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="bg-slate-100 px-2.5 py-1 rounded text-xs font-semibold text-slate-700">
-              Automated Score: <span className="font-bold text-slate-900">{effectiveScoreObj.autoGrandTotal} / 200</span>
-            </div>
-            <div className="bg-[#4A1519]/10 px-2.5 py-1 rounded text-xs font-bold text-[#4A1519]">
-              HoD Final Evaluated Score: <span className="font-black text-sm">{effectiveScoreObj.grandTotal} / 200</span>
-            </div>
-            {!isHodView && effectiveScoreObj.hasAdjustments && (
-              <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
-                ⚡ Overrides Applied
-              </span>
+            {isIqacView ? (
+              <div className="bg-[#4A1519]/10 px-2.5 py-1 rounded text-xs font-bold text-[#4A1519]">
+                Final Score: <span className="font-black text-sm">{effectiveScoreObj.grandTotal} / 200</span>
+              </div>
+            ) : (
+              <>
+                <div className="bg-slate-100 px-2.5 py-1 rounded text-xs font-semibold text-slate-700">
+                  Automated Score: <span className="font-bold text-slate-900">{effectiveScoreObj.autoGrandTotal} / 200</span>
+                </div>
+                <div className="bg-[#4A1519]/10 px-2.5 py-1 rounded text-xs font-bold text-[#4A1519]">
+                  HoD Final Evaluated Score: <span className="font-black text-sm">{effectiveScoreObj.grandTotal} / 200</span>
+                </div>
+                {!isHodView && effectiveScoreObj.hasAdjustments && (
+                  <span className="text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
+                    ⚡ Overrides Applied
+                  </span>
+                )}
+              </>
             )}
           </div>
           {appraisal.iqacAuditRemarks && (
@@ -3100,8 +3132,8 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         </div>
       )}
 
-      {/* IQAC Audit Status Callout Banner (Prominently viewable to Registrar, Principal & IQAC) */}
-      {!isHodView && (() => {
+      {/* IQAC Audit Status Callout Banner (Prominently viewable to Registrar & Principal - Hidden for HoD & IQAC) */}
+      {!isHodView && !isIqacView && (() => {
         const iqacState = (appraisal.iqacStatus || '').toUpperCase();
         const appraisalState = (appraisal.appraisalStatus || '').toUpperCase();
         const isNeedsClarification = iqacState === 'NEEDS CLARIFICATION';
@@ -3201,7 +3233,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION I: Teaching &amp; Learning</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.total || 0} / 50</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.total || 0} / 50` : `Subtotal: ${scoreObj.total || 0} / 50`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section1'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3219,21 +3253,33 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             <div className="space-y-2 mt-2">
               {renderSubTableGroup(section1Arrays)}
               {/* 1.7 Mentoring System */}
-              {sec1.mentoring && (
-                <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                    1.7 Mentoring System
-                  </p>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-3">
-                    <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mentee Count</span><p>{sec1.mentoring.menteeCount || '—'}</p></div>
-                    <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Batch</span><p>{sec1.mentoring.batch || '—'}</p></div>
-                    <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">HOD Review</span><p>{sec1.mentoring.hodReview || 'Pending'}</p></div>
-                    <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Description</span><p className="mt-0.5 leading-4">{sec1.mentoring.description || '—'}</p></div>
-                    <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Evidence</span><p className="mt-0.5">{sec1.mentoring.evidenceLink ? (<a href={sec1.mentoring.evidenceLink} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800">Link ↗</a>) : '—'}</p></div>
+              {sec1.mentoring && (() => {
+                const auto1_7 = effectiveScoreObj.autoMap['1.7'] ?? 0;
+                const eff1_7 = effectiveScoreObj.effectiveMap['1.7'] ?? auto1_7;
+                const max1_7 = SUBSECTION_MAX_MARKS['1.7'] || 10;
+                return (
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        1.7 Mentoring System
+                      </p>
+                      {isIqacView && (
+                        <span className="text-xs font-bold text-[#4A1519]">
+                          Score: <span className="font-black">{eff1_7} / {max1_7}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-600 sm:grid-cols-3">
+                      <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Mentee Count</span><p>{sec1.mentoring.menteeCount || '—'}</p></div>
+                      <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Batch</span><p>{sec1.mentoring.batch || '—'}</p></div>
+                      <div><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">HOD Review</span><p>{sec1.mentoring.hodReview || 'Pending'}</p></div>
+                      <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Description</span><p className="mt-0.5 leading-4">{sec1.mentoring.description || '—'}</p></div>
+                      <div className="col-span-2 sm:col-span-3"><span className="font-semibold text-slate-500 uppercase tracking-wider text-[10px]">Evidence</span><p className="mt-0.5">{sec1.mentoring.evidenceLink ? (<a href={sec1.mentoring.evidenceLink} target="_blank" rel="noreferrer" className="text-blue-600 underline hover:text-blue-800">Link ↗</a>) : '—'}</p></div>
+                    </div>
+                    {renderHoDSubsectionScoringAndFeedback('1.7', '1.7 Mentoring System')}
                   </div>
-                  {renderHoDSubsectionScoringAndFeedback('1.7', '1.7 Mentoring System')}
-                </div>
-              )}
+                );
+              })()}
             </div>
           )
         )}
@@ -3247,7 +3293,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION II: Research Publications</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section2Total || 0} / 55</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section2Total || 0} / 55` : `Subtotal: ${scoreObj.section2Total || 0} / 55`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section2'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3264,14 +3312,38 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           ) : (
             <div className="space-y-2 mt-2">
               {/* Citations Summary */}
-              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-2 space-y-2">
-                <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-                  <div><span className="text-slate-500">2.2 Citations Received (3 Yrs):</span> <span className="font-bold text-slate-800">{sec2.citationsReceived?.totalCount || '0'}</span></div>
-                  <div><span className="text-slate-500">2.3 Total Q1 Citations:</span> <span className="font-bold text-slate-800">{sec2.q1Citations?.totalCount || '0'}</span></div>
-                </div>
-                {renderHoDSubsectionScoringAndFeedback('2.2', '2.2 Citations Received')}
-                {renderHoDSubsectionScoringAndFeedback('2.3', '2.3 Total Q1 Citations')}
-              </div>
+              {(() => {
+                const eff2_2 = effectiveScoreObj.effectiveMap['2.2'] ?? (effectiveScoreObj.autoMap['2.2'] ?? 0);
+                const max2_2 = SUBSECTION_MAX_MARKS['2.2'] || 10;
+                const eff2_3 = effectiveScoreObj.effectiveMap['2.3'] ?? (effectiveScoreObj.autoMap['2.3'] ?? 0);
+                const max2_3 = SUBSECTION_MAX_MARKS['2.3'] || 10;
+                return (
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-2 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium">
+                        <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">2.2 Citations Received (3 Yrs):</span> <span className="font-bold text-slate-800">{sec2.citationsReceived?.totalCount || '0'}</span>
+                      </div>
+                      {isIqacView && (
+                        <span className="text-xs font-bold text-[#4A1519]">
+                          Score: <span className="font-black">{eff2_2} / {max2_2}</span>
+                        </span>
+                      )}
+                    </div>
+                    {!isIqacView && renderHoDSubsectionScoringAndFeedback('2.2', '2.2 Citations Received')}
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="text-xs font-medium">
+                        <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">2.3 Total Q1 Citations:</span> <span className="font-bold text-slate-800">{sec2.q1Citations?.totalCount || '0'}</span>
+                      </div>
+                      {isIqacView && (
+                        <span className="text-xs font-bold text-[#4A1519]">
+                          Score: <span className="font-black">{eff2_3} / {max2_3}</span>
+                        </span>
+                      )}
+                    </div>
+                    {!isIqacView && renderHoDSubsectionScoringAndFeedback('2.3', '2.3 Total Q1 Citations')}
+                  </div>
+                );
+              })()}
               {renderSubTableGroup(section2Arrays)}
             </div>
           )
@@ -3286,7 +3358,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION III: Patents and Innovation</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section3Total || 0} / 15</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section3Total || 0} / 15` : `Subtotal: ${scoreObj.section3Total || 0} / 15`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section3'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3316,7 +3390,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION IV: Sponsored Research and Consultancy</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section4Total || 0} / 15</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section4Total || 0} / 15` : `Subtotal: ${scoreObj.section4Total || 0} / 15`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section4'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3346,7 +3422,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION V: International Engagement &amp; Rankings</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section5Total || 0} / 10</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section5Total || 0} / 10` : `Subtotal: ${scoreObj.section5Total || 0} / 10`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section5'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3376,7 +3454,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VI: Faculty Development &amp; Professional Activities</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section6Total || 0} / 20</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section6Total || 0} / 20` : `Subtotal: ${scoreObj.section6Total || 0} / 20`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section6'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3406,7 +3486,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VII: Industry Interaction &amp; Internship</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section7Total || 0} / 10</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section7Total || 0} / 10` : `Subtotal: ${scoreObj.section7Total || 0} / 10`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section7'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3436,7 +3518,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION VIII: Student Development Activities</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section8Total || 0} / 5</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section8Total || 0} / 5` : `Subtotal: ${scoreObj.section8Total || 0} / 5`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section8'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -3466,7 +3550,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         >
           <h4 className="text-xs font-black uppercase tracking-wider text-[#4A1519]">SECTION IX: Institutional Development</h4>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Subtotal: {scoreObj.section9Total || 0} / 20</span>
+            <span className="text-xs font-bold text-slate-700">
+              {isIqacView ? `${scoreObj.section9Total || 0} / 20` : `Subtotal: ${scoreObj.section9Total || 0} / 20`}
+            </span>
             <svg
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${expandedSections['section9'] ? 'rotate-180' : ''}`}
               fill="none"
@@ -6558,8 +6644,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
     }
 
-    // Score Filter for HoD
-    if (isHod && hodScoreFilterMode !== 'all') {
+    // Score Filter for HoD & IQAC
+    if ((isHod || isIQAC) && hodScoreFilterMode !== 'all') {
       const N = Number(hodScoreSliderValue) || 0;
       displayInboxRows = displayInboxRows.filter((row) => {
         const totalScore = Number(row.totalScore) || 0;
@@ -6572,22 +6658,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     if (isIQAC) {
       displayInboxRows = displayInboxRows.filter((row) => {
-        const totalScore = row.totalScore || 0;
-        
         // Soft exclusion archive filter (Active Audit List vs Excluded Archive)
         if (!iqacShowExcludedOnly && row.iqacExcluded) return false;
         if (iqacShowExcludedOnly && !row.iqacExcluded) return false;
-
-        // Score threshold & range filter (applied only when not in 'all' mode)
-        if (iqacScoreFilterMode === 'min') {
-          return totalScore >= (Number(iqacTargetScoreFilter) || 0);
-        } else if (iqacScoreFilterMode === 'exact') {
-          return totalScore === (Number(iqacTargetScoreFilter) || 0);
-        } else if (iqacScoreFilterMode === 'range') {
-          const minS = Math.min(Number(iqacScoreFrom) || 0, Number(iqacScoreTo) || 0);
-          const maxS = Math.max(Number(iqacScoreFrom) || 0, Number(iqacScoreTo) || 0);
-          return totalScore >= minS && totalScore <= maxS;
-        }
         return true;
       });
     }
@@ -6600,7 +6673,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
               {isPrincipal ? '🎓 Apex Executive Governance & Oversight' : isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
             </p>
-            {!isHod && (
+            {!isHod && !isIQAC && (
               <>
                 <h2 className="mt-1 text-xl font-semibold text-slate-900">
                   {isPrincipal
@@ -6674,8 +6747,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
 
-        {/* Score Range Filter & Measurement Scheme Toolbar (IQAC, Registrar & Leadership - Removed for HoD) */}
-        {!isHod && (isIQAC || isPrincipal || isRegistrar || isMasterUser) && (
+        {/* Score Range Filter & Measurement Scheme Toolbar (Registrar & Leadership - Removed for HoD & IQAC) */}
+        {!isHod && !isIQAC && (isPrincipal || isRegistrar || isMasterUser) && (
           <div className="mt-4 p-4 bg-gradient-to-r from-blue-900/10 via-slate-50 to-blue-900/10 border border-blue-200 rounded-xl space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -6766,74 +6839,73 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   </button>
                 </div>
 
-                {!isIQAC && (
-                  <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300">
-                    <button
-                      type="button"
-                      onClick={() => setIqacStatusWorkflowFilter('ALL')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'ALL' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      All Submissions
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIqacStatusWorkflowFilter('APPROVED')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'APPROVED' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      HoD Approved
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIqacStatusWorkflowFilter('PENDING')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'PENDING' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      Pending Review
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {isIQAC && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
-                    <button
-                      type="button"
-                      onClick={() => setIqacShowExcludedOnly(false)}
-                      className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      <span>📋</span> Active Audit List ({iqacActiveCount})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIqacShowExcludedOnly(true)}
-                      className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      <span>🚫</span> Excluded Archive ({iqacExcludedCount})
-                    </button>
-                  </div>
-
+                <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300">
                   <button
                     type="button"
-                    onClick={() => {
-                      exportIqacRosterPDF({
-                        rows: displayInboxRows,
-                        timeline: selectedTimeline,
-                        departmentFilter: selectedDeptFilter,
-                        targetScore: iqacTargetScoreFilter,
-                        scoreFrom: iqacScoreFrom,
-                        scoreTo: iqacScoreTo,
-                        scoreFilterMode: iqacScoreFilterMode,
-                        showExcludedArchive: iqacShowExcludedOnly,
-                      });
-                    }}
-                    className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
-                    title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
+                    onClick={() => setIqacStatusWorkflowFilter('ALL')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'ALL' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
                   >
-                    <span>📄</span> Export Audit PDF
+                    All Submissions
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIqacStatusWorkflowFilter('APPROVED')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'APPROVED' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    HoD Approved
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIqacStatusWorkflowFilter('PENDING')}
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition ${iqacStatusWorkflowFilter === 'PENDING' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                  >
+                    Pending Review
                   </button>
                 </div>
-              )}
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Active Audit List / Excluded Archive Toolbar for IQAC */}
+        {isIQAC && (
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-2 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200">
+            <div className="flex items-center bg-white p-1 rounded-lg border border-slate-300 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setIqacShowExcludedOnly(false)}
+                className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${!iqacShowExcludedOnly ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <span>📋</span> Active Audit List ({iqacActiveCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setIqacShowExcludedOnly(true)}
+                className={`px-3 py-1 text-[11px] font-extrabold rounded-md transition flex items-center gap-1 ${iqacShowExcludedOnly ? 'bg-rose-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <span>🚫</span> Excluded Archive ({iqacExcludedCount})
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                exportIqacRosterPDF({
+                  rows: displayInboxRows,
+                  timeline: selectedTimeline,
+                  departmentFilter: selectedDeptFilter,
+                  targetScore: hodScoreSliderValue,
+                  scoreFrom: 0,
+                  scoreTo: hodScoreSliderValue,
+                  scoreFilterMode: hodScoreFilterMode,
+                  showExcludedArchive: iqacShowExcludedOnly,
+                });
+              }}
+              className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
+              title="Export IQAC Audit Report as PDF (Excludes soft-hidden faculty entries)"
+            >
+              <span>📄</span> Export Audit PDF
+            </button>
           </div>
         )}
 
@@ -6961,7 +7033,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {/* Quick Status Concept Filter Toolbar for Leadership & HoD */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                {!isHod && (
+                {!isHod && !isIQAC && (
                   <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
                     <span>🎯</span> Status Concept:
                   </span>
@@ -7014,7 +7086,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 ))}
               </div>
 
-              {isHod && (
+              {(isHod || isIQAC) && (
                 <div className="relative flex items-center gap-2 shrink-0">
                   <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Filter</span>
                   <input
@@ -7087,8 +7159,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <th className="py-2.5 px-3">Dept</th>
                   <th className="py-2.5 px-3">Academic Year</th>
                   <th className="py-2.5 px-3">Date Submitted</th>
-                  <th className="py-2.5 px-3">Evaluated Score</th>
-                  <th className="py-2.5 px-3">{isHod ? 'Status' : 'Validation State'}</th>
+                  <th className="py-2.5 px-3">{isIQAC ? 'Final Score' : 'Evaluated Score'}</th>
+                  <th className="py-2.5 px-3">{isHod || isIQAC ? 'Status' : 'Validation State'}</th>
                   <th className="py-2.5 px-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -7097,7 +7169,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <tr>
                     <td colSpan={9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
                       {isIQAC 
-                        ? `No faculty submissions found matching Score ${iqacScoreFilterMode === 'min' ? `≥ ${iqacTargetScoreFilter}` : iqacScoreFilterMode === 'exact' ? `== ${iqacTargetScoreFilter}` : `Range ${iqacScoreFrom} – ${iqacScoreTo}`} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
+                        ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : hodScoreFilterMode === 'range' ? `0 – ${hodScoreSliderValue}` : ''} ${iqacShowExcludedOnly ? 'in the Excluded Archive' : 'in the Active Audit List'}.`
                         : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
                     </td>
                   </tr>
@@ -7705,6 +7777,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <DetailedReviewView
           appraisal={selectedAppraisal}
           isHodView={isHod}
+          isIqacView={isIQAC}
           onClose={() => {
             setSelectedAppraisal(null);
             setSelectedReviewAppraisal(null);
