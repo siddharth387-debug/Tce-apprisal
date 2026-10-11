@@ -3610,24 +3610,13 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       {/* Interactive IQAC Quality Audit & Scoring Evaluation Controls */}
       {iqacControls && (
         <div className="mt-4 border-t border-slate-200 pt-4 print-hidden bg-gradient-to-br from-blue-50/60 via-indigo-50/40 to-sky-50/60 rounded-xl p-4 border border-blue-200 shadow-sm space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">📊</span>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-blue-950">
-                  IQAC Quality Audit Comments &amp; Scoring Verification
-                </h4>
-                <p className="text-[11px] text-blue-800">
-                  Review faculty submissions and HoD evaluation comments, then pass official IQAC audit notes and score confirmation.
-                </p>
-              </div>
-            </div>
-            {iqacControls.isVerified && (
+          {iqacControls.isVerified && (
+            <div className="flex items-center justify-end">
               <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-xs flex items-center gap-1">
                 <span>✔</span> Quality Verified
               </span>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Reference: HoD Submitted Remarks for IQAC Member */}
           {appraisal.hodRemarks && (
@@ -3643,12 +3632,12 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
           <div>
             <label className="block text-[11px] font-bold text-blue-950 mb-1">
-              IQAC Quality Audit Remarks / Scoring Comments (Viewable to Registrar &amp; Principal):
+              Overall Remarks
             </label>
             <textarea
               value={iqacControls.remarksValue}
               onChange={(e) => iqacControls.onRemarksChange(e.target.value)}
-              placeholder="Enter IQAC quality audit feedback, scoring verification notes, or observations (e.g., 'Score verified against Section 2 journal proofs. NAAC Category A compliance confirmed.')..."
+              placeholder="Enter your remarks"
               className="w-full min-h-24 rounded-md border border-blue-300 px-3 py-2 text-xs text-slate-800 bg-white outline-none focus:border-blue-700 focus:ring-2 focus:ring-blue-500/20 font-sans leading-relaxed"
             />
           </div>
