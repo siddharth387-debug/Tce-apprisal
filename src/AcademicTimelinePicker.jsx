@@ -27,6 +27,8 @@ export default function AcademicTimelinePicker({
   hideLabel = false,
   isCompact = false,
   placeholder = 'Select Period',
+  title = '',
+  ariaLabel = '',
   allowClear = false,
   disabled = false,
   restrictToBatch = false,
@@ -290,7 +292,8 @@ export default function AcademicTimelinePicker({
                   : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-400'
               }`
         }
-        title={disabled ? 'Disabled' : 'Click to select evaluation period or decade'}
+        title={title || (disabled ? 'Disabled' : 'Click to select evaluation period or decade')}
+        aria-label={ariaLabel || title || placeholder}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
       >

@@ -162,7 +162,9 @@ export default function AppLinkInput({
   onFocus,
   onBlur,
   disabled = false,
-  placeholder = 'Enter Supporting Document Link',
+  placeholder = 'Supporting Document Link',
+  title = '',
+  ariaLabel = '',
   hasError = false,
   errorText = '',
   className = '',
@@ -248,7 +250,7 @@ export default function AppLinkInput({
 
   const baseInputClass = className || `w-full rounded-md border ${
     isErr ? 'border-red-400' : 'border-slate-200'
-  } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed`;
+  } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`;
 
   return (
     <div className="w-full">
@@ -261,6 +263,8 @@ export default function AppLinkInput({
         onBlur={handleBlur}
         disabled={disabled}
         placeholder={placeholder}
+        title={title || placeholder}
+        aria-label={ariaLabel || title || placeholder}
         className={baseInputClass}
       />
       {displayError ? (

@@ -2187,38 +2187,29 @@ function DynamicArraySection({
                 ) : null}
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-2 w-full">
+              <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(215px,1fr))] gap-2.5 sm:gap-3 w-full items-start">
                 {safeColumns.map((column) => {
                   const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
                   const isLinkCol = column.name === 'evidenceLink' || column.name === 'appointmentLink' || column.type === 'url';
-                  const isTitleCol = column.name === 'paperTitle' ||
-                    column.name === 'title' ||
-                    column.name === 'scholarName' ||
-                    column.name === 'journalName' ||
-                    column.name === 'proceedingName' ||
-                    column.name === 'partner' ||
-                    column.name === 'researchArea' ||
-                    column.name === 'bodyName' ||
-                    column.name === 'courseName';
                   const isDateCol = column.name === 'fromDate' || column.name === 'toDate' || column.name === 'startDate' || column.name === 'endDate' || column.name === 'vivaDate';
                   const isCheckCol = column.name === 'isTillDate' || column.type === 'checkbox';
+
+                  const fieldPlaceholder = column.name === 'toDate' && Boolean(row.isTillDate)
+                    ? 'Present / Ongoing'
+                    : isTimelineCol
+                      ? (column.placeholder || column.label || 'Select Period')
+                      : isDateCol
+                        ? (column.placeholder || column.label || 'Select Date')
+                        : column.type === 'select'
+                          ? (column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`))
+                          : isLinkCol
+                            ? (column.placeholder || column.label || 'Supporting Document Link')
+                            : (column.placeholder || column.label);
 
                   return (
                     <div
                       key={column.name}
-                      className={`w-full min-w-0 flex flex-col ${
-                        isCheckCol
-                          ? 'sm:w-auto sm:shrink-0 sm:min-w-[85px]'
-                          : isLinkCol
-                            ? 'sm:w-auto sm:flex-[2] sm:min-w-[160px]'
-                            : isTitleCol
-                              ? 'sm:w-auto sm:flex-[1.5] sm:min-w-[130px]'
-                              : isDateCol
-                                ? 'sm:w-auto sm:flex-1 sm:min-w-[110px]'
-                                : isTimelineCol
-                                  ? 'sm:w-auto sm:flex-1 sm:min-w-[125px]'
-                                  : 'sm:w-auto sm:flex-1 sm:min-w-[90px]'
-                      }`}
+                      className="w-full min-w-0 flex flex-col"
                     >
                       {isTimelineCol ? (
                         <div onFocus={handleFieldFocus} className="w-full">
@@ -2228,7 +2219,9 @@ function DynamicArraySection({
                             disabled={disabled}
                             isCompact={true}
                             hideLabel={true}
-                            placeholder={column.placeholder || column.label || 'Select Period'}
+                            placeholder={fieldPlaceholder}
+                            title={fieldPlaceholder}
+                            ariaLabel={fieldPlaceholder}
                             allowClear={true}
                             currentAcademicYear={effectiveBatch}
                             restrictToBatch={Boolean(column.restrictToBatch || column.name === 'period')}
@@ -2241,12 +2234,18 @@ function DynamicArraySection({
                         </div>
                       ) : column.type === 'checkbox' ? (
                         <>
-                          <label className="flex items-center gap-2 h-[38px] sm:h-7 px-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition w-full sm:w-auto">
+                          <label
+                            title={column.label}
+                            aria-label={column.label}
+                            className="flex items-center gap-2 h-[38px] sm:h-7 px-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition w-full"
+                          >
                             <input
                               type="checkbox"
                               checked={Boolean(row[column.name])}
                               disabled={disabled}
                               onFocus={handleFieldFocus}
+                              title={column.label}
+                              aria-label={column.label}
                               onChange={(event) => {
                                 const isChecked = event.target.checked;
                                 onChange(row.id, column.name, isChecked);
@@ -2263,7 +2262,7 @@ function DynamicArraySection({
                               {getFieldErrorText(row, column.name)}
                             </span>
                           ) : null}
-                        </>
+                        </> 
                       ) : column.type === 'date' ? (
                         <>
                           <AppDateInput
@@ -2283,7 +2282,9 @@ function DynamicArraySection({
                             exactDate={column.isFdpEndDate ? computeExpectedEndDate(row[column.startDateField || 'dateRange'], row.duration) : undefined}
                             startDateForOrdering={column.isEndDate || column.isFdpEndDate ? (row[column.startDateField || 'startDate'] || row.dateRange || row.fromDate) : undefined}
                             disabled={disabled || Boolean(column.name === 'toDate' && row.isTillDate)}
-                            placeholder={column.name === 'toDate' && Boolean(row.isTillDate) ? 'Present / Ongoing' : (column.placeholder || column.label || 'Select Date')}
+                            placeholder={fieldPlaceholder}
+                            title={fieldPlaceholder}
+                            ariaLabel={fieldPlaceholder}
                             onFocus={handleFieldFocus}
                             errorText={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : getFieldErrorText(row, column.name)}
                           />
@@ -2297,14 +2298,16 @@ function DynamicArraySection({
                               onChange(row.id, column.name, event.target.value)
                             }
                             disabled={disabled}
+                            title={fieldPlaceholder}
+                            aria-label={fieldPlaceholder}
                             className={`w-full rounded-md border ${
                               hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
-                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
                           >
                             <option value="" disabled>
-                              {column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`)}
+                              {fieldPlaceholder}
                             </option>
                             {column.groups ? (
                               column.groups.map((group) => (
@@ -2340,7 +2343,9 @@ function DynamicArraySection({
                           onChange={(val) => onChange(row.id, column.name, val)}
                           onFocus={handleFieldFocus}
                           disabled={disabled}
-                          placeholder={column.placeholder || column.label || 'Enter Supporting Document Link'}
+                          placeholder={fieldPlaceholder}
+                          title={fieldPlaceholder}
+                          ariaLabel={fieldPlaceholder}
                           hasError={hasRowColumnError(row, column)}
                           errorText={getFieldErrorText(row, column.name)}
                         />
@@ -2350,6 +2355,8 @@ function DynamicArraySection({
                             type={column.type || 'text'}
                             value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
                             onFocus={handleFieldFocus}
+                            title={fieldPlaceholder}
+                            aria-label={fieldPlaceholder}
                             onBlur={(event) => {
                               if (column.isLakhs) {
                                 const converted = convertToLakhs(event.target.value);
@@ -2384,7 +2391,7 @@ function DynamicArraySection({
                               onChange: (event) => onChange(row.id, column.name, event.target.value)
                             })}
                             disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
-                            placeholder={column.name === 'toDate' && Boolean(row.isTillDate) ? 'Present / Ongoing' : (column.placeholder || column.label)}
+                            placeholder={fieldPlaceholder}
                             list={
                               column.name === 'courseCode'
                                 ? 'autofill-course-codes'
@@ -2400,7 +2407,7 @@ function DynamicArraySection({
                               hasRowColumnError(row, column)
                                 ? 'border-red-400'
                                 : 'border-slate-200'
-                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed`}
+                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
                           />
                           {getFieldErrorText(row, column.name) ? (
                             <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
@@ -5322,11 +5329,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     };
   }, [currentSectionData]);
   const coursesHandledColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
       name: 'courseName',
       label: 'Course Name',
-      placeholder: 'Enter Course Name',
+      placeholder: 'Course Name',
     },
     {
       name: 'type',
@@ -5340,51 +5347,51 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       type: 'select',
       options: SEMESTER_OPTIONS,
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const studioPedagogyColumns = [
-    { name: 'activityName', label: 'Studio Activity / Project Name', placeholder: 'Enter Studio Activity / Project Name' },
-    { name: 'batchOrSem', label: 'Batch / Semester', placeholder: 'Enter Batch / Semester' },
-    { name: 'outcomes', label: 'Pedagogical Outcomes / Deliverables', placeholder: 'Enter Pedagogical Outcomes / Deliverables' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'activityName', label: 'Studio Activity / Project Name', placeholder: 'Studio Activity / Project Name' },
+    { name: 'batchOrSem', label: 'Batch / Semester', placeholder: 'Batch / Semester' },
+    { name: 'outcomes', label: 'Pedagogical Outcomes / Deliverables', placeholder: 'Pedagogical Outcomes / Deliverables' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const educationalToursColumns = [
     { name: 'tourType', label: 'Type', type: 'select', options: ['Educational Tour (4 marks)', 'Case Study Visit (2 marks)'] },
-    { name: 'place', label: 'Location / Monuments Visited', placeholder: 'Enter Location / Monuments Visited' },
-    { name: 'batch', label: 'Batch / Semester', placeholder: 'Enter Batch / Semester' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'place', label: 'Location / Monuments Visited', placeholder: 'Location / Monuments Visited' },
+    { name: 'batch', label: 'Batch / Semester', placeholder: 'Batch / Semester' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const creativeScholarshipColumns = [
-    { name: 'title', label: 'Title of Essay / Article / Heritage Doc', placeholder: 'Enter Title of Essay, Article, or Heritage Documentation' },
-    { name: 'publisher', label: 'Design Magazine / Publisher', placeholder: 'Enter Design Magazine / Publisher Name' },
+    { name: 'title', label: 'Title of Essay / Article / Heritage Doc', placeholder: 'Title of Essay, Article, or Heritage Documentation' },
+    { name: 'publisher', label: 'Design Magazine / Publisher', placeholder: 'Design Magazine / Publisher Name' },
     { name: 'category', label: 'Category', type: 'select', options: ['Design Magazine', 'Architectural Critique', 'Urban Commentary', 'Visual Essay', 'Heritage Documentation'] },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const designPatentsColumns = [
-    { name: 'refNumber', label: 'Design Patent Application / Registration No', placeholder: 'Enter Design Patent Application / Registration Number' },
-    { name: 'title', label: 'Design Title / Form', placeholder: 'Enter Design Title / Form' },
+    { name: 'refNumber', label: 'Design Patent Application / Registration No', placeholder: 'Design Patent Application / Registration Number' },
+    { name: 'title', label: 'Design Title / Form', placeholder: 'Design Title / Form' },
     { name: 'dateGranted', label: 'Date Granted', type: 'date' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const internationalDesignStudioColumns = [
-    { name: 'institution', label: 'Partner Institution', placeholder: 'Enter Partner Institution Name' },
-    { name: 'nature', label: 'Nature of Joint Studio / Workshop', placeholder: 'Enter Nature of Joint Studio / Workshop' },
-    { name: 'country', label: 'Country', placeholder: 'Enter Country Name' },
+    { name: 'institution', label: 'Partner Institution', placeholder: 'Partner Institution Name' },
+    { name: 'nature', label: 'Nature of Joint Studio / Workshop', placeholder: 'Nature of Joint Studio / Workshop' },
+    { name: 'country', label: 'Country', placeholder: 'Country Name' },
     { name: 'period', label: 'Period / Dates', type: 'timeline', placeholder: 'Select Period / Dates' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const studentExhibitionsColumns = [
-    { name: 'title', label: 'Exhibition / Expo Title', placeholder: 'Enter Exhibition / Expo Title' },
-    { name: 'venue', label: 'Venue / Platform', placeholder: 'Enter Venue / Platform Name' },
+    { name: 'title', label: 'Exhibition / Expo Title', placeholder: 'Exhibition / Expo Title' },
+    { name: 'venue', label: 'Venue / Platform', placeholder: 'Venue / Platform Name' },
     { name: 'date', label: 'Date Conducted', type: 'date' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const courseFilesColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
       name: 'courseName',
       label: 'Course Name',
-      placeholder: 'Enter Course Name',
+      placeholder: 'Course Name',
     },
     {
       name: 'compliance',
@@ -5392,79 +5399,79 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       type: 'select',
       options: ['Full', 'Partial', 'No'],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const coAttainmentColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
       name: 'courseName',
       label: 'Course Name',
-      placeholder: 'Enter Course Name',
+      placeholder: 'Course Name',
     },
     {
       name: 'attainmentPct',
       label: 'CO Attainment % (Single Number 0 - 100)',
       type: 'number',
       max: 100,
-      placeholder: 'Enter Attainment Percentage',
+      placeholder: 'Attainment Percentage',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const coursesDesignedColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
       name: 'courseName',
       label: 'Course Name',
-      placeholder: 'Enter Course Name',
+      placeholder: 'Course Name',
     },
     {
       name: 'remarks',
       label: 'Remarks',
-      placeholder: 'Enter Course Design / Syllabus Details',
+      placeholder: 'Course Design / Syllabus Details',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const valueAddedColumns = [
     {
       name: 'courseName',
       label: 'Course Name',
-      placeholder: 'Enter Course Name',
+      placeholder: 'Course Name',
     },
     {
       name: 'particulars',
       label: 'Particulars',
-      placeholder: 'Enter Course Particulars / Scope',
+      placeholder: 'Course Particulars / Scope',
     },
     {
       name: 'studentCount',
       label: 'Student Count',
       type: 'number',
-      placeholder: 'Enter Student Count',
+      placeholder: 'Student Count',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const resultAnalysisColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
       name: 'courseName',
       label: 'Course Name',
-      placeholder: 'Enter Course Name',
+      placeholder: 'Course Name',
     },
     {
       name: 'passPercentage',
       label: 'Pass %',
       type: 'number',
       max: 100,
-      placeholder: 'Enter Pass Percentage',
+      placeholder: 'Pass Percentage',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const innovativeMethodsColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Enter Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
       name: 'method',
       label: 'Method',
-      placeholder: 'Enter Innovative Teaching Methodology Details',
+      placeholder: 'Innovative Teaching Methodology Details',
     },
     {
       name: 'semesterType',
@@ -5473,13 +5480,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       options: ['Odd', 'Even'],
       placeholder: 'Select Semester',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const certificationsColumns = [
     {
       name: 'courseName',
       label: 'Course / Certification Title',
-      placeholder: 'Enter Course / Certification Title',
+      placeholder: 'Course / Certification Title',
     },
     {
       name: 'platform',
@@ -5490,12 +5497,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     {
       name: 'certType',
       label: 'Certification Type',
-      placeholder: 'Enter Certification Type / Level',
+      placeholder: 'Certification Type / Level',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const academicCollaborationsColumns = [
-    { name: 'organization', label: 'Organization / Partner Institution', placeholder: 'Enter Organization / Institution' },
+    { name: 'organization', label: 'Organization / Partner Institution', placeholder: 'Organization / Institution' },
     {
       name: 'collaborationType',
       label: 'Collaboration Type',
@@ -5509,25 +5516,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       options: ['Odd', 'Even', 'Both'],
       placeholder: 'Select Semester',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const studentFeedbackColumns = [
-    { name: 'courseName', label: 'Course Name', placeholder: 'Enter Course Name' },
-    { name: 'feedbackPct', label: 'Feedback Average', type: 'number', max: 100, placeholder: 'Enter the feedback average' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Enter Supporting Document Link" },
+    { name: 'courseName', label: 'Course Name', placeholder: 'Course Name' },
+    { name: 'feedbackPct', label: 'Feedback Average', type: 'number', max: 100, placeholder: 'The feedback average' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const mentoringColumns = [
-    { name: 'menteeCount', label: 'Mentee Count', type: 'number', min: 0, placeholder: 'Enter Mentee Count' },
+    { name: 'menteeCount', label: 'Mentee Count', type: 'number', min: 0, placeholder: 'Mentee Count' },
     { name: 'batch', label: 'Batch', type: 'select', groups: MENTORING_BATCH_GROUPS, placeholder: 'Select Batch' },
-    { name: 'description', label: 'Mentoring Description', type: 'text', placeholder: 'Enter Mentoring Description' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'description', label: 'Mentoring Description', type: 'text', placeholder: 'Mentoring Description' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const journalPapersColumns = [
-    { name: 'paperTitle', label: 'Paper Title', placeholder: 'Enter Paper Title' },
-    { name: 'journalName', label: 'Journal Name', placeholder: 'Enter Journal Name' },
-    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
-    { name: 'publisher', label: 'Publisher', placeholder: 'Enter Publisher Name' },
-    { name: 'volumeIssue', label: 'Vol, Issue & Page Nos.', placeholder: 'Enter Vol, Issue & Page Nos.' },
+    { name: 'paperTitle', label: 'Paper Title', placeholder: 'Paper Title' },
+    { name: 'journalName', label: 'Journal Name', placeholder: 'Journal Name' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'DOI (Digital Object Identifier)' },
+    { name: 'publisher', label: 'Publisher', placeholder: 'Publisher Name' },
+    { name: 'volumeIssue', label: 'Vol, Issue & Page Nos.', placeholder: 'Vol, Issue & Page Nos.' },
     { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'year' },
     {
       name: 'tier',
@@ -5539,13 +5546,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { value: 'Q3', label: 'Q3 Tier (2 marks)' },
       ],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const bookPublicationsColumns = [
-    { name: 'title', label: 'Book / Chapter Title', placeholder: 'Enter Book / Chapter Title' },
-    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
-    { name: 'publisher', label: 'Publisher', placeholder: 'Enter Publisher Name' },
-    { name: 'isbnIssn', label: 'ISBN / ISSN No.', placeholder: 'Enter ISBN / ISSN No.' },
+    { name: 'title', label: 'Book / Chapter Title', placeholder: 'Book / Chapter Title' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'DOI (Digital Object Identifier)' },
+    { name: 'publisher', label: 'Publisher', placeholder: 'Publisher Name' },
+    { name: 'isbnIssn', label: 'ISBN / ISSN No.', placeholder: 'ISBN / ISSN No.' },
     { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'year' },
     {
       name: 'type',
@@ -5557,19 +5564,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { value: 'Editor', label: 'Editor (2 marks)' },
       ],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const conferencePapersColumns = [
-    { name: 'paperTitle', label: 'Conference Paper Title', placeholder: 'Enter Paper Title' },
-    { name: 'proceedingName', label: 'Proceeding Name', placeholder: 'Enter Proceeding Name' },
-    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'Enter DOI (Digital Object Identifier)' },
-    { name: 'publisher', label: 'Publisher / Organizer', placeholder: 'Enter Publisher / Organizer Name' },
+    { name: 'paperTitle', label: 'Conference Paper Title', placeholder: 'Paper Title' },
+    { name: 'proceedingName', label: 'Proceeding Name', placeholder: 'Proceeding Name' },
+    { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'DOI (Digital Object Identifier)' },
+    { name: 'publisher', label: 'Publisher / Organizer', placeholder: 'Publisher / Organizer Name' },
     { name: 'pubDate', label: 'Conference Date', type: 'date', calendarType: 'year' },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const researchCollaborationsColumns = [
-    { name: 'title', label: 'Paper / Project Title', placeholder: 'Enter Paper / Project Title' },
-    { name: 'partner', label: 'Partner Inst. / Expert', placeholder: 'Enter Partner Institution or Expert' },
+    { name: 'title', label: 'Paper / Project Title', placeholder: 'Paper / Project Title' },
+    { name: 'partner', label: 'Partner Inst. / Expert', placeholder: 'Partner Institution or Expert' },
     {
       name: 'semesterType',
       label: 'Semester',
@@ -5587,11 +5594,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { value: 'Industry', label: 'Industry (2 marks)' },
       ],
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const phdRegisteredColumns = [
-    { name: 'scholarName', label: 'Scholar Name', placeholder: 'Enter Scholar Name' },
-    { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Enter Research Area / Title' },
+    { name: 'scholarName', label: 'Scholar Name', placeholder: 'Scholar Name' },
+    { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Research Area / Title' },
     {
       name: 'semesterType',
       label: 'Semester',
@@ -5599,21 +5606,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       options: ['Odd', 'Even'],
       placeholder: 'Select Semester',
     },
-    { name: 'evidenceLink', label: 'Notification / Evidence Link', type: 'url', placeholder: 'Enter Supporting Document Link' },
+    { name: 'evidenceLink', label: 'Notification / Evidence Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   
   
   const fdpAttendedColumns = [
-    { name: "programName", label: "Name of Program", type: "text", placeholder: "Enter Name of Program" },
-    { name: "organizer", label: "Organizer", type: "text", placeholder: "Enter Organizer / Institution Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Enter Duration in Days" },
+    { name: "programName", label: "Name of Program", type: "text", placeholder: "Name of Program" },
+    { name: "organizer", label: "Organizer", type: "text", placeholder: "Organizer / Institution Name" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Duration in Days" },
     { name: "dateRange", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
     { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isFdpEndDate: true, startDateField: "dateRange" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const programsOrganizedColumns = [
-    { name: "programName", label: "Name of Program", type: "text", placeholder: "Enter Name of Program" },
-    { name: "days", label: "Number of Days", type: "number", min: 0, placeholder: "Enter Number of Days" },
+    { name: "programName", label: "Name of Program", type: "text", placeholder: "Name of Program" },
+    { name: "days", label: "Number of Days", type: "number", min: 0, placeholder: "No. of Days" },
     { name: "dateRange", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
     { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "dateRange" },
     {
@@ -5632,102 +5639,102 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         "Co-Organizer"
       ]
     },
-    { name: "participants", label: "Number of Participants (Internal, External)", type: "text", placeholder: "Enter Number of Participants" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "participants", label: "Number of Participants (Internal, External)", type: "text", placeholder: "No. of Participants" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const resourcePersonColumns = [
-    { name: "eventName", label: "Event Name", type: "text", placeholder: "Enter Event Name" },
+    { name: "eventName", label: "Event Name", type: "text", placeholder: "Event Name" },
     { name: "level", label: "International / National", type: "select", options: ["International", "National"] },
-    { name: "topic", label: "Topic", type: "text", placeholder: "Enter Talk / Session Topic" },
-    { name: "venue", label: "Venue / Host Institution", type: "text", placeholder: "Enter Venue / Host Institution" },
+    { name: "topic", label: "Topic", type: "text", placeholder: "Talk / Session Topic" },
+    { name: "venue", label: "Venue / Host Institution", type: "text", placeholder: "Venue / Host Institution" },
     { name: "date", label: "Date of Session", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const professionalMembershipColumns = [
-    { name: "societyName", label: "Name of Society", type: "text", placeholder: "Enter Name of Professional Society" },
-    { name: "membershipType", label: "Membership Type", type: "text", placeholder: "Enter Membership Type" },
+    { name: "societyName", label: "Name of Society", type: "text", placeholder: "Name of Professional Society" },
+    { name: "membershipType", label: "Membership Type", type: "text", placeholder: "Membership Type" },
     { name: "status", label: "Status (Active/Inactive)", type: "select", options: ["Active", "Inactive"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const editorialBoardColumns = [
-    { name: "bodyName", label: "Name of Body", type: "text", placeholder: "Enter Name of Journal / Editorial Body" },
-    { name: "position", label: "Position Held", type: "text", placeholder: "Enter Position Held" },
+    { name: "bodyName", label: "Name of Body", type: "text", placeholder: "Name of Journal / Editorial Body" },
+    { name: "position", label: "Position Held", type: "text", placeholder: "Position Held" },
     { name: "fromDate", label: "From Date", type: "date", calendarType: "academic", endDateField: "toDate" },
     { name: "toDate", label: "To Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "fromDate" },
     { name: "isTillDate", label: "Till Date / Present", type: "checkbox" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const moocDevelopedColumns = [
-    { name: "courseName", label: "Course Code & Name", type: "text", placeholder: "Enter Course Code & Name" },
-    { name: "courseId", label: "Course ID / MOOC Portal ID", type: "text", placeholder: "Enter Course ID / MOOC Portal ID" },
-    { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "Enter Duration in Weeks or Credits" },
-    { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "Enter Number of Modules / Co-Faculty" },
+    { name: "courseName", label: "Course Code & Name", type: "text", placeholder: "Course Code & Name" },
+    { name: "courseId", label: "Course ID / MOOC Portal ID", type: "text", placeholder: "Course ID / MOOC Portal ID" },
+    { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "Duration in Weeks or Credits" },
+    { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "No. of Modules / Co-Faculty" },
     { name: "internalStudents", label: "No. of Internal Students", type: "number", placeholder: "No. of Internal Students" },
     { name: "externalStudents", label: "No. of External Students", type: "number", placeholder: "No. of External Students" },
-    { name: "evidenceLink", label: "Proof / Evidence Link (Syllabus, Video or Platform URL)", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Proof / Evidence Link (Syllabus, Video or Platform URL)", type: "url", placeholder: "Supporting Document Link" }
   ];
 
   const partialDeliveryColumns = [
-    { name: "courseDetails", label: "Course Code & Course Name", type: "text", placeholder: "Enter Course Code & Course Name" },
+    { name: "courseDetails", label: "Course Code & Course Name", type: "text", placeholder: "Course Code & Course Name" },
     { name: "mode", label: "Online/Offline", type: "select", options: ["Online", "Offline"] },
-    { name: "industryName", label: "Name of the Industry", type: "text", placeholder: "Enter Name of the Industry" },
-    { name: "expertDetails", label: "Name of the Expert & Designation", type: "text", placeholder: "Enter Name of the Expert & Designation" },
-    { name: "duration", label: "Duration (Hours)", type: "number", min: 0, placeholder: "Enter Duration in Hours" },
+    { name: "industryName", label: "Name of the Industry", type: "text", placeholder: "Name of the Industry" },
+    { name: "expertDetails", label: "Name of the Expert & Designation", type: "text", placeholder: "Name of the Expert & Designation" },
+    { name: "duration", label: "Duration (Hours)", type: "number", min: 0, placeholder: "Duration in Hours" },
     { name: "date", label: "Lecture Date", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const industrialVisitsColumns = [
-    { name: "visitDetails", label: "Visit Details", type: "text", placeholder: "Enter Industrial Visit Details" },
-    { name: "industry", label: "Industry", type: "text", placeholder: "Enter Industry / Organization Name" },
-    { name: "studentsCount", label: "No. of Students", type: "number", min: 0, placeholder: "Enter Number of Students" },
+    { name: "visitDetails", label: "Visit Details", type: "text", placeholder: "Industrial Visit Details" },
+    { name: "industry", label: "Industry", type: "text", placeholder: "Industry / Organization Name" },
+    { name: "studentsCount", label: "No. of Students", type: "number", min: 0, placeholder: "No. of Students" },
     { name: "date", label: "Visit Date", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const facultyInternshipsColumns = [
-    { name: "industryName", label: "Industry Name", type: "text", placeholder: "Enter Industry Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Enter Duration in Days" },
-    { name: "purpose", label: "Purpose", type: "text", placeholder: "Enter Internship Purpose / Scope" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "industryName", label: "Industry Name", type: "text", placeholder: "Industry Name" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Duration in Days" },
+    { name: "purpose", label: "Purpose", type: "text", placeholder: "Internship Purpose / Scope" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const employerEngagementColumns = [
-    { name: "activityName", label: "Activity Name", type: "text", placeholder: "Enter Activity Name" },
-    { name: "involvedParty", label: "Alumni / Employer Involved", type: "text", placeholder: "Enter Alumni / Employer Involved" },
+    { name: "activityName", label: "Activity Name", type: "text", placeholder: "Activity Name" },
+    { name: "involvedParty", label: "Alumni / Employer Involved", type: "text", placeholder: "Alumni / Employer Involved" },
     { name: "date", label: "Engagement Date", type: "date" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
   const projectPublicationsColumns = [
-    { name: "title", label: "Publication Title", type: "text", placeholder: "Enter Publication Title" },
-    { name: "students", label: "Student Name(s)", type: "text", placeholder: "Enter Student Name(s)" },
-    { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "Enter Journal / Conference Details" },
-    { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "Enter DOI (Digital Object Identifier)" },
-    { name: "publisher", label: "Publisher", placeholder: "Enter Publisher Name" },
+    { name: "title", label: "Publication Title", type: "text", placeholder: "Publication Title" },
+    { name: "students", label: "Student Name(s)", type: "text", placeholder: "Student Name(s)" },
+    { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "Journal / Conference Details" },
+    { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "DOI (Digital Object Identifier)" },
+    { name: "publisher", label: "Publisher", placeholder: "Publisher Name" },
     { name: "date", label: "Date of Publication", type: "date", calendarType: "year" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const hackathonMentoringColumns = [
-    { name: "eventName", label: "Hackathon / Event Name", type: "text", placeholder: "Enter Hackathon / Event Name" },
-    { name: "students", label: "Students Mentored", type: "text", placeholder: "Enter Students Mentored" },
-    { name: "outcome", label: "Outcome", type: "text", placeholder: "Enter Outcome / Award Details" },
+    { name: "eventName", label: "Hackathon / Event Name", type: "text", placeholder: "Hackathon / Event Name" },
+    { name: "students", label: "Students Mentored", type: "text", placeholder: "Students Mentored" },
+    { name: "outcome", label: "Outcome", type: "text", placeholder: "Outcome / Award Details" },
     { name: "dateRange", label: "Event Date", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const startupSupportColumns = [
-    { name: "startupName", label: "Activity / Startup Name", type: "text", placeholder: "Enter Activity / Startup Name" },
-    { name: "role", label: "Role", type: "text", placeholder: "Enter Faculty Role" },
+    { name: "startupName", label: "Activity / Startup Name", type: "text", placeholder: "Activity / Startup Name" },
+    { name: "role", label: "Role", type: "text", placeholder: "Faculty Role" },
     { name: "duration", label: "Duration", type: "select", options: STARTUP_DURATION_OPTIONS },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
   const deptActivitiesColumns = [
-    { name: "description", label: "Activity Description", type: "text", placeholder: "Enter Department Activity Description" },
+    { name: "description", label: "Activity Description", type: "text", placeholder: "Department Activity Description" },
     { name: "type", label: "Activity Type", type: "select", options: ["DLCs and File Maintenance", "Dept. Activity & File Maintenance"] },
     { name: "role", label: "Role (Major/Supporting)", type: "select", options: ["Major", "Supporting"] },
     { name: "approval", label: "HoD Approval", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const collegeActivitiesColumns = [
-    { name: "description", label: "Activity Description", type: "text", placeholder: "Enter College Activity Description" },
+    { name: "description", label: "Activity Description", type: "text", placeholder: "College Activity Description" },
     { 
       name: "category", 
       label: "Activity Category", 
@@ -5741,120 +5748,120 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     { name: "role", label: "Role (Major/Supporting)", type: "select", options: ["Major", "Supporting"] },
     { name: "approval", label: "Section Head Approval", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const adminResponsibilitiesColumns = [
     { name: "role", label: "Administrative Position Held", type: "select", options: ["Registrar", "Dean", "CoE", "Head IQAC", "HoD", "Warden", "Deputy Warden"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
   const patentsPublishedColumns = [
-    { name: "refNumber", label: "Patent Ref / Application Number", type: "text", placeholder: "Enter Patent Ref / Application Number" },
+    { name: "refNumber", label: "Patent Ref / Application Number", type: "text", placeholder: "Patent Ref / Application Number" },
     {
       name: "patentType",
       label: "Patent Category",
       type: "select",
       options: ["Design Patent", "Utility / Invention Patent", "Process Patent", "Software Patent / Copyright"]
     },
-    { name: "title", label: "Title", type: "text", placeholder: "Enter Patent Title" },
-    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Enter Name of Inventors" },
+    { name: "title", label: "Title", type: "text", placeholder: "Patent Title" },
+    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Name of Inventors" },
     { name: "datePublished", label: "Date Published", type: "date", calendarType: "year" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const patentsGrantedColumns = [
-    { name: "refNumber", label: "Patent Grant / Registration Number", type: "text", placeholder: "Enter Patent Grant / Registration Number" },
+    { name: "refNumber", label: "Patent Grant / Registration Number", type: "text", placeholder: "Patent Grant / Registration Number" },
     {
       name: "patentType",
       label: "Patent Category",
       type: "select",
       options: ["Design Patent", "Utility / Invention Patent", "Process Patent", "Software Patent / Copyright"]
     },
-    { name: "title", label: "Title", type: "text", placeholder: "Enter Patent Title" },
-    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Enter Name of Inventors" },
+    { name: "title", label: "Title", type: "text", placeholder: "Patent Title" },
+    { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Name of Inventors" },
     { name: "dateGranted", label: "Date Granted", type: "date", calendarType: "year" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const transferOfTechnologyColumns = [
-    { name: "title", label: "Title", type: "text", placeholder: "Enter Technology Transfer Title" },
-    { name: "industryPartner", label: "Industry Partner", type: "text", placeholder: "Enter Industry Partner Name" },
-    { name: "amount", label: "Amount (Rs.)", type: "number", min: 0, placeholder: "Enter Amount in INR" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "title", label: "Title", type: "text", placeholder: "Technology Transfer Title" },
+    { name: "industryPartner", label: "Industry Partner", type: "text", placeholder: "Industry Partner Name" },
+    { name: "amount", label: "Amount (Rs.)", type: "number", min: 0, placeholder: "Amount in INR" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const prototypesDevelopedColumns = [
-    { name: "title", label: "Title of Product", type: "text", placeholder: "Enter Title of Prototype / Product" },
-    { name: "studentsInvolved", label: "Students Involved", type: "text", placeholder: "Enter Student Name(s) Involved" },
+    { name: "title", label: "Title of Product", type: "text", placeholder: "Title of Prototype / Product" },
+    { name: "studentsInvolved", label: "Students Involved", type: "text", placeholder: "Student Name(s) Involved" },
     { name: "date", label: "Development Date", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const hackathonPrizesColumns = [
-    { name: "eventName", label: "Hackathon/Event Name", type: "text", placeholder: "Enter Hackathon / Event Name" },
-    { name: "studentsMentored", label: "Students Mentored", type: "text", placeholder: "Enter Students Mentored" },
-    { name: "prize", label: "Prize / Achievement", type: "text", placeholder: "Enter Prize / Achievement" },
+    { name: "eventName", label: "Hackathon/Event Name", type: "text", placeholder: "Hackathon / Event Name" },
+    { name: "studentsMentored", label: "Students Mentored", type: "text", placeholder: "Students Mentored" },
+    { name: "prize", label: "Prize / Achievement", type: "text", placeholder: "Prize / Achievement" },
     { name: "date", label: "Award Date", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   
   const researchProjectsColumns = [
-    { name: "projectName", label: "Project Name", type: "text", placeholder: "Enter Project Name" },
-    { name: "fundingAgency", label: "Funding Agency", type: "text", placeholder: "Enter Funding Agency Name" },
+    { name: "projectName", label: "Project Name", type: "text", placeholder: "Project Name" },
+    { name: "fundingAgency", label: "Funding Agency", type: "text", placeholder: "Funding Agency Name" },
     { name: "period", label: "Period", type: "timeline", restrictToBatch: true, calendarType: "academic", placeholder: "Select Period" },
-    { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", isLakhs: true, min: 0, placeholder: "Enter sanctioned amount" },
+    { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", isLakhs: true, min: 0, placeholder: "Sanctioned amount" },
     { name: "role", label: "Role", type: "select", options: ["PI", "Co-PI"] },
     { name: "status", label: "Project Status", type: "select", options: ["Ongoing", "Completed"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const consultancyProjectsColumns = [
-    { name: "title", label: "Title of Consultancy Project", type: "text", placeholder: "Enter Title of Consultancy Project" },
-    { name: "clientDetails", label: "Client Details", type: "text", placeholder: "Enter Client Details / Organization" },
+    { name: "title", label: "Title of Consultancy Project", type: "text", placeholder: "Title of Consultancy Project" },
+    { name: "clientDetails", label: "Client Details", type: "text", placeholder: "Client Details / Organization" },
     { name: "period", label: "Period", type: "timeline", restrictToBatch: true, calendarType: "academic", placeholder: "Select Period" },
-    { name: "amount", label: "Amount Generated (Rs.)", type: "number", isLakhs: true, min: 0, placeholder: "Enter sanctioned amount" },
-    { name: "facultyInvolved", label: "Names of Faculty Involved", type: "text", placeholder: "Enter Names of Faculty Involved" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "amount", label: "Amount Generated (Rs.)", type: "number", isLakhs: true, min: 0, placeholder: "Sanctioned amount" },
+    { name: "facultyInvolved", label: "Names of Faculty Involved", type: "text", placeholder: "Names of Faculty Involved" },
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
   const internationalEngagementColumns = [
-    { name: "institution", label: "Partner Institution", type: "text", placeholder: "Enter Partner Institution Name" },
-    { name: "country", label: "Country", type: "text", placeholder: "Enter Country Name" },
-    { name: "nature", label: "Nature of Collaboration", type: "text", placeholder: "Enter Nature of Collaboration" },
+    { name: "institution", label: "Partner Institution", type: "text", placeholder: "Partner Institution Name" },
+    { name: "country", label: "Country", type: "text", placeholder: "Country Name" },
+    { name: "nature", label: "Nature of Collaboration", type: "text", placeholder: "Nature of Collaboration" },
     { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
     { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const visitingPositionsColumns = [
-    { name: "institution", label: "Institution", type: "text", placeholder: "Enter Institution Name" },
-    { name: "country", label: "Country", type: "text", placeholder: "Enter Country Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Enter Duration in Days" },
+    { name: "institution", label: "Institution", type: "text", placeholder: "Institution Name" },
+    { name: "country", label: "Country", type: "text", placeholder: "Country Name" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Duration in Days" },
     { name: "period", label: "Period / Date", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const foreignFacultyColumns = [
-    { name: "name", label: "Name", type: "text", placeholder: "Enter Foreign Faculty Name" },
-    { name: "institution", label: "Institution / Country", type: "text", placeholder: "Enter Institution & Country" },
-    { name: "engagementType", label: "Engagement Type", type: "text", placeholder: "Enter Engagement Type" },
+    { name: "name", label: "Name", type: "text", placeholder: "Foreign Faculty Name" },
+    { name: "institution", label: "Institution / Country", type: "text", placeholder: "Institution & Country" },
+    { name: "engagementType", label: "Engagement Type", type: "text", placeholder: "Engagement Type" },
     { name: "period", label: "Period / Date", type: "date", calendarType: "academic" },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const reputationSurveyColumns = [
-    { name: "surveyName", label: "Survey Name", type: "text", placeholder: "Enter Survey Name" },
-    { name: "contributionDetails", label: "Contribution Details", type: "text", placeholder: "Enter Contribution Details" },
+    { name: "surveyName", label: "Survey Name", type: "text", placeholder: "Survey Name" },
+    { name: "contributionDetails", label: "Contribution Details", type: "text", placeholder: "Contribution Details" },
     { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
     { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
     { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const nirfSurveyColumns = [
-    { name: "nominationDetails", label: "Nomination Details", type: "text", placeholder: "Enter Nomination Details" },
+    { name: "nominationDetails", label: "Nomination Details", type: "text", placeholder: "Nomination Details" },
     { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
     { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
     { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
-    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Enter Supporting Document Link" }
+    { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
   const phdAwardedColumns = [
-    { name: 'scholarName', label: 'Scholar Name', placeholder: 'Enter Scholar Name' },
-    { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Enter Research Area / Title' },
-    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'none', placeholder: 'Enter Viva Date' },
-    { name: 'evidenceLink', label: 'Viva Circular Link', type: 'url', placeholder: 'Enter Viva Circular Link' },
+    { name: 'scholarName', label: 'Scholar Name', placeholder: 'Scholar Name' },
+    { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Research Area / Title' },
+    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'none', placeholder: 'Viva Date' },
+    { name: 'evidenceLink', label: 'Viva Circular Link', type: 'url', placeholder: 'Viva Circular Link' },
   ];
   const timelineApprovalStatus = currentSectionData.appraisalStatus || 'Not Approved';
   const timelineHodRemarks = currentSectionData.hodRemarks || 'No HoD remarks available.';
@@ -8856,7 +8863,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           type="number"
                           min="0"
                           step="1"
-                          placeholder="Enter Total Citations Count"
+                          placeholder="Total Citations Count"
+                          title="Total Citations Count"
+                          aria-label="Total Citations Count"
                           value={currentSectionData.citationsReceived?.totalCount || ''}
                           onFocus={() => setActiveSubsection('2.2')}
                           onKeyDown={handleCountKeyDown}
@@ -8880,7 +8889,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             }));
                           }}
                           disabled={!isEditable}
-                          className="w-full rounded-md border border-slate-200 bg-white h-[38px] sm:h-8 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                          className="w-full rounded-md border border-slate-200 bg-white h-[38px] sm:h-8 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap"
                         />
                       </div>
                     </div>
@@ -8916,7 +8925,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           type="number"
                           min="0"
                           step="1"
-                          placeholder="Enter Q1 Citations Count"
+                          placeholder="Q1 Citations Count"
+                          title="Q1 Citations Count"
+                          aria-label="Q1 Citations Count"
                           value={currentSectionData.q1Citations?.totalCount || ''}
                           onFocus={() => setActiveSubsection('2.3')}
                           onKeyDown={handleCountKeyDown}
@@ -8940,7 +8951,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             }));
                           }}
                           disabled={!isEditable}
-                          className="w-full rounded-md border border-slate-200 bg-white h-[38px] sm:h-8 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                          className="w-full rounded-md border border-slate-200 bg-white h-[38px] sm:h-8 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap"
                         />
                       </div>
                     </div>
