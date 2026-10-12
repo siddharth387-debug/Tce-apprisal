@@ -231,12 +231,17 @@ export function computeAutomatedScores(sectionData = {}) {
     ).length * 2,
     4
   );
+  // 2.6 Research Collaborations & Projects / Creative Scholarship
+  const eng2_6_rows = (Array.isArray(safeData.researchCollaborations) && safeData.researchCollaborations.length > 0)
+    ? safeData.researchCollaborations
+    : (Array.isArray(safeData.creativeScholarship) ? safeData.creativeScholarship : []);
   const s2_6 = Math.min(
-    (safeData.researchCollaborations || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['title', 'partner', 'type', 'evidenceLink'])) return sum;
-      if (r.type === 'International') return sum + 3;
-      if (r.type === 'National' || r.type === 'Industry') return sum + 2;
-      return sum;
+    eng2_6_rows.reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['title', 'evidenceLink'])) return sum;
+      const t = String(r.type || r.category || '').toLowerCase();
+      if (t.includes('international') || t.includes('3')) return sum + 3;
+      if (t.includes('national') || t.includes('industry') || t.includes('2')) return sum + 2;
+      return sum + 2;
     }, 0),
     5
   );
@@ -460,9 +465,10 @@ export function computeAutomatedScores(sectionData = {}) {
   const s9_1 = Math.min(
     (safeData.deptActivities || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['description', 'type', 'role', 'approval', 'evidenceLink'])) return sum;
-      if (r.type === 'DLCs and File Maintenance' || r.activityType === 'DLCs and File Maintenance') return sum + 5;
-      if (r.type === 'Dept. Activity & File Maintenance' || r.activityType === 'Dept. Activity & File Maintenance') return sum + 2;
-      return sum;
+      const typeStr = String(r.type || r.activityType || '').toLowerCase();
+      const descStr = String(r.activityDescription || r.description || '').toLowerCase();
+      if (typeStr.includes('dlc') || descStr.includes('dlc')) return sum + 5;
+      return sum + 2;
     }, 0),
     10
   );
@@ -690,10 +696,17 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   
   // 2.6 Creative Scholarship and Professional Writing (Per writing = 2 | Max 6)
+  const arch2_6_rows = (Array.isArray(safeData.creativeScholarship) && safeData.creativeScholarship.length > 0)
+    ? safeData.creativeScholarship
+    : (Array.isArray(safeData.researchCollaborations) ? safeData.researchCollaborations : []);
   const s2_6 = Math.min(
-    (safeData.creativeScholarship || safeData.researchCollaborations || []).filter(
-      (r) => isRowFullyFilled(r, ['title', ['publisher', 'partner'], 'evidenceLink'])
-    ).length * 2,
+    arch2_6_rows.reduce((sum, r) => {
+      if (!isRowFullyFilled(r, ['title', 'evidenceLink'])) return sum;
+      const t = String(r.type || r.category || '').toLowerCase();
+      if (t.includes('international') || t.includes('3')) return sum + 3;
+      if (t.includes('national') || t.includes('industry') || t.includes('2')) return sum + 2;
+      return sum + 2;
+    }, 0),
     6
   );
 
@@ -933,7 +946,9 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   const s9_1 = Math.min(
     (safeData.deptActivities || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['description', 'type', 'role', 'approval', 'evidenceLink'])) return sum;
-      if ((r.activityDescription || r.description || '').includes('DLC')) return sum + 5;
+      const typeStr = String(r.type || r.activityType || '').toLowerCase();
+      const descStr = String(r.activityDescription || r.description || '').toLowerCase();
+      if (typeStr.includes('dlc') || descStr.includes('dlc')) return sum + 5;
       return sum + 2;
     }, 0),
     10

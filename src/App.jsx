@@ -236,10 +236,10 @@ export const getScoreboardSectionConfig = (sectionId, isArch, scores = {}) => {
       score: scores.section3Total || 0,
       max: 15,
       items: [
-        { key: '3.1', label: '3.1 Number of Patents Published', value: scores.sub3_1 || 0, max: 2 },
-        { key: '3.2', label: '3.2 Number of Patents Granted', value: scores.sub3_2 || 0, max: 6 },
-        { key: '3.3', label: '3.3 Number of Transfer of Technology', value: scores.sub3_3 || 0, max: 3 },
-        { key: '3.4', label: '3.4 Number of Prototype / Product Developed (with Students)', value: scores.sub3_4 || 0, max: 2 },
+        { key: '3.1', label: '3.1 Number of Patents Published', value: scores.sub3_1 || 0, max: isArch ? 1 : 2 },
+        { key: '3.2', label: '3.2 Number of Patents Granted', value: scores.sub3_2 || 0, max: isArch ? 3 : 6 },
+        { key: '3.3', label: '3.3 Number of Transfer of Technology', value: scores.sub3_3 || 0, max: isArch ? 2 : 3 },
+        { key: '3.4', label: '3.4 Number of Prototype / Product Developed (with Students)', value: scores.sub3_4 || 0, max: isArch ? 3 : 2 },
         { key: '3.5', label: '3.5 Hackathon Mentoring & Prizes (with Students)', value: scores.sub3_5 || 0, max: 2 },
         ...(isArch ? [{ key: '3.6', label: '3.6 Design Patents', value: scores.sub3_6 || 0, max: 4 }] : []),
       ],
@@ -305,7 +305,7 @@ export const getScoreboardSectionConfig = (sectionId, isArch, scores = {}) => {
       score: scores.section8Total || 0,
       max: 5,
       items: [
-        { key: '8.1', label: '8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)', value: scores.sub8_1 || 0, max: 2 },
+        { key: '8.1', label: '8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)', value: scores.sub8_1 || 0, max: isArch ? 1 : 2 },
         { key: '8.2', label: '8.2 Hackathon / Competition Mentoring', value: scores.sub8_2 || 0, max: 2 },
         { key: '8.3', label: '8.3 Startup / Incubation Support / Tech-Club', value: scores.sub8_3 || 0, max: 1 },
         ...(isArch ? [{ key: '8.4', label: '8.4 Student Exhibitions', value: scores.sub8_4 || 0, max: 1 }] : []),
@@ -9227,9 +9227,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "III" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="3.1 Number of Patents Published"
-                subtitle="(Calculation Rubric: 1 mark per patent | Max 2 marks)"
+                subtitle={isArch ? "(Calculation Rubric: 1 mark per patent | Max 1 mark)" : "(Calculation Rubric: 1 mark per patent | Max 2 marks)"}
                 subScore={scores.sub3_1 || 0}
-                maxScore={2}
+                maxScore={isArch ? 1 : 2}
                 rows={currentSectionData.patentsPublished || []}
                 canAdd={canAddPatentsPublished(currentSectionData.patentsPublished || [])}
                 disabled={!isEditable}
@@ -9240,9 +9240,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="3.2 Number of Patents Granted"
-                subtitle="(Calculation Rubric: 6 marks per patent | Max 6 marks)"
+                subtitle={isArch ? "(Calculation Rubric: 3 marks per patent | Max 3 marks)" : "(Calculation Rubric: 3 marks per patent (up to 2 patents) | Max 6 marks)"}
                 subScore={scores.sub3_2 || 0}
-                maxScore={6}
+                maxScore={isArch ? 3 : 6}
                 rows={currentSectionData.patentsGranted || []}
                 canAdd={canAddPatentsGranted(currentSectionData.patentsGranted || [])}
                 disabled={!isEditable}
@@ -9253,9 +9253,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="3.3 Number of Transfer of Technology"
-                subtitle="(Calculation Rubric: 3 marks per ToT | Max 3 marks)"
+                subtitle={isArch ? "(Calculation Rubric: 2 marks per ToT | Max 2 marks)" : "(Calculation Rubric: 3 marks per ToT | Max 3 marks)"}
                 subScore={scores.sub3_3 || 0}
-                maxScore={3}
+                maxScore={isArch ? 2 : 3}
                 rows={currentSectionData.transferOfTechnology || []}
                 canAdd={canAddTransferOfTechnology(currentSectionData.transferOfTechnology || [])}
                 disabled={!isEditable}
@@ -9266,9 +9266,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="3.4 Number of Prototype / Product Developed (with Students)"
-                subtitle="(Calculation Rubric: 1 mark per product | Max 2 marks)"
+                subtitle={isArch ? "(Calculation Rubric: 1 mark per product | Max 3 marks)" : "(Calculation Rubric: 1 mark per product | Max 2 marks)"}
                 subScore={scores.sub3_4 || 0}
-                maxScore={2}
+                maxScore={isArch ? 3 : 2}
                 rows={currentSectionData.prototypesDeveloped || []}
                 canAdd={canAddPrototypesDeveloped(currentSectionData.prototypesDeveloped || [])}
                 disabled={!isEditable}
@@ -9633,9 +9633,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VIII" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)"
-                subtitle="(Calculation Rubric: Per publication = 1 mark | Max 2 marks)"
+                subtitle={isArch ? "(Calculation Rubric: Per publication = 1 mark | Max 1 mark)" : "(Calculation Rubric: Per publication = 1 mark | Max 2 marks)"}
                 subScore={scores.sub8_1 || 0}
-                maxScore={2}
+                maxScore={isArch ? 1 : 2}
                 rows={currentSectionData.projectPublications || []}
                 canAdd={canAddProjectPublications(currentSectionData.projectPublications || [])}
                 disabled={!isEditable}
