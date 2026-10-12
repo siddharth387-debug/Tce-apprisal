@@ -49,9 +49,6 @@ export default function AcademicTimelinePicker({
     return currentMatch ? parseInt(currentMatch[1], 10) : new Date().getFullYear();
   }, [value, currentAcademicYear]);
 
-  // Current decade starting year (e.g. 2020 for 2020-2029)
-  const [decadeStart, setDecadeStart] = useState(() => Math.floor(initialYear / 10) * 10);
-
   // Custom multi-year range state
   const [showCustomRange, setShowCustomRange] = useState(false);
   const [customStart, setCustomStart] = useState(() => initialYear);
@@ -96,7 +93,6 @@ export default function AcademicTimelinePicker({
       if (match) {
         const parsed = parseInt(match[1], 10);
         if (!isNaN(parsed)) {
-          setDecadeStart(Math.floor(parsed / 10) * 10);
           setCustomStart(parsed);
           const endMatch = String(value).match(/-(\d{4})$/);
           if (endMatch) {
@@ -159,52 +155,32 @@ export default function AcademicTimelinePicker({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  const decadeEnd = decadeStart + 9;
-
-  // Explicitly excluded legacy periods (as requested by institution)
-  const EXCLUDED_PERIODS = useMemo(() => new Set([
-    '2020-2021',
-    '2021-2022',
-    '2022-2023',
-    '2023-2024',
-    '2024-2025',
-  ]), []);
-
-  // Generate standard academic years for the active decade
-  const decadeYears = useMemo(() => {
+  // Standard timeline: only 2025-2026 (or currentAcademicYear), plus created custom ranges
+  const displayedTimelines = useMemo(() => {
     if (restrictToBatch) {
-      return currentAcademicYear ? [currentAcademicYear] : [];
+      return currentAcademicYear ? [currentAcademicYear] : ['2025-2026'];
     }
-    const years = [];
-    for (let y = decadeStart; y <= decadeEnd; y++) {
-      const tl = `${y}-${y + 1}`;
-      if (y >= minYear && y < maxYear && !EXCLUDED_PERIODS.has(tl)) {
-        years.push(tl);
-      }
+    const set = new Set();
+    // Default current timeline
+    if (currentAcademicYear) {
+      set.add(currentAcademicYear);
+    } else {
+      set.add('2025-2026');
     }
-    return years;
-  }, [decadeStart, decadeEnd, minYear, maxYear, EXCLUDED_PERIODS, restrictToBatch, currentAcademicYear]);
-
-  const handlePrevDecade = (e) => {
-    e.stopPropagation();
-    if (decadeStart - 10 >= minYear) {
-      setDecadeStart((prev) => prev - 10);
+    // Include user-created or persisted timelines (e.g. CAS multi-year ranges)
+    if (Array.isArray(createdTimelines)) {
+      createdTimelines.forEach((tl) => {
+        if (typeof tl === 'string' && tl.trim() && tl !== 'All') {
+          set.add(tl.trim());
+        }
+      });
     }
-  };
-
-  const handleNextDecade = (e) => {
-    e.stopPropagation();
-    if (decadeStart + 10 < maxYear) {
-      setDecadeStart((prev) => prev + 10);
+    // Include currently selected timeline if set and not 'All'
+    if (value && value !== 'All' && typeof value === 'string' && value.trim()) {
+      set.add(value.trim());
     }
-  };
-
-  const handleJumpToCurrent = (e) => {
-    e.stopPropagation();
-    const curMatch = (currentAcademicYear || '').match(/^(\d{4})/);
-    const curYear = curMatch ? parseInt(curMatch[1], 10) : new Date().getFullYear();
-    setDecadeStart(Math.floor(curYear / 10) * 10);
-  };
+    return Array.from(set).sort();
+  }, [restrictToBatch, currentAcademicYear, createdTimelines, value]);
 
   const handleSelectYear = (tl) => {
     onChange?.(tl);
@@ -372,64 +348,16 @@ export default function AcademicTimelinePicker({
               </div>
             )}
 
-            {/* Decade Header Navigator */}
-            {createdTimelines ? (
-              <div className="flex items-center justify-between mb-3 px-1">
-                <span className="text-xs font-bold text-slate-800 tracking-wide">
-                  Academic Period
-                </span>
-              </div>
-            ) : restrictToBatch ? (
-              <div className="flex items-center justify-between mb-3 px-1">
-                <span className="text-xs font-bold text-slate-800 tracking-wide">
-                  Academic Batch ({currentAcademicYear})
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between mb-3 px-1">
-                <button
-                  type="button"
-                  onClick={handlePrevDecade}
-                  disabled={decadeStart - 10 < minYear}
-                  className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="Previous Decade"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3 px-1">
+              <span className="text-xs font-bold text-slate-800 tracking-wide">
+                {restrictToBatch ? `Academic Batch (${currentAcademicYear})` : 'Academic Period'}
+              </span>
+            </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-800 tracking-wide">
-                    Decade {decadeStart} – {decadeEnd}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleJumpToCurrent}
-                    className="text-[10px] font-semibold text-[#4A1519] hover:underline px-1.5 py-0.5 rounded bg-[#4A1519]/5"
-                    title="Jump to current active year"
-                  >
-                    Today
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleNextDecade}
-                  disabled={decadeStart + 10 >= maxYear}
-                  className="p-1 rounded-md hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="Next Decade"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            )}
-
-            {/* Decade Years Grid */}
+            {/* Timelines Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-              {(createdTimelines || decadeYears).map((tl) => {
+              {displayedTimelines.map((tl) => {
                 const isSelected = value === tl;
                 const isCurrent = tl === currentAcademicYear;
                 return (

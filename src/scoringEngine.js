@@ -285,14 +285,17 @@ export function computeAutomatedScores(sectionData = {}) {
     2
   );
 
-  // Section 4
+  // Section 4 (Sponsored Research & Consultancy in Lakhs)
   const s4_1 = Math.min(
     (safeData.researchProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['projectName', 'fundingAgency', 'amount', 'role', 'status', 'evidenceLink'])) return sum;
-      const v = toNum(r.amount);
-      if (v >= 10) return sum + 8;
-      if (v >= 3) return sum + 5;
-      if (v > 0) return sum + 3;
+      let v = toNum(r.amount);
+      if (v >= 1000) v = v / 100000;
+      if (v >= 20) return sum + 8;
+      if (v >= 15) return sum + 5;
+      if (v >= 10) return sum + 3;
+      if (v >= 5) return sum + 2;
+      if (v >= 1) return sum + 1;
       return sum;
     }, 0),
     8
@@ -301,10 +304,12 @@ export function computeAutomatedScores(sectionData = {}) {
   const s4_2 = Math.min(
     (safeData.consultancyProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['title', 'clientDetails', 'amount', 'evidenceLink'])) return sum;
-      const v = toNum(r.amount);
-      if (v >= 2) return sum + 7;
-      if (v >= 0.5) return sum + 4;
-      if (v > 0) return sum + 2;
+      let v = toNum(r.amount);
+      if (v >= 1000) v = v / 100000;
+      if (v >= 5) return sum + 7;
+      if (v >= 3) return sum + 5;
+      if (v >= 1) return sum + 3;
+      if (v > 0) return sum + 1;
       return sum;
     }, 0),
     7
@@ -743,14 +748,17 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     4
   );
 
-  // Section 4 (Sponsored Research & Consultancy - Arch Rubrics in Lakhs)
+  // Section 4 (Sponsored Research & Consultancy - Official TSEDA Rubrics in Lakhs)
   const s4_1 = Math.min(
     (safeData.researchProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['projectName', 'fundingAgency', ['sanctionedAmount', 'amount'], 'evidenceLink'])) return sum;
-      const v = toNum(r.sanctionedAmount || r.amount);
-      if (v >= 10) return sum + 8;
-      if (v >= 3) return sum + 5;
-      if (v > 0) return sum + 3;
+      let v = toNum(r.sanctionedAmount || r.amount);
+      if (v >= 1000) v = v / 100000; // normalize if entered in raw Rupees (e.g. 500000 -> 5 Lakhs)
+      if (v >= 20) return sum + 8;
+      if (v >= 15) return sum + 5;
+      if (v >= 10) return sum + 3;
+      if (v >= 5) return sum + 2;
+      if (v >= 1) return sum + 1;
       return sum;
     }, 0),
     8
@@ -759,10 +767,12 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   const s4_2 = Math.min(
     (safeData.consultancyProjects || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, [['titleOfConsultancy', 'title'], ['clientDetails', 'organization'], ['amountGenerated', 'amount'], 'evidenceLink'])) return sum;
-      const v = toNum(r.amountGenerated || r.amount);
-      if (v >= 2) return sum + 7;
-      if (v >= 0.5) return sum + 4;
-      if (v > 0) return sum + 2;
+      let v = toNum(r.amountGenerated || r.amount);
+      if (v >= 1000) v = v / 100000; // normalize if entered in raw Rupees (e.g. 300000 -> 3 Lakhs)
+      if (v >= 5) return sum + 7;
+      if (v >= 3) return sum + 5;
+      if (v >= 1) return sum + 3;
+      if (v > 0) return sum + 1;
       return sum;
     }, 0),
     7
@@ -960,7 +970,8 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 }
 
 export function computeEffectiveScores(sectionData = {}, hodSubsectionScores = {}, department = '') {
-  const isArch = (department || '').toUpperCase() === 'ARCH' || (sectionData.department || '').toUpperCase() === 'ARCH';
+  const deptStr = String(department || sectionData?.department || sectionData?.dept || '').toUpperCase().trim();
+  const isArch = deptStr === 'ARCH' || deptStr === 'ARCHITECTURE' || deptStr === 'TSEDA' || deptStr === 'B.ARCH' || deptStr.includes('ARCH') || deptStr.includes('TSEDA');
   const autoMap = isArch ? computeAutomatedScoresArch(sectionData) : computeAutomatedScores(sectionData);
   const maxRubricsMap = isArch ? SUBSECTION_MAX_MARKS_ARCH : SUBSECTION_MAX_MARKS;
   const hodMap = hodSubsectionScores || {};

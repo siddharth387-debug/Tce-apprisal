@@ -137,7 +137,7 @@ export const SUBSECTION_LABEL_MAP = {
   '3.5': '3.5 Hackathon Mentoring & Prizes',
   '3.6': '3.6 Architectural Design Competitions',
   '4.1': '4.1 Sponsored Research Projects',
-  '4.2': '4.2 Consultancy Projects',
+  '4.2': '4.2 Consultancy Work',
   '5.1': '5.1 International Engagement',
   '5.2': '5.2 Visiting Positions',
   '5.3': '5.3 Foreign Student Mentoring',
@@ -252,7 +252,7 @@ export const getScoreboardSectionConfig = (sectionId, isArch, scores = {}) => {
       max: 15,
       items: [
         { key: '4.1', label: '4.1 Sponsored Research Project - PI / Co-PI', value: scores.sub4_1 || 0, max: 8 },
-        { key: '4.2', label: '4.2 Consultancy Projects', value: scores.sub4_2 || 0, max: 7 },
+        { key: '4.2', label: '4.2 Consultancy Work', value: scores.sub4_2 || 0, max: 7 },
       ],
     },
     'V': {
@@ -652,7 +652,7 @@ const CRITERIA_SECTION_MAP = [
   { key: '3.4', dataKey: 'prototypesDeveloped', label: '3.4 Prototypes Developed', fields: ['title', 'description', 'evidenceLink'] },
   { key: '3.5', dataKey: 'hackathonPrizes', label: '3.5 Hackathons Mentoring & Prizes', fields: ['eventName', 'prize', 'evidenceLink'] },
   { key: '4.1', dataKey: 'researchProjects', label: '4.1 Sponsored Research Projects', fields: ['projectName', 'fundingAgency', 'amount', 'evidenceLink'] },
-  { key: '4.2', dataKey: 'consultancyProjects', label: '4.2 Consultancy Projects', fields: ['projectName', 'clientName', 'amount', 'evidenceLink'] },
+  { key: '4.2', dataKey: 'consultancyProjects', label: '4.2 Consultancy Work', fields: ['projectName', 'clientName', 'amount', 'evidenceLink'] },
   { key: '5.1', dataKey: 'internationalEngagement', label: '5.1 International Engagement', fields: ['university', 'description', 'evidenceLink'] },
   { key: '5.2', dataKey: 'visitingPositions', label: '5.2 Adjunct / Visiting Positions', fields: ['institution', 'role', 'evidenceLink'] },
   { key: '6.1', dataKey: 'fdpAttended', label: '6.1 FDP / Workshops Attended', fields: ['programTitle', 'organizer', 'duration', 'evidenceLink'] },
@@ -959,8 +959,17 @@ function normalizeDepartmentCode(rawDept) {
     'COMPUTER APPLICATIONS': 'MCA',
     'CIVIL ENGINEERING': 'CIVIL',
     'MATHEMATICS': 'MATH',
+    'ARCHITECTURE': 'ARCH',
+    'TSEDA': 'ARCH',
+    'B.ARCH': 'ARCH',
+    'THIAGARAJAR SCHOOL OF ARCHITECTURE': 'ARCH',
   };
   return map[d] || d;
+}
+
+function isArchDepartment(dept) {
+  const norm = normalizeDepartmentCode(dept);
+  return norm === 'ARCH' || String(dept || '').toUpperCase().includes('ARCH') || String(dept || '').toUpperCase().includes('TSEDA');
 }
 
 const TCE_DEPARTMENTS = [
@@ -3194,7 +3203,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
   const section4Arrays = [
     { label: "4.1 Research Projects", rows: (sec4.researchProjects || []).filter(r => !isRowBlank(r)), fields: ["projectName", "fundingAgency", "period", "amount", "role", "evidenceLink"] },
-    { label: "4.2 Consultancy Projects", rows: (sec4.consultancyProjects || []).filter(r => !isRowBlank(r)), fields: ["title", "clientDetails", "period", "amount", "evidenceLink"] }
+    { label: "4.2 Consultancy Work", rows: (sec4.consultancyProjects || []).filter(r => !isRowBlank(r)), fields: ["title", "clientDetails", "period", "amount", "evidenceLink"] }
   ];
   const isSection4Populated = section4Arrays.some(s => s.rows.length > 0);
 
@@ -4219,7 +4228,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     ? masterAppraisalMode
     : ((selectedDeptFilter && selectedDeptFilter !== 'ALL' ? selectedDeptFilter : user.department) || '');
 
-  const isArch = (activeDept || '').toUpperCase() === 'ARCH';
+  const isArch = isArchDepartment(activeDept);
   
   // IQAC Score Filtering & Soft Curation State
   const [iqacTargetScoreFilter, setIqacTargetScoreFilter] = useState(100);
@@ -9314,13 +9323,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "IV" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="4.1 Sponsored Research Project - PI / Co-PI"
-                subtitle={(
-                  <>
-                    <span>(Calculation Rubric: Sanctioned Amount &gt;= ₹10 Lakhs = 8 marks; ₹3 - ₹10 Lakhs = 5 marks; &lt; ₹3 Lakhs = 3 marks | Max 8 marks | Note: Sanction letter to be uploaded, </span>
-                    <span className="text-red-600 font-semibold not-italic">Sanction amount ₹ 10000 = 0.1 , ₹ 3 lakhs = 3</span>
-                    <span>)</span>
-                  </>
-                )}
+                subtitle="(Calculation Rubric: ≥₹20L = 8 | ₹15–20L = 5 | ₹10L–15L = 3 | ₹5L-10L = 2 | ₹1L-5L = 1 | Max 8 marks | Note: Sanction letter to be uploaded)"
                 subScore={scores.sub4_1 || 0}
                 maxScore={8}
                 rows={currentSectionData.researchProjects || []}
@@ -9332,14 +9335,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 columns={researchProjectsColumns}
               />
               <DynamicArraySection
-                title="4.2 Consultancy Projects"
-                subtitle={(
-                  <>
-                    <span>(Calculation Rubric: Consultancy Amount &gt;= ₹2 Lakhs = 7 marks; ₹50,000 - ₹2 Lakhs = 4 marks; &lt; ₹50,000 = 2 marks | Max 7 marks, </span>
-                    <span className="text-red-600 font-semibold not-italic">Sanction amount ₹ 10000 = 0.1 , ₹ 3 lakhs = 3</span>
-                    <span>)</span>
-                  </>
-                )}
+                title="4.2 Consultancy Work"
+                subtitle="(Calculation Rubric: ≥₹5L = 7 | ₹3L–5L = 5 | 1L-3L = 3 | <₹1L = 1 | Max 7 marks)"
                 subScore={scores.sub4_2 || 0}
                 maxScore={7}
                 rows={currentSectionData.consultancyProjects || []}
