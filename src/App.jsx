@@ -1953,7 +1953,7 @@ function DynamicArraySection({
   const addDisabled = Boolean(disabled);
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
+    <section onClick={handleFieldFocus} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
       <div className="mb-3 flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 sm:gap-4">
         <div className="flex-1 min-w-0 pr-1 sm:pr-2">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -2530,6 +2530,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   if (!appraisal) return null;
   const facultyName = appraisal.facultyName || appraisal.name || "Faculty Member";
   const facultyEmail = appraisal.facultyEmail || appraisal.email || "";
+  const isHodDraftViewOnly = Boolean(
+    isHodView && String(appraisal?.appraisalStatus || '').toUpperCase().trim() === 'DRAFT'
+  );
   const getFirstPopulatedArray = (arrayKey, ...sources) => {
     for (const s of sources) {
       if (Array.isArray(s?.[arrayKey]) && s[arrayKey].length > 0) {
@@ -2699,6 +2702,23 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
         );
       }
       return null;
+    }
+
+    if (isHodDraftViewOnly) {
+      return (
+        <div className="mt-2.5 bg-gradient-to-r from-amber-50/90 to-orange-50/60 border border-amber-200 rounded-lg p-2.5 sm:p-3">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
+            <div className="bg-white/90 border border-slate-200 rounded-md px-3 py-1.5 flex items-center justify-between lg:justify-start gap-2 shadow-xs whitespace-nowrap shrink-0">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap">
+                🤖 Automated Score:
+              </span>
+              <span className="text-xs font-black text-slate-800 whitespace-nowrap">
+                {autoScore} <span className="text-[11px] text-slate-400 font-semibold">/ {maxMark}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     return (
@@ -3048,6 +3068,11 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
               </span>
             )}
           </div>
+          {isHodDraftViewOnly && (
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Draft - not submitted yet. View only.
+            </p>
+          )}
           <p className="mt-0.5 text-sm font-bold text-slate-800">
             {facultyName} <span className="text-xs font-normal text-slate-500">({facultyEmail})</span>
           </p>
@@ -3055,6 +3080,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
             {isIqacView ? (
               <div className="bg-[#4A1519]/10 px-2.5 py-1 rounded text-xs font-bold text-[#4A1519]">
                 Final Score: <span className="font-black text-sm">{effectiveScoreObj.grandTotal} / 200</span>
+              </div>
+            ) : isHodDraftViewOnly ? (
+              <div className="bg-slate-100 px-2.5 py-1 rounded text-xs font-semibold text-slate-700">
+                Automated Score: <span className="font-bold text-slate-900">{effectiveScoreObj.autoGrandTotal} / 200</span>
               </div>
             ) : (
               <>
@@ -3972,6 +4001,37 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [activeView, setActiveView] = useState('overview');
   const [activeSection, setActiveSection] = useState('I'); // Tracks 'I' or 'II'
   const [activeSubsection, setActiveSubsection] = useState('1.1');
+  const scoreboardListRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.innerWidth < 1280) return;
+    const animId = requestAnimationFrame(() => {
+      const container = scoreboardListRef.current;
+      if (!container) return;
+
+      const targetRow = activeSubsection
+        ? container.querySelector(`[data-scoreboard-key="${activeSubsection}"]`)
+        : null;
+
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const behavior = prefersReducedMotion ? 'auto' : 'smooth';
+
+      if (targetRow) {
+        const targetScrollTop = container.scrollTop + (targetRow.getBoundingClientRect().top - container.getBoundingClientRect().top);
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior,
+        });
+      } else {
+        container.scrollTo({
+          top: 0,
+          behavior,
+        });
+      }
+    });
+
+    return () => cancelAnimationFrame(animId);
+  }, [activeSubsection, activeSection]);
 
   const handleSectionToggle = (sec) => {
     const next = activeSection === sec ? null : sec;
@@ -7646,41 +7706,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="flex items-center justify-end space-x-1.5">
-                            {isHod && activeStatus === 'DRAFT' ? (
-                              <button
-                                type="button"
-                                aria-disabled="true"
-                                title="Form not submitted"
-                                className="text-[10.5px] bg-slate-200 text-slate-400 border border-slate-300 px-2.5 py-1 rounded-md shadow-none font-medium flex items-center gap-1 cursor-not-allowed select-none"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                }}
-                              >
-                                Review Data
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  try {
-                                    const flattened = flattenAppraisalRecord(row);
-                                    openInboxRecord(row);
-                                    setSelectedAppraisal({ ...row, ...flattened });
-                                    setSelectedReviewAppraisal(row);
-                                    setHodRemarksInput(row.hodRemarks || '');
-                                    setHodSubsectionRemarks(row.subsectionRemarks || {});
-                                    setHodSubsectionScores(row.hodSubsectionScores || {});
-                                    setIqacRemarksInput(row.iqacAuditRemarks || '');
-                                  } catch (err) {
-                                    console.error("Error opening appraisal record:", err);
-                                  }
-                                }}
-                                className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 cursor-pointer"
-                              >
-                                {(isIQAC || isPrincipal) ? 'Audit Data' : 'Review Data'}
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  const flattened = flattenAppraisalRecord(row);
+                                  openInboxRecord(row);
+                                  setSelectedAppraisal({ ...row, ...flattened });
+                                  setSelectedReviewAppraisal(row);
+                                  setHodRemarksInput(row.hodRemarks || '');
+                                  setHodSubsectionRemarks(row.subsectionRemarks || {});
+                                  setHodSubsectionScores(row.hodSubsectionScores || {});
+                                  setIqacRemarksInput(row.iqacAuditRemarks || '');
+                                } catch (err) {
+                                  console.error("Error opening appraisal record:", err);
+                                }
+                              }}
+                              className="text-[10.5px] bg-[#4A1519] hover:bg-[#3B1013] text-white px-2.5 py-1 rounded-md shadow-sm transition font-medium flex items-center gap-1 cursor-pointer"
+                            >
+                              {(isIQAC || isPrincipal) ? 'Audit Data' : 'Review Data'}
+                            </button>
 
                             {!isIQAC && !isPrincipal && !isHod && (
                               <button
@@ -8096,7 +8141,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             setIqacRemarksInput('');
           }}
           onExportPDF={handlePrintDocument}
-          hodControls={isHod && selectedReviewAppraisal && selectedAppraisal.principalApprovalStatus !== 'Ratified' && selectedAppraisal.appraisalStatus !== 'Ratified' ? {
+          hodControls={isHod && selectedReviewAppraisal && selectedAppraisal.principalApprovalStatus !== 'Ratified' && selectedAppraisal.appraisalStatus !== 'Ratified' && String(selectedAppraisal.appraisalStatus || '').toUpperCase().trim() !== 'DRAFT' ? {
             remarksValue: hodRemarksInput,
             onRemarksChange: setHodRemarksInput,
             subsectionRemarks: hodSubsectionRemarks,
@@ -8585,7 +8630,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
 
               {/* 2.2 Citations Received (Last 3 Years) */}
-              <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
+              <div onClick={() => setActiveSubsection('2.2')} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">
@@ -8641,7 +8686,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
 
               {/* 2.3 Total Q1 Citations */}
-              <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
+              <div onClick={() => setActiveSubsection('2.3')} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm shadow-black/5">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900">
@@ -9437,6 +9482,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   { key: '1.8', label: '1.8 Faculty Certifications', value: scores.sub1_8 || 0, max: 4 },
                   { key: '1.9', label: '1.9 Student Feedback', value: scores.sub1_9 || 0, max: 5 },
                   { key: '1.10', label: '1.10 End Semester Result Pass %', value: scores.sub1_10 || 0, max: 5 },
+                  { key: '1.11', label: '1.11 CO Attainment %', value: scores.sub1_11 || 0, max: isArch ? 3 : 4 },
                 ],
               },
               'II': {
@@ -9543,12 +9589,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <span>{currentCfg.title}</span>
                   <span className="text-[#4A1519]">{currentCfg.score} / {currentCfg.max}</span>
                 </div>
-                <div className="print-hidden space-y-1.5 text-[11px] font-medium xl:flex-1 xl:min-h-0 xl:overflow-y-auto pr-1 pb-1">
+                <div
+                  ref={scoreboardListRef}
+                  className="print-hidden space-y-1.5 text-[11px] font-medium xl:flex-1 xl:min-h-0 xl:overflow-y-auto pr-1 pb-1 xl:pb-[260px]"
+                >
                   {currentCfg.items.map((item) => {
                     const isHighlighted = activeSubsection === item.key;
                     return (
                       <div
                         key={item.key}
+                        data-scoreboard-key={item.key}
                         className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 transition-all ${
                           isHighlighted
                             ? 'bg-amber-100/90 border-2 border-[#4A1519] text-[#4A1519] font-bold shadow-xs'

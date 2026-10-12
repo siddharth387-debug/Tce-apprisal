@@ -2119,6 +2119,14 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
       return res.status(404).json({ success: false, message: "No matching appraisal record found in database cluster templates." });
     }
 
+    const currentStatus = String(targetRecord.appraisalStatus || '').toUpperCase().trim();
+    if (currentStatus === 'DRAFT') {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot review or modify a Draft submission. The faculty member has not submitted this appraisal yet."
+      });
+    }
+
     // Determine evaluated final score
     const evaluatedConvertedScore = finalScore !== undefined && finalScore !== null
       ? Number(finalScore)
