@@ -4221,13 +4221,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [submitModalState, setSubmitModalState] = useState(null); // { type: 'warning' | 'confirm' | 'success' | 'error', title: '', message: '' }
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('ALL');
 
-  const [masterAppraisalMode, setMasterAppraisalMode] = useState('GENERAL'); // 'GENERAL' | 'ARCH'
+  const [masterAppraisalMode, setMasterAppraisalMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tce_masterAppraisalMode');
+      if (saved === 'ARCH' || saved === 'GENERAL') return saved;
+    } catch (e) {}
+    if (isArchDepartment(user?.department)) return 'ARCH';
+    return 'GENERAL';
+  });
 
   const activeDept = isMasterUser
     ? masterAppraisalMode
     : ((selectedDeptFilter && selectedDeptFilter !== 'ALL' ? selectedDeptFilter : user.department) || '');
 
-  const isArch = isArchDepartment(activeDept);
+  const isArchInitial = Boolean(
+    isArchDepartment(activeDept) ||
+    masterAppraisalMode === 'ARCH' ||
+    isArchDepartment(user?.department)
+  );
   
   // IQAC Score Filtering & Soft Curation State
   const [iqacTargetScoreFilter, setIqacTargetScoreFilter] = useState(100);
@@ -6084,6 +6095,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     () => computeEffectiveScores(currentSectionData, activeTimelineRecord?.hodSubsectionScores || {}, activeDept),
     [currentSectionData, activeTimelineRecord, activeDept]
   );
+
+  const isArch = Boolean(
+    isArchInitial ||
+    isArchDepartment(activeTimelineRecord?.department) ||
+    isArchDepartment(activeTimelineRecord?.departmentName) ||
+    isArchDepartment(currentSectionData?.department) ||
+    isArchDepartment(currentSectionData?.dept) ||
+    scores?.isArch
+  );
+
+  useEffect(() => {
+    if (activeTimelineRecord && isArchDepartment(activeTimelineRecord.department || activeTimelineRecord.departmentName)) {
+      setMasterAppraisalMode('ARCH');
+      try {
+        localStorage.setItem('tce_masterAppraisalMode', 'ARCH');
+      } catch (err) {}
+    }
+  }, [activeTimelineRecord]);
   const sectionValidation = useMemo(() => {
     const rowErrors = {
       coursesHandled: {},
@@ -10028,6 +10057,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   onChange={(e) => {
                     const selectedMode = e.target.value;
                     setMasterAppraisalMode(selectedMode);
+                    try {
+                      localStorage.setItem('tce_masterAppraisalMode', selectedMode);
+                    } catch (err) {}
                     if (selectedMode === 'ARCH') {
                       setSelectedDeptFilter('ARCH');
                     } else {

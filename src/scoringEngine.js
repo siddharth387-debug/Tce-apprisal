@@ -732,37 +732,37 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   // Section 3 (Patents & Architecture Innovation)
   const s3_1 = Math.min(
     (safeData.patentsPublished || []).filter(
-      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber'], 'title', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber'], 'title'])
     ).length * 1,
     1
   );
   const s3_2 = Math.min(
     (safeData.patentsGranted || []).filter(
-      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber'], 'title', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber'], 'title'])
     ).length * 3,
     3
   );
   const s3_3 = Math.min(
     (safeData.transferOfTechnology || []).filter(
-      (r) => isRowFullyFilled(r, ['title', 'industryPartner', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['title', 'industryPartner'])
     ).length * 2,
     2
   );
   const s3_4 = Math.min(
     (safeData.prototypesDeveloped || []).filter(
-      (r) => isRowFullyFilled(r, [['titleOfProduct', 'title'], 'evidenceLink'])
+      (r) => isRowFullyFilled(r, [['titleOfProduct', 'title']])
     ).length * 1,
     3
   );
   const s3_5 = Math.min(
     (safeData.hackathonPrizes || []).filter(
-      (r) => isRowFullyFilled(r, ['eventName', ['prize', 'achievement'], 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['eventName', ['prize', 'achievement']])
     ).length * 1,
     2
   );
   const s3_6 = Math.min(
     (safeData.designPatents || []).filter(
-      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber', 'registrationNo'], 'title', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, [['refNumber', 'patentRefNumber', 'registrationNo'], 'title'])
     ).length * 2,
     4
   );
