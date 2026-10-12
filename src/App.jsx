@@ -17,6 +17,7 @@ import AppDateInput, {
   formatIsoToDisplay,
   getCalendarRangeForBatch,
   computeExpectedEndDate,
+  calculateInclusiveDays,
 } from './AppDateInput.jsx';
 import AppLinkInput, { parseLink } from './AppLinkInput.jsx';
 
@@ -723,6 +724,26 @@ function mergeSectionState(baseState, overlayState) {
 }
 
 function normalizeSection6Data(sec6 = {}) {
+  const fdpAttended = (sec6.fdpAttended || []).map((r) => {
+    if (r.dateRange && r.endDate) {
+      const calc = calculateInclusiveDays(r.dateRange, r.endDate);
+      if (calc) {
+        return { ...r, duration: calc };
+      }
+    }
+    return r;
+  });
+
+  const programsOrganized = (sec6.programsOrganized || []).map((r) => {
+    if (r.dateRange && r.endDate) {
+      const calc = calculateInclusiveDays(r.dateRange, r.endDate);
+      if (calc) {
+        return { ...r, days: calc };
+      }
+    }
+    return r;
+  });
+
   const editorialBoard = (sec6.editorialBoard || []).map((r) => {
     let fromDate = r.fromDate || '';
     let toDate = r.toDate || '';
@@ -792,6 +813,8 @@ function normalizeSection6Data(sec6 = {}) {
 
   return {
     ...sec6,
+    fdpAttended,
+    programsOrganized,
     editorialBoard,
     moocDeveloped,
   };
@@ -1034,6 +1057,11 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
     const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
     const trimmed = value.trim();
 
+    if (column.isCalculatedDays) {
+      // Disabled days field is never shown as an error; dates carry required errors.
+      return;
+    }
+
     if (column.name === 'courseCode') {
       if (!isValidCourseCode(trimmed)) {
         errors[column.name] = true;
@@ -1083,13 +1111,6 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
             const range = getCalendarRangeForBatch(options.batch, column.calendarType);
             if (range.minDate && range.maxDate && (iso < range.minDate || iso > range.maxDate)) {
               errors[column.name] = 'out_of_range';
-            }
-          }
-          if (column.isFdpEndDate) {
-            const startVal = row[column.startDateField || 'dateRange'];
-            const exp = computeExpectedEndDate(startVal, row.duration);
-            if (exp && iso !== exp) {
-              errors[column.name] = 'fdp_date_mismatch';
             }
           }
           if (column.isEndDate) {
@@ -2001,19 +2022,15 @@ function DynamicArraySection({
     }
 
     const colDef = safeColumns.find((c) => c.name === columnName);
+    if (colDef && colDef.isCalculatedDays) {
+      return '';
+    }
     if (colDef && colDef.type === 'date') {
       const dateVal = String(row[columnName] || '').trim();
       if (dateVal) {
         const iso = parseDateStringToIso(dateVal);
         if (iso === 'invalid') {
           return 'Enter a valid date (DD.MM.YYYY or YYYY-MM-DD)';
-        }
-        if (colDef.isFdpEndDate) {
-          const startVal = row[colDef.startDateField || 'dateRange'];
-          const exp = computeExpectedEndDate(startVal, row.duration);
-          if (exp && iso !== exp) {
-            return `Must be exactly ${formatIsoToDisplay(exp)} (start + duration - 1 days)`;
-          }
         }
         if (colDef.isEndDate) {
           const startVal = row[colDef.startDateField || 'startDate'] || row.dateRange || row.fromDate;
@@ -2077,6 +2094,7 @@ function DynamicArraySection({
   };
 
   const hasRowColumnError = (row, column) => {
+    if (column.isCalculatedDays) return false;
     if (column.name === 'toDate' && Boolean(row.isTillDate)) return false;
     if (rowErrors?.[row.id]?.[column.name]) return true;
     if (column.name === 'courseCode' && isNonEmpty(row[column.name])) {
@@ -2105,6 +2123,301 @@ function DynamicArraySection({
     if (subKey && effectiveSetActiveSub) {
       effectiveSetActiveSub(subKey);
     }
+  };
+
+  const renderGroups = useMemo(() => {
+    const groups = [];
+    for (let i = 0; i < safeColumns.length; i++) {
+      const col = safeColumns[i];
+      if (col.type === 'date' && col.endDateField && i + 1 < safeColumns.length && safeColumns[i + 1].name === col.endDateField) {
+        const startCol = col;
+        const endCol = safeColumns[i + 1];
+        let daysCol = null;
+        if (i + 2 < safeColumns.length && safeColumns[i + 2].isCalculatedDays) {
+          daysCol = safeColumns[i + 2];
+        }
+
+        const groupCols = daysCol ? [startCol, endCol, daysCol] : [startCol, endCol];
+        const calType = startCol.calendarType || endCol.calendarType;
+        const caption = calType === 'academic' ? 'Academic Calendar' : calType === 'year' ? 'Calendar Year' : null;
+
+        groups.push({
+          type: 'dateGroup',
+          caption,
+          columns: groupCols,
+        });
+        i += (groupCols.length - 1);
+      } else {
+        const calType = col.type === 'date' ? col.calendarType : null;
+        const caption = calType === 'academic' ? 'Academic Calendar' : calType === 'year' ? 'Calendar Year' : null;
+        groups.push({
+          type: 'single',
+          caption,
+          column: col,
+        });
+      }
+    }
+    return groups;
+  }, [safeColumns]);
+
+  const renderColumnField = (column, row) => {
+    const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
+    const isLinkCol = column.name === 'evidenceLink' || column.name === 'appointmentLink' || column.type === 'url';
+    const isDateCol = column.name === 'fromDate' || column.name === 'toDate' || column.name === 'startDate' || column.name === 'endDate' || column.name === 'vivaDate';
+    const isCheckCol = column.name === 'isTillDate' || column.type === 'checkbox';
+
+    const fieldPlaceholder = column.name === 'toDate' && Boolean(row.isTillDate)
+      ? 'Present / Ongoing'
+      : isTimelineCol
+        ? (column.placeholder || column.label || 'Select Period')
+        : isDateCol
+          ? (column.placeholder || column.label || 'Select Date')
+          : column.type === 'select'
+            ? (column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`))
+            : isLinkCol
+              ? (column.placeholder || column.label || 'Supporting Document Link')
+              : (column.placeholder || column.label);
+
+    if (isTimelineCol) {
+      return (
+        <div onFocus={handleFieldFocus} className="w-full">
+          <AcademicTimelinePicker
+            value={row[column.name] || ''}
+            onChange={(val) => onChange(row.id, column.name, val)}
+            disabled={disabled}
+            isCompact={true}
+            hideLabel={true}
+            placeholder={fieldPlaceholder}
+            title={fieldPlaceholder}
+            ariaLabel={fieldPlaceholder}
+            allowClear={true}
+            currentAcademicYear={effectiveBatch}
+            restrictToBatch={Boolean(column.restrictToBatch || column.name === 'period')}
+          />
+          {getFieldErrorText(row, column.name) ? (
+            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
+              {getFieldErrorText(row, column.name)}
+            </span>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (isCheckCol) {
+      return (
+        <>
+          <label
+            title={column.label}
+            aria-label={column.label}
+            className="flex items-center gap-2 h-[38px] sm:h-7 px-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition w-full"
+          >
+            <input
+              type="checkbox"
+              checked={Boolean(row[column.name])}
+              disabled={disabled}
+              onFocus={handleFieldFocus}
+              title={column.label}
+              aria-label={column.label}
+              onChange={(event) => {
+                const isChecked = event.target.checked;
+                onChange(row.id, column.name, isChecked);
+                if (isChecked && column.name === 'isTillDate') {
+                  onChange(row.id, 'toDate', '');
+                }
+              }}
+              className="w-4 h-4 sm:w-3.5 sm:h-3.5 accent-[#4A1519] rounded cursor-pointer shrink-0"
+            />
+            <span className="truncate">{column.label}</span>
+          </label>
+          {getFieldErrorText(row, column.name) ? (
+            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
+              {getFieldErrorText(row, column.name)}
+            </span>
+          ) : null}
+        </>
+      );
+    }
+
+    if (column.type === 'date') {
+      return (
+        <AppDateInput
+          value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] || '')}
+          onChange={(val) => {
+            onChange(row.id, column.name, val);
+            if (column.endDateField && row[column.endDateField]) {
+              const sIso = parseDateStringToIso(val);
+              const eIso = parseDateStringToIso(row[column.endDateField]);
+              if (sIso && eIso && eIso < sIso) {
+                onChange(row.id, column.endDateField, '');
+              }
+            }
+          }}
+          calendarType={column.calendarType || 'none'}
+          batch={effectiveBatch}
+          startDateForOrdering={column.isEndDate ? (row[column.startDateField || 'startDate'] || row.dateRange || row.fromDate) : undefined}
+          disabled={disabled || Boolean(column.name === 'toDate' && row.isTillDate)}
+          placeholder={fieldPlaceholder}
+          title={fieldPlaceholder}
+          ariaLabel={fieldPlaceholder}
+          onFocus={handleFieldFocus}
+          errorText={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : getFieldErrorText(row, column.name)}
+        />
+      );
+    }
+
+    if (column.type === 'select') {
+      return (
+        <>
+          <select
+            value={row[column.name] || ''}
+            onFocus={handleFieldFocus}
+            onChange={(event) =>
+              onChange(row.id, column.name, event.target.value)
+            }
+            disabled={disabled}
+            title={fieldPlaceholder}
+            aria-label={fieldPlaceholder}
+            className={`w-full rounded-md border ${
+              hasRowColumnError(row, column)
+                ? 'border-red-400'
+                : 'border-slate-200'
+            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
+          >
+            <option value="" disabled>
+              {fieldPlaceholder}
+            </option>
+            {column.groups ? (
+              column.groups.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </optgroup>
+              ))
+            ) : (
+              (column.options || []).map((option) => {
+                const optValue = typeof option === 'object' && option !== null ? option.value : option;
+                const optLabel = typeof option === 'object' && option !== null ? option.label : option;
+                return (
+                  <option key={optValue} value={optValue}>
+                    {optLabel}
+                  </option>
+                );
+              })
+            )}
+          </select>
+          {getFieldErrorText(row, column.name) ? (
+            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
+              {getFieldErrorText(row, column.name)}
+            </span>
+          ) : null}
+        </>
+      );
+    }
+
+    if (isLinkCol) {
+      return (
+        <AppLinkInput
+          value={row[column.name] ?? ''}
+          onChange={(val) => onChange(row.id, column.name, val)}
+          onFocus={handleFieldFocus}
+          disabled={disabled}
+          placeholder={fieldPlaceholder}
+          title={fieldPlaceholder}
+          ariaLabel={fieldPlaceholder}
+          hasError={hasRowColumnError(row, column)}
+          errorText={getFieldErrorText(row, column.name)}
+        />
+      );
+    }
+
+    if (column.isCalculatedDays) {
+      return (
+        <div onFocus={handleFieldFocus} className="w-full">
+          <input
+            type="text"
+            readOnly
+            disabled
+            tabIndex={-1}
+            value={row[column.name] ?? ''}
+            title="Calculated automatically from the dates"
+            aria-label={fieldPlaceholder}
+            placeholder={fieldPlaceholder}
+            className="w-full rounded-md border border-slate-200 bg-slate-100 disabled:bg-slate-100 disabled:cursor-not-allowed h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none select-none placeholder:text-[11px] placeholder:text-gray-400 truncate whitespace-nowrap [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          />
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <input
+          type={column.type || 'text'}
+          value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
+          onFocus={handleFieldFocus}
+          title={fieldPlaceholder}
+          aria-label={fieldPlaceholder}
+          onBlur={(event) => {
+            if (column.isLakhs) {
+              const converted = convertToLakhs(event.target.value);
+              if (converted !== event.target.value) {
+                onChange(row.id, column.name, converted);
+              }
+            }
+          }}
+          {...(column.type === 'number' ? {
+            min: 0,
+            ...(column.isLakhs ? {} : (getNumericFieldMax(column) !== undefined ? { max: getNumericFieldMax(column) } : {})),
+            ...(column.isLakhs ? { step: 'any' } : (getNumericFieldMax(column) === 100 ? { step: 'any' } : { step: '1' })),
+            onKeyDown: handleCountKeyDown,
+            onPaste: (e) => {
+              e.preventDefault();
+              const pasted = e.clipboardData.getData('text');
+              if (column.isLakhs) {
+                onChange(row.id, column.name, pasted.trim());
+              } else {
+                const sanitized = sanitizeCountInput(pasted, getNumericFieldMax(column));
+                onChange(row.id, column.name, sanitized);
+              }
+            },
+            onChange: (e) => {
+              if (column.isLakhs) {
+                onChange(row.id, column.name, e.target.value);
+              } else {
+                onChange(row.id, column.name, sanitizeCountInput(e.target.value, getNumericFieldMax(column)));
+              }
+            }
+          } : {
+            onChange: (event) => onChange(row.id, column.name, event.target.value)
+          })}
+          disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
+          placeholder={fieldPlaceholder}
+          list={
+            column.name === 'courseCode'
+              ? 'autofill-course-codes'
+              : column.name === 'courseName'
+                ? 'autofill-course-names'
+                : ['institution', 'partner', 'industry', 'industryName', 'venue'].includes(column.name)
+                  ? 'autofill-institutions'
+                  : ['journalName', 'bodyName', 'proceedingName', 'societyName'].includes(column.name)
+                    ? 'autofill-journals'
+                    : undefined
+          }
+          className={`w-full rounded-md border ${
+            hasRowColumnError(row, column)
+              ? 'border-red-400'
+              : 'border-slate-200'
+          } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
+        />
+        {getFieldErrorText(row, column.name) ? (
+          <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
+            {getFieldErrorText(row, column.name)}
+          </span>
+        ) : null}
+      </>
+    );
   };
 
   const addDisabled = Boolean(disabled);
@@ -2188,234 +2501,40 @@ function DynamicArraySection({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(215px,1fr))] gap-2.5 sm:gap-3 w-full items-start">
-                {safeColumns.map((column) => {
-                  const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
-                  const isLinkCol = column.name === 'evidenceLink' || column.name === 'appointmentLink' || column.type === 'url';
-                  const isDateCol = column.name === 'fromDate' || column.name === 'toDate' || column.name === 'startDate' || column.name === 'endDate' || column.name === 'vivaDate';
-                  const isCheckCol = column.name === 'isTillDate' || column.type === 'checkbox';
+                {renderGroups.map((group) => {
+                  if (group.type === 'dateGroup') {
+                    const colSpanClass = group.columns.length === 3 ? 'col-span-1 sm:col-span-3' : 'col-span-1 sm:col-span-2';
+                    const innerGridClass = group.columns.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2';
 
-                  const fieldPlaceholder = column.name === 'toDate' && Boolean(row.isTillDate)
-                    ? 'Present / Ongoing'
-                    : isTimelineCol
-                      ? (column.placeholder || column.label || 'Select Period')
-                      : isDateCol
-                        ? (column.placeholder || column.label || 'Select Date')
-                        : column.type === 'select'
-                          ? (column.placeholder || (column.label && column.label.toLowerCase().startsWith('select ') ? column.label : `Select ${column.label}`))
-                          : isLinkCol
-                            ? (column.placeholder || column.label || 'Supporting Document Link')
-                            : (column.placeholder || column.label);
+                    return (
+                      <div
+                        key={`group-${group.columns.map((c) => c.name).join('-')}`}
+                        className={`w-full min-w-0 flex flex-col ${colSpanClass}`}
+                      >
+                        {group.caption ? (
+                          <span className="text-[11px] sm:text-xs font-medium text-slate-500 mb-1 block select-none whitespace-nowrap">
+                            {group.caption}
+                          </span>
+                        ) : null}
+                        <div className={`grid ${innerGridClass} gap-2.5 sm:gap-3 w-full items-start`}>
+                          {group.columns.map((column) => (
+                            <div key={column.name} className="w-full min-w-0 flex flex-col">
+                              {renderColumnField(column, row)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
-                    <div
-                      key={column.name}
-                      className="w-full min-w-0 flex flex-col"
-                    >
-                      {isTimelineCol ? (
-                        <div onFocus={handleFieldFocus} className="w-full">
-                          <AcademicTimelinePicker
-                            value={row[column.name] || ''}
-                            onChange={(val) => onChange(row.id, column.name, val)}
-                            disabled={disabled}
-                            isCompact={true}
-                            hideLabel={true}
-                            placeholder={fieldPlaceholder}
-                            title={fieldPlaceholder}
-                            ariaLabel={fieldPlaceholder}
-                            allowClear={true}
-                            currentAcademicYear={effectiveBatch}
-                            restrictToBatch={Boolean(column.restrictToBatch || column.name === 'period')}
-                          />
-                          {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
-                              {getFieldErrorText(row, column.name)}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : column.type === 'checkbox' ? (
-                        <>
-                          <label
-                            title={column.label}
-                            aria-label={column.label}
-                            className="flex items-center gap-2 h-[38px] sm:h-7 px-2.5 cursor-pointer select-none text-xs font-semibold text-slate-700 bg-white rounded-md border border-slate-200 hover:bg-slate-50 transition w-full"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={Boolean(row[column.name])}
-                              disabled={disabled}
-                              onFocus={handleFieldFocus}
-                              title={column.label}
-                              aria-label={column.label}
-                              onChange={(event) => {
-                                const isChecked = event.target.checked;
-                                onChange(row.id, column.name, isChecked);
-                                if (isChecked && column.name === 'isTillDate') {
-                                  onChange(row.id, 'toDate', '');
-                                }
-                              }}
-                              className="w-4 h-4 sm:w-3.5 sm:h-3.5 accent-[#4A1519] rounded cursor-pointer shrink-0"
-                            />
-                            <span className="truncate">{column.label}</span>
-                          </label>
-                          {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
-                              {getFieldErrorText(row, column.name)}
-                            </span>
-                          ) : null}
-                        </> 
-                      ) : column.type === 'date' ? (
-                        <>
-                          <AppDateInput
-                            value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] || '')}
-                            onChange={(val) => {
-                              onChange(row.id, column.name, val);
-                              if (column.endDateField && row[column.endDateField]) {
-                                const sIso = parseDateStringToIso(val);
-                                const eIso = parseDateStringToIso(row[column.endDateField]);
-                                if (sIso && eIso && eIso < sIso) {
-                                  onChange(row.id, column.endDateField, '');
-                                }
-                              }
-                            }}
-                            calendarType={column.calendarType || 'none'}
-                            batch={effectiveBatch}
-                            exactDate={column.isFdpEndDate ? computeExpectedEndDate(row[column.startDateField || 'dateRange'], row.duration) : undefined}
-                            startDateForOrdering={column.isEndDate || column.isFdpEndDate ? (row[column.startDateField || 'startDate'] || row.dateRange || row.fromDate) : undefined}
-                            disabled={disabled || Boolean(column.name === 'toDate' && row.isTillDate)}
-                            placeholder={fieldPlaceholder}
-                            title={fieldPlaceholder}
-                            ariaLabel={fieldPlaceholder}
-                            onFocus={handleFieldFocus}
-                            errorText={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : getFieldErrorText(row, column.name)}
-                          />
-                        </>
-                      ) : column.type === 'select' ? (
-                        <>
-                          <select
-                            value={row[column.name] || ''}
-                            onFocus={handleFieldFocus}
-                            onChange={(event) =>
-                              onChange(row.id, column.name, event.target.value)
-                            }
-                            disabled={disabled}
-                            title={fieldPlaceholder}
-                            aria-label={fieldPlaceholder}
-                            className={`w-full rounded-md border ${
-                              hasRowColumnError(row, column)
-                                ? 'border-red-400'
-                                : 'border-slate-200'
-                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
-                          >
-                            <option value="" disabled>
-                              {fieldPlaceholder}
-                            </option>
-                            {column.groups ? (
-                              column.groups.map((group) => (
-                                <optgroup key={group.label} label={group.label}>
-                                  {group.options.map((option) => (
-                                    <option key={option} value={option}>
-                                      {option}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              ))
-                            ) : (
-                              (column.options || []).map((option) => {
-                                const optValue = typeof option === 'object' && option !== null ? option.value : option;
-                                const optLabel = typeof option === 'object' && option !== null ? option.label : option;
-                                return (
-                                  <option key={optValue} value={optValue}>
-                                    {optLabel}
-                                  </option>
-                                );
-                              })
-                            )}
-                          </select>
-                          {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
-                              {getFieldErrorText(row, column.name)}
-                            </span>
-                          ) : null}
-                        </>
-                      ) : isLinkCol ? (
-                        <AppLinkInput
-                          value={row[column.name] ?? ''}
-                          onChange={(val) => onChange(row.id, column.name, val)}
-                          onFocus={handleFieldFocus}
-                          disabled={disabled}
-                          placeholder={fieldPlaceholder}
-                          title={fieldPlaceholder}
-                          ariaLabel={fieldPlaceholder}
-                          hasError={hasRowColumnError(row, column)}
-                          errorText={getFieldErrorText(row, column.name)}
-                        />
-                      ) : (
-                        <>
-                          <input
-                            type={column.type || 'text'}
-                            value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
-                            onFocus={handleFieldFocus}
-                            title={fieldPlaceholder}
-                            aria-label={fieldPlaceholder}
-                            onBlur={(event) => {
-                              if (column.isLakhs) {
-                                const converted = convertToLakhs(event.target.value);
-                                if (converted !== event.target.value) {
-                                  onChange(row.id, column.name, converted);
-                                }
-                              }
-                            }}
-                            {...(column.type === 'number' ? {
-                              min: 0,
-                              ...(column.isLakhs ? {} : (getNumericFieldMax(column) !== undefined ? { max: getNumericFieldMax(column) } : {})),
-                              ...(column.isLakhs ? { step: 'any' } : (getNumericFieldMax(column) === 100 ? { step: 'any' } : { step: '1' })),
-                              onKeyDown: handleCountKeyDown,
-                              onPaste: (e) => {
-                                e.preventDefault();
-                                const pasted = e.clipboardData.getData('text');
-                                if (column.isLakhs) {
-                                  onChange(row.id, column.name, pasted.trim());
-                                } else {
-                                  const sanitized = sanitizeCountInput(pasted, getNumericFieldMax(column));
-                                  onChange(row.id, column.name, sanitized);
-                                }
-                              },
-                              onChange: (e) => {
-                                if (column.isLakhs) {
-                                  onChange(row.id, column.name, e.target.value);
-                                } else {
-                                  onChange(row.id, column.name, sanitizeCountInput(e.target.value, getNumericFieldMax(column)));
-                                }
-                              }
-                            } : {
-                              onChange: (event) => onChange(row.id, column.name, event.target.value)
-                            })}
-                            disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
-                            placeholder={fieldPlaceholder}
-                            list={
-                              column.name === 'courseCode'
-                                ? 'autofill-course-codes'
-                                : column.name === 'courseName'
-                                  ? 'autofill-course-names'
-                                  : ['institution', 'partner', 'industry', 'industryName', 'venue'].includes(column.name)
-                                    ? 'autofill-institutions'
-                                    : ['journalName', 'bodyName', 'proceedingName', 'societyName'].includes(column.name)
-                                      ? 'autofill-journals'
-                                      : undefined
-                            }
-                            className={`w-full rounded-md border ${
-                              hasRowColumnError(row, column)
-                                ? 'border-red-400'
-                                : 'border-slate-200'
-                            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
-                          />
-                          {getFieldErrorText(row, column.name) ? (
-                            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
-                              {getFieldErrorText(row, column.name)}
-                            </span>
-                          ) : null}
-                        </>
-                      )}
+                    <div key={group.column.name} className="w-full min-w-0 flex flex-col">
+                      {group.caption ? (
+                        <span className="text-[11px] sm:text-xs font-medium text-slate-500 mb-1 block select-none whitespace-nowrap">
+                          {group.caption}
+                        </span>
+                      ) : null}
+                      {renderColumnField(group.column, row)}
                     </div>
                   );
                 })}
@@ -4265,7 +4384,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [iqacRemarksInput, setIqacRemarksInput] = useState('');
   const [workspaceByTimeline, setWorkspaceByTimeline] = useState(() => {
     const stored = onWorkspaceLoad?.();
-    return stored || buildTimelineState();
+    if (stored && typeof stored === 'object') {
+      const normalized = {};
+      Object.entries(stored).forEach(([tl, data]) => {
+        normalized[tl] = data ? { ...data, ...normalizeSection6Data(data) } : data;
+      });
+      return normalized;
+    }
+    return buildTimelineState();
   });
   const [hodInboxByTimeline, setHodInboxByTimeline] = useState(() =>
     // HOD reads the shared inbox that Faculty submissions write into.
@@ -4706,6 +4832,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       finalData = createEmptySectionState();
     }
 
+    finalData = { ...finalData, ...normalizeSection6Data(finalData) };
     hydratedTimelinesRef.current.add(selectedTimeline);
     setWorkspaceByTimeline((prev) => ({
       ...prev,
@@ -5613,16 +5740,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const fdpAttendedColumns = [
     { name: "programName", label: "Name of Program", type: "text", placeholder: "Name of Program" },
     { name: "organizer", label: "Organizer", type: "text", placeholder: "Organizer / Institution Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Duration in Days" },
     { name: "dateRange", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
-    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isFdpEndDate: true, startDateField: "dateRange" },
+    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "dateRange" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Duration in Days", isCalculatedDays: true },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const programsOrganizedColumns = [
     { name: "programName", label: "Name of Program", type: "text", placeholder: "Name of Program" },
-    { name: "days", label: "Number of Days", type: "number", min: 0, placeholder: "No. of Days" },
     { name: "dateRange", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
     { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "dateRange" },
+    { name: "days", label: "Number of Days", type: "number", min: 0, placeholder: "No. of Days", isCalculatedDays: true },
     {
       name: "role",
       label: "Role in Program",
@@ -6381,8 +6508,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   errDetails.push(`Enter a valid date for ${colLabel} (DD.MM.YYYY or YYYY-MM-DD)`);
                 } else if (errVal === 'out_of_range') {
                   errDetails.push(`${colLabel} is out of the allowed calendar range for batch ${selectedTimeline}`);
-                } else if (errVal === 'fdp_date_mismatch') {
-                  errDetails.push('End date must be exactly start date + duration - 1 days');
                 } else if (errVal === 'end_before_start') {
                   errDetails.push('End date cannot be earlier than start date');
                 } else if (errVal === 'max_limit') {
@@ -6932,30 +7057,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           if (field === 'isTillDate' && Boolean(value)) {
             updated.toDate = '';
           }
-        if (key === 'fdpAttended') {
-          if (field === 'duration' || field === 'dateRange') {
-            const exp = computeExpectedEndDate(
-              field === 'dateRange' ? value : updated.dateRange,
-              field === 'duration' ? value : updated.duration
-            );
-            if (updated.endDate) {
-              const currentEndIso = parseDateStringToIso(updated.endDate);
-              if (!exp || currentEndIso !== exp) {
-                updated.endDate = '';
+          if (key === 'fdpAttended') {
+            if (field === 'dateRange' || field === 'endDate') {
+              updated.duration = calculateInclusiveDays(updated.dateRange, updated.endDate);
+            }
+          } else if (key === 'programsOrganized') {
+            if (field === 'dateRange' || field === 'endDate') {
+              updated.days = calculateInclusiveDays(updated.dateRange, updated.endDate);
+            }
+          }
+          const startKey = updated.startDate !== undefined ? 'startDate' : updated.dateRange !== undefined ? 'dateRange' : updated.fromDate !== undefined ? 'fromDate' : null;
+          const endKey = updated.endDate !== undefined ? 'endDate' : updated.toDate !== undefined ? 'toDate' : null;
+          if (startKey && endKey && field === startKey && updated[endKey]) {
+            const sIso = parseDateStringToIso(updated[startKey]);
+            const eIso = parseDateStringToIso(updated[endKey]);
+            if (sIso && sIso !== 'invalid' && eIso && eIso !== 'invalid' && eIso < sIso) {
+              updated[endKey] = '';
+              if (key === 'fdpAttended') {
+                updated.duration = '';
+              } else if (key === 'programsOrganized') {
+                updated.days = '';
               }
             }
           }
-        }
-        const startKey = updated.startDate !== undefined ? 'startDate' : updated.dateRange !== undefined ? 'dateRange' : updated.fromDate !== undefined ? 'fromDate' : null;
-        const endKey = updated.endDate !== undefined ? 'endDate' : updated.toDate !== undefined ? 'toDate' : null;
-        if (startKey && endKey && field === startKey && updated[endKey]) {
-          const sIso = parseDateStringToIso(updated[startKey]);
-          const eIso = parseDateStringToIso(updated[endKey]);
-          if (sIso && sIso !== 'invalid' && eIso && eIso !== 'invalid' && eIso < sIso) {
-            updated[endKey] = '';
-          }
-        }
-        return updated;
+          return updated;
       }),
     };
   });

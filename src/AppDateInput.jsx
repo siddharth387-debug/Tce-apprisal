@@ -48,6 +48,25 @@ export function formatIsoToDisplay(isoStr) {
 }
 
 /**
+ * Calculates inclusive calendar days between two dates: (end - start) + 1.
+ * Safe against timezones and daylight-saving shifts using UTC date arithmetic.
+ * Returns empty string '' if either date is missing/invalid or end < start.
+ */
+export function calculateInclusiveDays(startDateStr, endDateStr) {
+  if (!startDateStr || !endDateStr) return '';
+  const sIso = parseDateStringToIso(startDateStr);
+  const eIso = parseDateStringToIso(endDateStr);
+  if (!sIso || sIso === 'invalid' || !eIso || eIso === 'invalid') return '';
+  const [sy, sm, sd] = sIso.split('-').map(Number);
+  const [ey, em, ed] = eIso.split('-').map(Number);
+  const startUtc = Date.UTC(sy, sm - 1, sd);
+  const endUtc = Date.UTC(ey, em - 1, ed);
+  if (endUtc < startUtc) return '';
+  const diffDays = Math.round((endUtc - startUtc) / (1000 * 60 * 60 * 24));
+  return String(diffDays + 1);
+}
+
+/**
  * Computes calendar range boundaries based on the selected batch (e.g. '2025 - 2026')
  * - 'year': 01 Jan {startYear} to 31 Dec {startYear}
  * - 'academic': 01 Jul {startYear} to 30 Jun {endYear}
