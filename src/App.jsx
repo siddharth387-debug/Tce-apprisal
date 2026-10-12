@@ -183,6 +183,149 @@ export const getSectionAndSubsectionLabel = (subKey) => {
   return subName;
 };
 
+export const getScoreboardSectionConfig = (sectionId, isArch, scores = {}) => {
+  const configs = {
+    'I': {
+      title: 'SECTION I SUBTOTAL',
+      sectionName: 'Teaching & Learning',
+      fullTitle: 'SECTION I: Teaching & Learning',
+      score: scores.total || 0,
+      max: 50,
+      items: [
+        { key: '1.1', label: '1.1 Courses Handled', value: scores.sub1_1 || 0, max: 8 },
+        { key: '1.2', label: '1.2 Course File', value: scores.sub1_2 || 0, max: 5 },
+        { key: '1.3', label: '1.3 Course Design', value: scores.sub1_3 || 0, max: 5 },
+        { key: '1.4', label: '1.4 Value-Added', value: scores.sub1_4 || 0, max: 4 },
+        ...(isArch ? [
+          { key: '1.5.1', label: '1.5.1 Innovative Teaching Methods (Pedagogy & Fieldwork)', value: scores.sub1_5 || 0, max: 5 },
+          { key: '1.5.2', label: '1.5.2 Studio Based Teaching and Design Education', value: scores.sub1_5_2 || 0, max: 3 },
+          { key: '1.6', label: '1.6 Educational Tours & Case Study Visits', value: scores.sub1_6 || 0, max: 4 },
+        ] : [
+          { key: '1.5', label: '1.5 Innovative Methods', value: scores.sub1_5 || 0, max: 5 },
+          { key: '1.6', label: '1.6 Academic Collaborations', value: scores.sub1_6 || 0, max: 4 },
+        ]),
+        { key: '1.7', label: '1.7 Mentoring System', value: scores.sub1_7 || 0, max: 2 },
+        { key: '1.8', label: '1.8 NPTEL Certifications', value: scores.sub1_8 || 0, max: 4 },
+        { key: '1.9', label: '1.9 Student Feedback', value: scores.sub1_9 || 0, max: 4 },
+        { key: '1.10', label: '1.10 Result Analysis', value: scores.sub1_10 || 0, max: isArch ? 3 : 5 },
+        { key: '1.11', label: '1.11 CO Attainment %', value: scores.sub1_11 || 0, max: isArch ? 3 : 4 },
+      ],
+    },
+    'II': {
+      title: 'SECTION II SUBTOTAL',
+      sectionName: 'Research Publications',
+      fullTitle: 'SECTION II: Research Publications',
+      score: scores.section2Total || 0,
+      max: 55,
+      items: [
+        { key: '2.1', label: '2.1 Journal Publications (SCI / Scopus Indexed)', value: scores.sub2_1 || 0, max: 15 },
+        { key: '2.2', label: '2.2 Citations Received (Last 3 Years)', value: scores.sub2_2 || 0, max: 8 },
+        { key: '2.3', label: '2.3 Total Q1 Citations', value: scores.sub2_3 || 0, max: 7 },
+        { key: '2.4', label: '2.4 Books / Book Chapters Published', value: scores.sub2_4 || 0, max: 5 },
+        { key: '2.5', label: '2.5 Conference Publications (Scopus / Web of Science)', value: scores.sub2_5 || 0, max: 4 },
+        { key: '2.6', label: isArch ? '2.6 Creative Scholarship and Professional Writing' : '2.6 Research Collaborations & Projects', value: scores.sub2_6 || 0, max: isArch ? 6 : 5 },
+        { key: '2.7', label: '2.7 PhD Scholars Guided (Registered)', value: scores.sub2_7 || 0, max: 5 },
+        { key: '2.8', label: '2.8 PhD Scholars Guided (Degree Awarded)', value: scores.sub2_8 || 0, max: 6 },
+      ],
+    },
+    'III': {
+      title: 'SECTION III SUBTOTAL',
+      sectionName: 'Patents and Innovation',
+      fullTitle: 'SECTION III: Patents and Innovation',
+      score: scores.section3Total || 0,
+      max: 15,
+      items: [
+        { key: '3.1', label: '3.1 Number of Patents Published', value: scores.sub3_1 || 0, max: 2 },
+        { key: '3.2', label: '3.2 Number of Patents Granted', value: scores.sub3_2 || 0, max: 6 },
+        { key: '3.3', label: '3.3 Number of Transfer of Technology', value: scores.sub3_3 || 0, max: 3 },
+        { key: '3.4', label: '3.4 Number of Prototype / Product Developed (with Students)', value: scores.sub3_4 || 0, max: 2 },
+        { key: '3.5', label: '3.5 Hackathon Mentoring & Prizes (with Students)', value: scores.sub3_5 || 0, max: 2 },
+        ...(isArch ? [{ key: '3.6', label: '3.6 Design Patents', value: scores.sub3_6 || 0, max: 4 }] : []),
+      ],
+    },
+    'IV': {
+      title: 'SECTION IV SUBTOTAL',
+      sectionName: 'Sponsored Research and Consultancy',
+      fullTitle: 'SECTION IV: Sponsored Research and Consultancy',
+      score: scores.section4Total || 0,
+      max: 15,
+      items: [
+        { key: '4.1', label: '4.1 Sponsored Research Project - PI / Co-PI', value: scores.sub4_1 || 0, max: 8 },
+        { key: '4.2', label: '4.2 Consultancy Projects', value: scores.sub4_2 || 0, max: 7 },
+      ],
+    },
+    'V': {
+      title: 'SECTION V SUBTOTAL',
+      sectionName: 'International Engagement & Rankings Contribution',
+      fullTitle: 'SECTION V: International Engagement & Rankings Contribution',
+      score: scores.section5Total || 0,
+      max: 10,
+      items: [
+        { key: '5.1', label: '5.1 International Engagement / MoU', value: scores.sub5_1 || 0, max: 2 },
+        { key: '5.2', label: '5.2 Visiting / Adjunct Position Abroad', value: scores.sub5_2 || 0, max: 4 },
+        { key: '5.3', label: '5.3 Foreign Faculty / Student Hosted or Engaged', value: scores.sub5_3 || 0, max: 2 },
+        { key: '5.4', label: '5.4 QS / THE Reputation Survey Nominations Contribution', value: scores.sub5_4 || 0, max: 1 },
+        { key: '5.5', label: '5.5 NIRF Survey Nomination', value: scores.sub5_5 || 0, max: 1 },
+        ...(isArch ? [{ key: '5.6', label: '5.6 International Design Studio or other Collaborations', value: scores.sub5_6 || 0, max: 4 }] : []),
+      ],
+    },
+    'VI': {
+      title: 'SECTION VI SUBTOTAL',
+      sectionName: 'Faculty Development & Professional Activities',
+      fullTitle: 'SECTION VI: Faculty Development & Professional Activities',
+      score: scores.section6Total || 0,
+      max: 20,
+      items: [
+        { key: '6.1', label: '6.1 FDP / STTP Attended (5 days and above)', value: scores.sub6_1 || 0, max: 3 },
+        { key: '6.2', label: '6.2 Programs (FDP/STTP/Workshops/others) Organized', value: scores.sub6_2 || 0, max: 4 },
+        { key: '6.3', label: '6.3 Resource Person / Keynote Speaker', value: scores.sub6_3 || 0, max: 4 },
+        { key: '6.4', label: '6.4 Professional Society Membership', value: scores.sub6_4 || 0, max: 1 },
+        { key: '6.5', label: '6.5 Designation in Professional Body / Editorial Board', value: scores.sub6_5 || 0, max: 2 },
+        { key: '6.6', label: '6.6 MOOCs Content Developed (TCE MOOC)', value: scores.sub6_6 || 0, max: 6 },
+      ],
+    },
+    'VII': {
+      title: 'SECTION VII SUBTOTAL',
+      sectionName: 'Industry Interaction & Internship',
+      fullTitle: 'SECTION VII: Industry Interaction & Internship',
+      score: scores.section7Total || 0,
+      max: 10,
+      items: [
+        { key: '7.1', label: '7.1 Partial delivery of regular courses by industry experts', value: scores.sub7_1 || 0, max: 4 },
+        { key: '7.2', label: '7.2 Accompanying Industrial Visit', value: scores.sub7_2 || 0, max: 2 },
+        { key: '7.3', label: '7.3 Faculty Internship in Industries', value: scores.sub7_3 || 0, max: 3 },
+        { key: '7.4', label: '7.4 Employer / Alumni Engagement Activity', value: scores.sub7_4 || 0, max: 1 },
+      ],
+    },
+    'VIII': {
+      title: 'SECTION VIII SUBTOTAL',
+      sectionName: 'Student Development Activities',
+      fullTitle: 'SECTION VIII: Student Development Activities',
+      score: scores.section8Total || 0,
+      max: 5,
+      items: [
+        { key: '8.1', label: '8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)', value: scores.sub8_1 || 0, max: 2 },
+        { key: '8.2', label: '8.2 Hackathon / Competition Mentoring', value: scores.sub8_2 || 0, max: 2 },
+        { key: '8.3', label: '8.3 Startup / Incubation Support / Tech-Club', value: scores.sub8_3 || 0, max: 1 },
+        ...(isArch ? [{ key: '8.4', label: '8.4 Student Exhibitions', value: scores.sub8_4 || 0, max: 1 }] : []),
+      ],
+    },
+    'IX': {
+      title: 'SECTION IX SUBTOTAL',
+      sectionName: 'Institutional Development',
+      fullTitle: 'SECTION IX: Institutional Development',
+      score: scores.section9Total || 0,
+      max: 20,
+      items: [
+        { key: '9.1', label: '9.1 Department Level Activities', value: scores.sub9_1 || 0, max: 10 },
+        { key: '9.2', label: '9.2 College Level Activities', value: scores.sub9_2 || 0, max: 10 },
+        { key: '9.3', label: '9.3 Administrative Responsibilities', value: scores.sub9_3 || 0, max: 20 },
+      ],
+    },
+  };
+  return configs[sectionId] || configs['I'];
+};
+
 export const getCurrentAcademicYear = () => {
   // Institutional active evaluation cycle at TCE is 2025-2026
   // For years past 2026, rolls automatically based on June cutoff
@@ -9463,130 +9606,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </button>
           </div>
 
-          {/* Active Section Scoreboard Block (Issue 15) */}
+          {/* Active Section Scoreboard Block (Issue 15 & Issue 32) */}
           {(() => {
             const currentSec = activeSection || 'I';
-            const configs = {
-              'I': {
-                title: 'Section I Subtotal',
-                score: scores.total || 0,
-                max: 50,
-                items: [
-                  { key: '1.1', label: '1.1 Courses Handled', value: scores.sub1_1 || 0, max: 8 },
-                  { key: '1.2', label: '1.2 Feedback / Engagement', value: scores.sub1_2 || 0, max: 6 },
-                  { key: '1.3', label: '1.3 Result Analysis / Target', value: scores.sub1_3 || 0, max: 6 },
-                  { key: '1.4', label: '1.4 Value Added Courses', value: scores.sub1_4 || 0, max: 4 },
-                  { key: '1.5', label: '1.5 Innovative Methods', value: scores.sub1_5 || 0, max: 4 },
-                  { key: '1.6', label: '1.6 Academic Collaborations', value: scores.sub1_6 || 0, max: 4 },
-                  { key: '1.7', label: '1.7 Mentoring System', value: scores.sub1_7 || 0, max: 4 },
-                  { key: '1.8', label: '1.8 Faculty Certifications', value: scores.sub1_8 || 0, max: 4 },
-                  { key: '1.9', label: '1.9 Student Feedback', value: scores.sub1_9 || 0, max: 5 },
-                  { key: '1.10', label: '1.10 End Semester Result Pass %', value: scores.sub1_10 || 0, max: 5 },
-                  { key: '1.11', label: '1.11 CO Attainment %', value: scores.sub1_11 || 0, max: isArch ? 3 : 4 },
-                ],
-              },
-              'II': {
-                title: 'Section II Subtotal',
-                score: scores.section2Total || 0,
-                max: 55,
-                items: [
-                  { key: '2.1', label: '2.1 Journal Papers (SCI/Scopus)', value: scores.sub2_1 || 0, max: 15 },
-                  { key: '2.2', label: '2.2 Citations (Last 3 Years)', value: scores.sub2_2 || 0, max: 8 },
-                  { key: '2.3', label: '2.3 Total Q1 Citations', value: scores.sub2_3 || 0, max: 7 },
-                  { key: '2.4', label: '2.4 Books / Chapters', value: scores.sub2_4 || 0, max: isArch ? 4 : 5 },
-                  { key: '2.5', label: '2.5 Conference Publications', value: scores.sub2_5 || 0, max: 4 },
-                  { key: '2.6', label: isArch ? '2.6 Creative Scholarship & Design' : '2.6 Research Collaborations', value: scores.sub2_6 || 0, max: isArch ? 6 : 5 },
-                  { key: '2.7', label: '2.7 PhD Scholars (Registered)', value: scores.sub2_7 || 0, max: 5 },
-                  { key: '2.8', label: '2.8 PhD Scholars (Awarded)', value: scores.sub2_8 || 0, max: 6 },
-                ],
-              },
-              'III': {
-                title: 'Section III Subtotal',
-                score: scores.section3Total || 0,
-                max: 15,
-                items: [
-                  { key: '3.1', label: '3.1 Patents Published', value: scores.sub3_1 || 0, max: isArch ? 1 : 2 },
-                  { key: '3.2', label: '3.2 Patents Granted', value: scores.sub3_2 || 0, max: isArch ? 3 : 6 },
-                  { key: '3.3', label: '3.3 Transfer of Technology', value: scores.sub3_3 || 0, max: isArch ? 2 : 3 },
-                  { key: '3.4', label: '3.4 Prototypes Developed', value: scores.sub3_4 || 0, max: isArch ? 3 : 2 },
-                  { key: '3.5', label: '3.5 Hackathons Mentoring', value: scores.sub3_5 || 0, max: 2 },
-                  ...(isArch ? [{ key: '3.6', label: '3.6 Design Patents', value: scores.sub3_6 || 0, max: 4 }] : []),
-                ],
-              },
-              'IV': {
-                title: 'Section IV Subtotal',
-                score: scores.section4Total || 0,
-                max: 15,
-                items: [
-                  { key: '4.1', label: '4.1 Research Projects', value: scores.sub4_1 || 0, max: 8 },
-                  { key: '4.2', label: '4.2 Consultancy Projects', value: scores.sub4_2 || 0, max: 7 },
-                ],
-              },
-              'V': {
-                title: 'Section V Subtotal',
-                score: scores.section5Total || 0,
-                max: 10,
-                items: [
-                  { key: '5.1', label: '5.1 Int. Engagement / MoU', value: scores.sub5_1 || 0, max: isArch ? 1 : 2 },
-                  { key: '5.2', label: '5.2 Visiting Positions Abroad', value: scores.sub5_2 || 0, max: isArch ? 2 : 4 },
-                  { key: '5.3', label: '5.3 Foreign Faculty / Student', value: scores.sub5_3 || 0, max: isArch ? 1 : 2 },
-                  { key: '5.4', label: '5.4 QS / THE Survey', value: scores.sub5_4 || 0, max: 1 },
-                  { key: '5.5', label: '5.5 NIRF Survey', value: scores.sub5_5 || 0, max: 1 },
-                  ...(isArch ? [{ key: '5.6', label: '5.6 Int. Design Studio', value: scores.sub5_6 || 0, max: 4 }] : []),
-                ],
-              },
-              'VI': {
-                title: 'Section VI Subtotal',
-                score: scores.section6Total || 0,
-                max: 20,
-                items: [
-                  { key: '6.1', label: '6.1 FDP / STTP Attended', value: scores.sub6_1 || 0, max: 3 },
-                  { key: '6.2', label: '6.2 Programs Organized', value: scores.sub6_2 || 0, max: 4 },
-                  { key: '6.3', label: '6.3 Resource Person', value: scores.sub6_3 || 0, max: 4 },
-                  { key: '6.4', label: '6.4 Society Membership', value: scores.sub6_4 || 0, max: 1 },
-                  { key: '6.5', label: '6.5 Designation / Editorial', value: scores.sub6_5 || 0, max: 2 },
-                  { key: '6.6', label: '6.6 MOOC Developed', value: scores.sub6_6 || 0, max: 6 },
-                ],
-              },
-              'VII': {
-                title: 'Section VII Subtotal',
-                score: scores.section7Total || 0,
-                max: 10,
-                items: [
-                  { key: '7.1', label: '7.1 Partial Course Delivery', value: scores.sub7_1 || 0, max: 4 },
-                  { key: '7.2', label: '7.2 Accompanying Ind. Visit', value: scores.sub7_2 || 0, max: 2 },
-                  { key: '7.3', label: '7.3 Faculty Internship', value: scores.sub7_3 || 0, max: 3 },
-                  { key: '7.4', label: '7.4 Employer Engagement', value: scores.sub7_4 || 0, max: 1 },
-                ],
-              },
-              'VIII': {
-                title: 'Section VIII Subtotal',
-                score: scores.section8Total || 0,
-                max: 5,
-                items: [
-                  { key: '8.1', label: '8.1 Student Project Pub.', value: scores.sub8_1 || 0, max: isArch ? 1 : 2 },
-                  { key: '8.2', label: '8.2 Hackathon Mentoring', value: scores.sub8_2 || 0, max: 2 },
-                  { key: '8.3', label: '8.3 Startup / Club Support', value: scores.sub8_3 || 0, max: 1 },
-                  ...(isArch ? [{ key: '8.4', label: '8.4 Student Exhibitions', value: scores.sub8_4 || 0, max: 1 }] : []),
-                ],
-              },
-              'IX': {
-                title: 'Section IX Subtotal',
-                score: scores.section9Total || 0,
-                max: 20,
-                items: [
-                  { key: '9.1', label: '9.1 Department Activities', value: scores.sub9_1 || 0, max: 10 },
-                  { key: '9.2', label: '9.2 College Activities', value: scores.sub9_2 || 0, max: 10 },
-                  { key: '9.3', label: '9.3 Admin Responsibilities', value: scores.sub9_3 || 0, max: 20 },
-                ],
-              },
-            };
-            const currentCfg = configs[currentSec] || configs['I'];
+            const currentCfg = getScoreboardSectionConfig(currentSec, isArch, scores);
 
             return (
               <div className="pt-2 pb-1 xl:flex xl:flex-col xl:flex-1 xl:min-h-0">
                 <div className="flex justify-between items-center font-bold text-xs text-gray-800 uppercase tracking-wider mb-2 pb-1.5 border-b border-gray-100 xl:shrink-0">
-                  <span>{currentCfg.title}</span>
+                  <span title={currentCfg.fullTitle}>{currentCfg.title}</span>
                   <span className="text-[#4A1519]">{currentCfg.score} / {currentCfg.max}</span>
                 </div>
                 <div
@@ -9605,8 +9633,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             : 'bg-slate-50 border border-slate-200/60 text-slate-700'
                         }`}
                       >
-                        <div>
-                          <p className={`text-xs ${isHighlighted ? 'font-bold text-[#4A1519]' : 'font-medium text-gray-700'}`}>
+                        <div className="min-w-0 pr-2 flex-1">
+                          <p
+                            className={`text-xs truncate ${isHighlighted ? 'font-bold text-[#4A1519]' : 'font-medium text-gray-700'}`}
+                            title={item.label}
+                          >
                             {item.label}
                           </p>
                           <p className="text-[10px] uppercase tracking-wider text-gray-400">
@@ -9614,7 +9645,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           </p>
                         </div>
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wider shrink-0 ${
                             isHighlighted
                               ? 'bg-[#4A1519] text-white'
                               : getScoreBadgeClass(item.value, item.max)
