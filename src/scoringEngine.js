@@ -188,11 +188,32 @@ export function computeAutomatedScores(sectionData = {}) {
     15
   );
 
-  const citVal = isFilled(safeData.citationsReceived?.totalCount) ? toNum(safeData.citationsReceived?.totalCount) : 0;
-  const s2_2 = Math.min(8, Math.floor(citVal / 5));
+  // 2.2 Citations Received: >=50=8, 25-49=5, 15-24=4, 5-14=3, 1-4=1. Max 8.
+  const citVal = isFilled(safeData.citationsReceived?.totalCount)
+    ? toNum(safeData.citationsReceived?.totalCount)
+    : (Array.isArray(safeData.citationsReceived)
+      ? safeData.citationsReceived.reduce((sum, r) => sum + (toNum(r?.totalCount ?? r?.count ?? r) || 0), 0)
+      : (isFilled(safeData.citationsReceived) ? toNum(safeData.citationsReceived) : 0));
+  let s2_2 = 0;
+  if (citVal >= 50) s2_2 = 8;
+  else if (citVal >= 25) s2_2 = 5;
+  else if (citVal >= 15) s2_2 = 4;
+  else if (citVal >= 5) s2_2 = 3;
+  else if (citVal >= 1) s2_2 = 1;
+  s2_2 = Math.min(8, s2_2);
 
-  const q1CitVal = isFilled(safeData.q1Citations?.totalCount) ? toNum(safeData.q1Citations?.totalCount) : 0;
-  const s2_3 = Math.min(7, Math.floor(q1CitVal));
+  // 2.3 Q1 Citations: >=25=7, 15-24=5, 6-14=3, 1-5=1. Max 7.
+  const q1CitVal = isFilled(safeData.q1Citations?.totalCount)
+    ? toNum(safeData.q1Citations?.totalCount)
+    : (Array.isArray(safeData.q1Citations)
+      ? safeData.q1Citations.reduce((sum, r) => sum + (toNum(r?.totalCount ?? r?.count ?? r) || 0), 0)
+      : (isFilled(safeData.q1Citations) ? toNum(safeData.q1Citations) : 0));
+  let s2_3 = 0;
+  if (q1CitVal >= 25) s2_3 = 7;
+  else if (q1CitVal >= 15) s2_3 = 5;
+  else if (q1CitVal >= 6) s2_3 = 3;
+  else if (q1CitVal >= 1) s2_3 = 1;
+  s2_3 = Math.min(7, s2_3);
 
   const s2_4 = Math.min(
     (safeData.bookPublications || []).reduce((sum, r) => {
@@ -620,15 +641,32 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     15
   );
 
+  // 2.2 Citations Received: >=50=8, 25-49=5, 15-24=4, 5-14=3, 1-4=1. Max 8.
   const citVal = isFilled(safeData.scopusCitations?.totalCitations || safeData.citationsReceived?.totalCount)
     ? toNum(safeData.scopusCitations?.totalCitations || safeData.citationsReceived?.totalCount)
-    : 0;
-  const s2_2 = Math.min(8, Math.floor(citVal / 5));
+    : (Array.isArray(safeData.citationsReceived)
+      ? safeData.citationsReceived.reduce((sum, r) => sum + (toNum(r?.totalCount ?? r?.count ?? r) || 0), 0)
+      : 0);
+  let s2_2 = 0;
+  if (citVal >= 50) s2_2 = 8;
+  else if (citVal >= 25) s2_2 = 5;
+  else if (citVal >= 15) s2_2 = 4;
+  else if (citVal >= 5) s2_2 = 3;
+  else if (citVal >= 1) s2_2 = 1;
+  s2_2 = Math.min(8, s2_2);
 
+  // 2.3 Q1 Citations: >=25=7, 15-24=5, 6-14=3, 1-5=1. Max 7.
   const q1CitVal = isFilled(safeData.q1Citations?.totalCitations || safeData.q1Citations?.totalCount)
     ? toNum(safeData.q1Citations?.totalCitations || safeData.q1Citations?.totalCount)
-    : 0;
-  const s2_3 = Math.min(7, Math.floor(q1CitVal));
+    : (Array.isArray(safeData.q1Citations)
+      ? safeData.q1Citations.reduce((sum, r) => sum + (toNum(r?.totalCount ?? r?.count ?? r) || 0), 0)
+      : 0);
+  let s2_3 = 0;
+  if (q1CitVal >= 25) s2_3 = 7;
+  else if (q1CitVal >= 15) s2_3 = 5;
+  else if (q1CitVal >= 6) s2_3 = 3;
+  else if (q1CitVal >= 1) s2_3 = 1;
+  s2_3 = Math.min(7, s2_3);
 
   const s2_4 = Math.min(
     (safeData.bookPublications || []).reduce((sum, r) => {
