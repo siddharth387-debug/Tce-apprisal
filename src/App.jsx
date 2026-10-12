@@ -143,7 +143,7 @@ export const SUBSECTION_LABEL_MAP = {
   '5.3': '5.3 Foreign Student Mentoring',
   '5.4': '5.4 Global Research Grants',
   '5.5': '5.5 International Advisory Boards',
-  '5.6': '5.6 Architectural Heritage Documentation',
+  '5.6': '5.6 International Design Studio or other Collaborations',
   '6.1': '6.1 FDP / Workshops Attended',
   '6.2': '6.2 Programs / FDPs Organized',
   '6.3': '6.3 Invited Talks / Resource Person',
@@ -262,9 +262,9 @@ export const getScoreboardSectionConfig = (sectionId, isArch, scores = {}) => {
       score: scores.section5Total || 0,
       max: 10,
       items: [
-        { key: '5.1', label: '5.1 International Engagement / MoU', value: scores.sub5_1 || 0, max: 2 },
-        { key: '5.2', label: '5.2 Visiting / Adjunct Position Abroad', value: scores.sub5_2 || 0, max: 4 },
-        { key: '5.3', label: '5.3 Foreign Faculty / Student Hosted or Engaged', value: scores.sub5_3 || 0, max: 2 },
+        { key: '5.1', label: '5.1 International Engagement / MoU', value: scores.sub5_1 || 0, max: isArch ? 1 : 2 },
+        { key: '5.2', label: '5.2 Visiting / Adjunct Position Abroad', value: scores.sub5_2 || 0, max: isArch ? 2 : 4 },
+        { key: '5.3', label: '5.3 Foreign Faculty / Student Hosted or Engaged', value: scores.sub5_3 || 0, max: isArch ? 1 : 2 },
         { key: '5.4', label: '5.4 QS / THE Reputation Survey Nominations Contribution', value: scores.sub5_4 || 0, max: 1 },
         { key: '5.5', label: '5.5 NIRF Survey Nomination', value: scores.sub5_5 || 0, max: 1 },
         ...(isArch ? [{ key: '5.6', label: '5.6 International Design Studio or other Collaborations', value: scores.sub5_6 || 0, max: 4 }] : []),
@@ -1530,8 +1530,7 @@ function canAddStudentExhibitions(rows) {
 }
 
 function computeSectionScores(sectionData = {}, role) {
-  const isArchMode = (typeof role === 'string' && role.toUpperCase() === 'ARCH') ||
-    (sectionData.department || '').toUpperCase() === 'ARCH';
+  const isArchMode = isArchDepartment(role) || isArchDepartment(sectionData.department);
   const targetDept = isArchMode ? 'ARCH' : (sectionData.department || 'CSE');
   return computeEffectiveScores(sectionData, sectionData.hodSubsectionScores || {}, targetDept);
 }
@@ -2895,7 +2894,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
   // Active HoD Scores map (either being edited in hodControls or saved on appraisal)
   const activeHodScores = (hodControls ? hodControls.subsectionScores : appraisal.hodSubsectionScores) || {};
-  const effectiveScoreObj = computeEffectiveScores(fullData, activeHodScores);
+  const effectiveScoreObj = computeEffectiveScores(fullData, activeHodScores, appraisal.department || fullData.department);
   const scoreObj = effectiveScoreObj;
 
   const [expandedSections, setExpandedSections] = useState({});
@@ -5538,7 +5537,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const coAttainmentColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code (e.g. 21AR101)' },
     {
       name: 'courseName',
       label: 'Course Name',
@@ -5546,12 +5545,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     {
       name: 'attainmentPct',
-      label: 'CO Attainment % (Single Number 0 - 100)',
+      label: 'Target CO Attainment % (OBE Assessment)',
       type: 'number',
       max: 100,
-      placeholder: 'Attainment Percentage',
+      placeholder: 'Target CO Attainment % (0 - 100)',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
+    { name: 'evidenceLink', label: 'CO Attainment Report Link', type: 'url', placeholder: "CO Calculation Report Link" },
   ];
   const coursesDesignedColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
@@ -5587,7 +5586,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
   ];
   const resultAnalysisColumns = [
-    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
+    { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code (e.g. 21AR101)' },
     {
       name: 'courseName',
       label: 'Course Name',
@@ -5595,12 +5594,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     {
       name: 'passPercentage',
-      label: 'Pass %',
+      label: 'Exam Pass % (End-Sem Results)',
       type: 'number',
       max: 100,
-      placeholder: 'Pass Percentage',
+      placeholder: 'Student Pass % (0 - 100)',
     },
-    { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: "Supporting Document Link" },
+    { name: 'evidenceLink', label: 'Grade Sheet / Result Sheet Link', type: 'url', placeholder: "Grade Sheet / Result Sheet Link" },
   ];
   const innovativeMethodsColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
@@ -6950,7 +6949,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       // Calculate the final evaluated grand total score with HoD manual overrides across all 9 sections
       const fullReviewData = flattenAppraisalRecord(selectedReviewAppraisal);
-      const finalEvalScore = computeEffectiveScores(fullReviewData, hodSubsectionScores).grandTotal;
+      const finalEvalScore = computeEffectiveScores(fullReviewData, hodSubsectionScores, fullReviewData.department || selectedReviewAppraisal.department).grandTotal;
 
       // 1. Single network dispatch to update the record in our MongoDB Atlas Cluster
       await axios.post(`${API_BASE_URL}/appraisals/review`, {
@@ -7127,7 +7126,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   // ————————————————————————————————————————————————————————————————
   const exportToPDF = useCallback(() => {
     const section = workspaceByTimeline[selectedTimeline] || createEmptySectionState();
-    const effScores = scores || computeEffectiveScores(section, activeTimelineRecord?.hodSubsectionScores || {});
+    const effScores = scores || computeEffectiveScores(section, activeTimelineRecord?.hodSubsectionScores || {}, activeDept);
     exportAppraisalToPDF({
       user,
       timeline: selectedTimeline,
@@ -8404,7 +8403,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               type="button"
                               onClick={() => {
                                 const flattened = flattenAppraisalRecord(row);
-                                const effScores = computeEffectiveScores(flattened, row.hodSubsectionScores || {});
+                                const effScores = computeEffectiveScores(flattened, row.hodSubsectionScores || {}, row.department);
                                 exportAppraisalToPDF({
                                   user: {
                                     name: row.facultyName || row.name || user?.name || 'Faculty Member',
@@ -8430,7 +8429,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   user,
                                   timeline: row.timeline,
                                   sectionData: flattened,
-                                  scores: computeEffectiveScores(flattened, row.hodSubsectionScores || {}),
+                                  scores: computeEffectiveScores(flattened, row.hodSubsectionScores || {}, row.department),
                                   record: row,
                                 });
                               }}
@@ -8881,8 +8880,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         />
 
         <DynamicArraySection
-          title="1.10 Result Analysis"
-          subtitle={isArch ? "(Calculation Rubric: ≥90% = 3 marks | 70-89% = 2 marks | 60-69% = 1 mark | Max 3 marks)" : "(Calculation Rubric: ≥90% = 5 marks | 80-89% = 4 marks | 70-79% = 3 marks | 60-69% = 2 marks | <60% = 1 mark | Max 5 marks)"}
+          title="1.10 Result Analysis — Student Pass % (End-Sem Results)"
+          subtitle={isArch ? "(Calculation Rubric: Average Pass % ≥90% = 3 marks | 70-89% = 2 marks | 60-69% = 1 mark | Max 3 marks)" : "(Calculation Rubric: Average Pass % ≥90% = 5 marks | 80-89% = 4 marks | 70-79% = 3 marks | 60-69% = 2 marks | <60% = 1 mark | Max 5 marks)"}
           subScore={scores.sub1_10 || 0}
           maxScore={isArch ? 3 : 5}
           rows={currentSectionData.resultAnalysis || []}
@@ -8905,8 +8904,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         />
 
         <DynamicArraySection
-          title="1.11 CO Attainment %"
-          subtitle={isArch ? "(Calculation Rubric: ≥70% = 3 marks | 60-69% = 2 marks | 50-59% = 1 mark | Max 3 marks)" : "(Calculation Rubric: ≥70% = 4 marks | 60-69% = 3 marks | 50-59% = 2 marks | Max 4 marks)"}
+          title="1.11 Course Outcome (CO) Attainment — Direct OBE Assessment"
+          subtitle={isArch ? "(Calculation Rubric: Average Attainment ≥70% = 3 marks | 60-69% = 2 marks | 50-59% = 1 mark | Max 3 marks)" : "(Calculation Rubric: Average Attainment ≥70% = 4 marks | 60-69% = 3 marks | 50-59% = 2 marks | Max 4 marks)"}
           subScore={scores.sub1_11 || 0}
           maxScore={isArch ? 3 : 4}
           rows={currentSectionData.coAttainment || []}
@@ -9365,9 +9364,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "V" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="5.1 International Engagement / MoU"
-                subtitle="(Calculation Rubric: 1 mark per engagement | Max 2 marks)"
+                subtitle={isArch ? "(Calculation Rubric: 1 mark per engagement | Max 1 mark)" : "(Calculation Rubric: 1 mark per engagement | Max 2 marks)"}
                 subScore={scores.sub5_1 || 0}
-                maxScore={2}
+                maxScore={isArch ? 1 : 2}
                 rows={currentSectionData.internationalEngagement || []}
                 canAdd={canAddInternationalEngagement(currentSectionData.internationalEngagement || [])}
                 disabled={!isEditable}
@@ -9378,9 +9377,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="5.2 Visiting / Adjunct Position Abroad"
-                subtitle="(Calculation Rubric: Based on duration threshold | Max 4 marks)"
+                subtitle={isArch ? "(Calculation Rubric: ≥30 days = 2 marks | 1-29 days = 1 mark | Max 2 marks)" : "(Calculation Rubric: Based on duration threshold | Max 4 marks)"}
                 subScore={scores.sub5_2 || 0}
-                maxScore={4}
+                maxScore={isArch ? 2 : 4}
                 rows={currentSectionData.visitingPositions || []}
                 canAdd={canAddVisitingPositions(currentSectionData.visitingPositions || [])}
                 disabled={!isEditable}
@@ -9391,9 +9390,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="5.3 Foreign Faculty / Student Hosted or Engaged"
-                subtitle="(Calculation Rubric: 1 mark per engagement | Max 2 marks)"
+                subtitle={isArch ? "(Calculation Rubric: 1 mark per engagement | Max 1 mark)" : "(Calculation Rubric: 1 mark per engagement | Max 2 marks)"}
                 subScore={scores.sub5_3 || 0}
-                maxScore={2}
+                maxScore={isArch ? 1 : 2}
                 rows={currentSectionData.foreignFaculty || []}
                 canAdd={canAddForeignFaculty(currentSectionData.foreignFaculty || [])}
                 disabled={!isEditable}
@@ -9437,7 +9436,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   rows={currentSectionData.internationalDesignStudio || []}
                   canAdd={canAddInternationalDesignStudio(currentSectionData.internationalDesignStudio || [])}
                   disabled={!isEditable}
-                  onAdd={() => addArrayRow("internationalDesignStudio", { institution: "", country: "", duration: "", evidenceLink: "" })}
+                  onAdd={() => addArrayRow("internationalDesignStudio", { institution: "", nature: "", country: "", period: "", evidenceLink: "" })}
                   onChange={(rowId, field, value) => updateArrayRow("internationalDesignStudio", rowId, field, value)}
                   onRemove={(rowId) => removeArrayRow("internationalDesignStudio", rowId)}
                   columns={internationalDesignStudioColumns}

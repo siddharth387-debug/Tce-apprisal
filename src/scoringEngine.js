@@ -31,7 +31,7 @@ export const SUBSECTION_MAX_MARKS = {
   '2.1': 15, '2.2': 8, '2.3': 7, '2.4': 5, '2.5': 4, '2.6': 5, '2.7': 5, '2.8': 6,
   '3.1': 2, '3.2': 6, '3.3': 3, '3.4': 2, '3.5': 2,
   '4.1': 8, '4.2': 7,
-  '5.1': 2, '5.2': 4, '5.3': 2, '5.4': 1, '5.5': 1,
+  '5.1': 2, '5.2': 4, '5.3': 2, '5.4': 1, '5.5': 1, '5.6': 4,
   '6.1': 3, '6.2': 4, '6.3': 4, '6.4': 1, '6.5': 2, '6.6': 6,
   '7.1': 4, '7.2': 2, '7.3': 3, '7.4': 1,
   '8.1': 2, '8.2': 2, '8.3': 1,
@@ -41,7 +41,7 @@ export const SUBSECTION_MAX_MARKS = {
 // ── TSEDA Architecture Scoring Rubrics (COA Standards) ───────────────────────
 export const SUBSECTION_MAX_MARKS_ARCH = {
   '1.1': 8, '1.2': 5, '1.3': 5, '1.4': 4, '1.5.1': 5, '1.5.2': 3, '1.6': 4, '1.7': 2, '1.8': 4, '1.9': 4, '1.10': 3, '1.11': 3,
-  '2.1': 15, '2.2': 8, '2.3': 7, '2.4': 4, '2.5': 4, '2.6': 6, '2.7': 5, '2.8': 6,
+  '2.1': 15, '2.2': 8, '2.3': 7, '2.4': 5, '2.5': 4, '2.6': 6, '2.7': 5, '2.8': 6,
   '3.1': 1, '3.2': 3, '3.3': 2, '3.4': 3, '3.5': 2, '3.6': 4,
   '4.1': 8, '4.2': 7,
   '5.1': 1, '5.2': 2, '5.3': 1, '5.4': 1, '5.5': 1, '5.6': 4,
@@ -138,23 +138,23 @@ export function computeAutomatedScores(sectionData = {}) {
   );
 
   const filledFeedback = (safeData.studentFeedback || []).filter(
-    (r) => isRowFullyFilled(r, ['courseName', 'feedbackPct', 'evidenceLink'])
+    (r) => toNum(r.feedbackPct || r.score || r.feedback) > 0
   );
   let s1_9 = 0;
   if (filledFeedback.length > 0) {
-    const totalPct = filledFeedback.reduce((sum, r) => sum + toNum(r.feedbackPct), 0);
+    const totalPct = filledFeedback.reduce((sum, r) => sum + toNum(r.feedbackPct || r.score || r.feedback), 0);
     const avgFeedback = totalPct / filledFeedback.length;
-    if (avgFeedback > 90) s1_9 = 4;
+    if (avgFeedback >= 90) s1_9 = 4;
     else if (avgFeedback >= 80) s1_9 = 3;
     else if (avgFeedback >= 75) s1_9 = 1;
   }
 
   const filledResults = (safeData.resultAnalysis || []).filter(
-    (r) => isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])
+    (r) => toNum(r.passPercentage || r.percentage) > 0
   );
   let s1_10 = 0;
   if (filledResults.length > 0) {
-    const totalPass = filledResults.reduce((sum, r) => sum + toNum(r.passPercentage), 0);
+    const totalPass = filledResults.reduce((sum, r) => sum + toNum(r.passPercentage || r.percentage), 0);
     const avgPass = totalPass / filledResults.length;
     if (avgPass >= 90) s1_10 = 5;
     else if (avgPass >= 80) s1_10 = 4;
@@ -163,17 +163,17 @@ export function computeAutomatedScores(sectionData = {}) {
     else if (avgPass > 0) s1_10 = 1;
   }
 
-  const s1_11 = Math.min(
-    (safeData.coAttainment || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['courseCode', 'courseName', 'attainmentPct', 'evidenceLink'])) return sum;
-      const v = toNum(r.attainmentPct);
-      if (v >= 70) return sum + 4;
-      if (v >= 60) return sum + 3;
-      if (v >= 50) return sum + 2;
-      return sum;
-    }, 0),
-    4
+  const filledCo = (safeData.coAttainment || []).filter(
+    (r) => toNum(r.attainmentPct || r.avgCoAttainment) > 0
   );
+  let s1_11 = 0;
+  if (filledCo.length > 0) {
+    const totalCo = filledCo.reduce((sum, r) => sum + toNum(r.attainmentPct || r.avgCoAttainment), 0);
+    const avgCo = totalCo / filledCo.length;
+    if (avgCo >= 70) s1_11 = 4;
+    else if (avgCo >= 60) s1_11 = 3;
+    else if (avgCo >= 50) s1_11 = 2;
+  }
 
   // Section 2
   const s2_1 = Math.min(
@@ -358,6 +358,12 @@ export function computeAutomatedScores(sectionData = {}) {
     ).length * 1,
     1
   );
+  const s5_6 = Math.min(
+    (safeData.internationalDesignStudios || safeData.internationalDesignStudio || []).filter(
+      (r) => isRowFullyFilled(r, [['institution', 'partner', 'partnerInstitution']])
+    ).length * 2,
+    4
+  );
 
   // Section 6
   const s6_1 = Math.min(
@@ -496,7 +502,7 @@ export function computeAutomatedScores(sectionData = {}) {
     '2.1': s2_1, '2.2': s2_2, '2.3': s2_3, '2.4': s2_4, '2.5': s2_5, '2.6': s2_6, '2.7': s2_7, '2.8': s2_8,
     '3.1': s3_1, '3.2': s3_2, '3.3': s3_3, '3.4': s3_4, '3.5': s3_5,
     '4.1': s4_1, '4.2': s4_2,
-    '5.1': s5_1, '5.2': s5_2, '5.3': s5_3, '5.4': s5_4, '5.5': s5_5,
+    '5.1': s5_1, '5.2': s5_2, '5.3': s5_3, '5.4': s5_4, '5.5': s5_5, '5.6': s5_6,
     '6.1': s6_1, '6.2': s6_2, '6.3': s6_3, '6.4': s6_4, '6.5': s6_5, '6.6': s6_6,
     '7.1': s7_1, '7.2': s7_2, '7.3': s7_3, '7.4': s7_4,
     '8.1': s8_1, '8.2': s8_2, '8.3': s8_3,
@@ -600,26 +606,26 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     4
   );
 
-  // 1.9 Feedback (>90% = 4, 80-90% = 3, 75-80% = 1)
+  // 1.9 Feedback (>=90% = 4, 80-89% = 3, 75-79% = 1)
   const filledFeedbackArch = (safeData.studentFeedback || []).filter(
-    (r) => isRowFullyFilled(r, ['courseName', ['score', 'feedbackPct'], 'evidenceLink'])
+    (r) => toNum(r.score || r.feedbackPct || r.feedback) > 0
   );
   let s1_9 = 0;
   if (filledFeedbackArch.length > 0) {
-    const totalPct = filledFeedbackArch.reduce((sum, r) => sum + toNum(r.score || r.feedbackPct), 0);
+    const totalPct = filledFeedbackArch.reduce((sum, r) => sum + toNum(r.score || r.feedbackPct || r.feedback), 0);
     const avgFeedback = totalPct / filledFeedbackArch.length;
-    if (avgFeedback > 90) s1_9 = 4;
+    if (avgFeedback >= 90) s1_9 = 4;
     else if (avgFeedback >= 80) s1_9 = 3;
     else if (avgFeedback >= 75) s1_9 = 1;
   }
 
   // 1.10 Result Analysis — Pass % (>=90% = 3, 70-89% = 2, 60-69% = 1) -> Max 3 for Arch!
   const filledResultsArch = (safeData.resultAnalysis || []).filter(
-    (r) => isRowFullyFilled(r, ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'])
+    (r) => toNum(r.passPercentage || r.percentage) > 0
   );
   let s1_10 = 0;
   if (filledResultsArch.length > 0) {
-    const totalPass = filledResultsArch.reduce((sum, r) => sum + toNum(r.passPercentage), 0);
+    const totalPass = filledResultsArch.reduce((sum, r) => sum + toNum(r.passPercentage || r.percentage), 0);
     const avgPass = totalPass / filledResultsArch.length;
     if (avgPass >= 90) s1_10 = 3;
     else if (avgPass >= 70) s1_10 = 2;
@@ -627,17 +633,17 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   }
 
   // 1.11 CO Attainment (>=70% = 3, 60-69% = 2, 50-59% = 1) -> Max 3 for Arch!
-  const s1_11 = Math.min(
-    (safeData.coAttainment || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['courseCode', 'courseName', ['avgCoAttainment', 'attainmentPct'], 'evidenceLink'])) return sum;
-      const v = toNum(r.avgCoAttainment || r.attainmentPct);
-      if (v >= 70) return sum + 3;
-      if (v >= 60) return sum + 2;
-      if (v >= 50) return sum + 1;
-      return sum;
-    }, 0),
-    3
+  const filledCoArch = (safeData.coAttainment || []).filter(
+    (r) => toNum(r.avgCoAttainment || r.attainmentPct) > 0
   );
+  let s1_11 = 0;
+  if (filledCoArch.length > 0) {
+    const totalCo = filledCoArch.reduce((sum, r) => sum + toNum(r.avgCoAttainment || r.attainmentPct), 0);
+    const avgCo = totalCo / filledCoArch.length;
+    if (avgCo >= 70) s1_11 = 3;
+    else if (avgCo >= 60) s1_11 = 2;
+    else if (avgCo >= 50) s1_11 = 1;
+  }
 
   // Section 2 (Architecture Research & Book Publications)
   const s2_1 = Math.min(
@@ -681,11 +687,11 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   const s2_4 = Math.min(
     (safeData.bookPublications || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['title', ['publicationType', 'type'], 'evidenceLink'])) return sum;
-      if ((r.publicationType || r.type || '').includes('Book')) return sum + 5;
+      if (!isRowFullyFilled(r, ['title', ['publicationType', 'type']])) return sum;
+      if ((r.publicationType || r.type || '').toLowerCase().includes('book')) return sum + 5;
       return sum + 2;
     }, 0),
-    4
+    5
   );
 
   const s2_5 = Math.min(
@@ -794,13 +800,13 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   // Section 5 (International Engagement & Architecture Collaborations)
   const s5_1 = Math.min(
     (safeData.internationalEngagement || []).filter(
-      (r) => isRowFullyFilled(r, [['partnerInstitution', 'institution'], 'country', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, [['partnerInstitution', 'institution'], 'country'])
     ).length * 1,
     1
   );
   const s5_2 = Math.min(
     (safeData.visitingPositions || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['institution', 'country', ['durationDays', 'duration'], 'evidenceLink'])) return sum;
+      if (!isRowFullyFilled(r, ['institution', 'country'])) return sum;
       const v = toNum(r.durationDays || r.duration);
       if (v >= 30) return sum + 2;
       if (v >= 1) return sum + 1;
@@ -810,27 +816,27 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   const s5_3 = Math.min(
     (safeData.foreignFaculty || []).filter(
-      (r) => isRowFullyFilled(r, ['name', 'institution', 'engagementType', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['name', 'institution'])
     ).length * 1,
     1
   );
   const s5_4 = Math.min(
     (safeData.reputationSurvey || []).filter(
-      (r) => isRowFullyFilled(r, ['surveyName', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
+      (r) => isRowFullyFilled(r, ['surveyName', ['submitted', 'evidenceSubmitted']]) &&
         (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
     ).length * 1,
     1
   );
   const s5_5 = Math.min(
     (safeData.nirfSurvey || []).filter(
-      (r) => isRowFullyFilled(r, ['nominationDetails', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
+      (r) => isRowFullyFilled(r, ['nominationDetails', ['submitted', 'evidenceSubmitted']]) &&
         (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
     ).length * 1,
     1
   );
   const s5_6 = Math.min(
     (safeData.internationalDesignStudios || safeData.internationalDesignStudio || []).filter(
-      (r) => isRowFullyFilled(r, ['institution', 'country', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, [['institution', 'partner', 'partnerInstitution']])
     ).length * 2,
     4
   );
@@ -986,7 +992,16 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
 export function computeEffectiveScores(sectionData = {}, hodSubsectionScores = {}, department = '') {
   const deptStr = String(department || sectionData?.department || sectionData?.dept || '').toUpperCase().trim();
-  const isArch = deptStr === 'ARCH' || deptStr === 'ARCHITECTURE' || deptStr === 'TSEDA' || deptStr === 'B.ARCH' || deptStr.includes('ARCH') || deptStr.includes('TSEDA');
+  const hasArchData = Boolean(
+    (Array.isArray(sectionData?.internationalDesignStudio) && sectionData.internationalDesignStudio.length > 0) ||
+    (Array.isArray(sectionData?.internationalDesignStudios) && sectionData.internationalDesignStudios.length > 0) ||
+    (Array.isArray(sectionData?.creativeScholarship) && sectionData.creativeScholarship.length > 0) ||
+    (Array.isArray(sectionData?.studioPedagogy) && sectionData.studioPedagogy.length > 0) ||
+    (Array.isArray(sectionData?.studioTeaching) && sectionData.studioTeaching.length > 0) ||
+    (Array.isArray(sectionData?.designPatents) && sectionData.designPatents.length > 0) ||
+    (Array.isArray(sectionData?.innovativePedagogy) && sectionData.innovativePedagogy.length > 0)
+  );
+  const isArch = deptStr === 'ARCH' || deptStr === 'ARCHITECTURE' || deptStr === 'TSEDA' || deptStr === 'B.ARCH' || deptStr.includes('ARCH') || deptStr.includes('TSEDA') || hasArchData;
   const autoMap = isArch ? computeAutomatedScoresArch(sectionData) : computeAutomatedScores(sectionData);
   const maxRubricsMap = isArch ? SUBSECTION_MAX_MARKS_ARCH : SUBSECTION_MAX_MARKS;
   const hodMap = hodSubsectionScores || {};
