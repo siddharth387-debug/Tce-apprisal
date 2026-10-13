@@ -4099,7 +4099,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex items-center gap-2">
-              {!iqacControls.isVerified && (
+              {!iqacControls.isVerified && !iqacControls.isViewOnly && (
                 <button
                   type="button"
                   onClick={() => setConfirmApproveModal(true)}
@@ -4107,6 +4107,11 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                 >
                   <span>✔</span> Approve
                 </button>
+              )}
+              {iqacControls.isViewOnly && (
+                <span className="text-xs text-slate-500 font-semibold italic flex items-center gap-1">
+                  <span>👁️</span> View-Only Mode (Auditing HOD Record)
+                </span>
               )}
             </div>
 
@@ -4380,6 +4385,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [iqacStatusWorkflowFilter, setIqacStatusWorkflowFilter] = useState('ALL'); // 'ALL' | 'APPROVED' | 'PENDING'
   const [leadershipStatusFilter, setLeadershipStatusFilter] = useState('ALL'); // 'ALL' | 'DRAFT' | 'PENDING' | 'APPROVED' | 'NOT_APPROVED_HOD' | 'IQAC_APPROVED' | 'NOT_APPROVED_IQAC' | 'RATIFIED'
   
+  // Two-Level Hierarchy Navigation State for IQAC & Principal
+  const [leadershipTopBox, setLeadershipTopBox] = useState(null); // 'HOD_APPROVALS' | 'YOUR_APPROVALS' | null (null immediately after login)
+  const [hodApprovalsTab, setHodApprovalsTab] = useState('HOD_APPROVED'); // 'HOD_APPROVED' | 'HOD_PENDING' | 'DRAFT'
+  const [yourApprovalsTab, setYourApprovalsTab] = useState('PENDING_REVIEW'); // 'PENDING_REVIEW' | 'APPROVED'
+
   // HoD, IQAC & Principal Score Filter State
   const [hodScoreSliderValue, setHodScoreSliderValue] = useState(200);
   const [hodScoreFilterMode, setHodScoreFilterMode] = useState('default'); // 'all' | 'min' (>=) | 'exact' (==) | 'default' (0 to N)
@@ -4428,6 +4438,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     setSelectedIqacRowIds([]);
   }, [
     leadershipStatusFilter,
+    leadershipTopBox,
+    hodApprovalsTab,
+    yourApprovalsTab,
     selectedDeptFilter,
     selectedTimeline,
     hodScoreSliderValue,
@@ -6225,13 +6238,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       rows = rows.filter(r => r.timeline === selectedTimeline);
     }
 
-    // IQAC & Principal role visibility: All appraisals approved by HoD or later, plus Drafts for the Draft tab
-    if (isIQAC || isPrincipal) {
-      rows = rows.filter(r => {
-        const isDraft = String(r.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-        return isDraft || isHodApprovedOrLater(r);
-      });
-    }
+    // IQAC & Principal role visibility: All department records for the selected timeline (HOD Approvals: Approved by HOD, Pending by HOD, Draft; Your Approvals: Pending Review, Approved)
 
     return rows.map((record) => {
       const flattenedData = flattenAppraisalRecord(record);
@@ -7440,17 +7447,49 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const renderOverview = () => {
     // Tally counts across all workflow concepts for the active department/timeline scope
     const statusCounts = { ALL: 0, DRAFT: 0, PENDING: 0, APPROVED: 0, IQAC_APPROVED: 0, RATIFIED: 0 };
+    
+    // Two-level classification helpers for IQAC & Principal
+    const isDraftRecord = (r) => String(r.appraisalStatus || '').toUpperCase().trim() === 'DRAFT' || Boolean(r.isDraft);
+    const isApprovedByHod = (r) => !isDraftRecord(r) && isHodApprovedOrLater(r);
+    const isPendingByHod = (r) => !isDraftRecord(r) && !isHodApprovedOrLater(r);
+    const isLeadershipApproved = (r) => !isDraftRecord(r) && isIqacApprovedRecord(r);
+    const isLeadershipPending = (r) => !isDraftRecord(r) && isHodApprovedOrLater(r) && !isIqacApprovedRecord(r);
+
+    const hodCounts = {
+      HOD_APPROVED: 0,
+      HOD_PENDING: 0,
+      DRAFT: 0,
+      TOTAL: 0
+    };
+    const yourCounts = {
+      PENDING_REVIEW: 0,
+      APPROVED: 0,
+      TOTAL: 0
+    };
+
     if (isIQAC || isPrincipal) {
       selectedInboxRows.forEach((row) => {
-        const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-        if (isDraft) {
-          statusCounts.DRAFT++;
-        } else {
-          statusCounts.ALL++;
-          if (isIqacApprovedRecord(row)) statusCounts.APPROVED++;
-          else statusCounts.PENDING++;
+        if (isDraftRecord(row)) {
+          hodCounts.DRAFT++;
+        } else if (isApprovedByHod(row)) {
+          hodCounts.HOD_APPROVED++;
+          if (isLeadershipApproved(row)) {
+            yourCounts.APPROVED++;
+          } else {
+            yourCounts.PENDING_REVIEW++;
+          }
+        } else if (isPendingByHod(row)) {
+          hodCounts.HOD_PENDING++;
         }
       });
+      hodCounts.TOTAL = hodCounts.HOD_APPROVED + hodCounts.HOD_PENDING + hodCounts.DRAFT;
+      yourCounts.TOTAL = yourCounts.PENDING_REVIEW + yourCounts.APPROVED;
+
+      // Populate statusCounts for live summary cards
+      statusCounts.ALL = selectedInboxRows.filter(r => !isDraftRecord(r)).length;
+      statusCounts.APPROVED = yourCounts.APPROVED;
+      statusCounts.PENDING = yourCounts.PENDING_REVIEW;
+      statusCounts.DRAFT = hodCounts.DRAFT;
     } else {
       selectedInboxRows.forEach((row) => {
         const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
@@ -7472,26 +7511,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     let displayInboxRows = selectedInboxRows;
 
     if (isIQAC || isPrincipal) {
-      if (leadershipStatusFilter === 'ALL') {
-        displayInboxRows = displayInboxRows.filter((row) => {
-          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-          return !isDraft;
-        });
-      } else if (leadershipStatusFilter === 'DRAFT') {
-        displayInboxRows = displayInboxRows.filter((row) => {
-          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-          return isDraft;
-        });
-      } else if (leadershipStatusFilter === 'PENDING') {
-        displayInboxRows = displayInboxRows.filter((row) => {
-          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-          return !isDraft && isIqacPendingRecord(row);
-        });
-      } else if (leadershipStatusFilter === 'APPROVED') {
-        displayInboxRows = displayInboxRows.filter((row) => {
-          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-          return !isDraft && isIqacApprovedRecord(row);
-        });
+      if (leadershipTopBox === 'HOD_APPROVALS') {
+        if (hodApprovalsTab === 'HOD_APPROVED') {
+          displayInboxRows = displayInboxRows.filter(isApprovedByHod);
+        } else if (hodApprovalsTab === 'HOD_PENDING') {
+          displayInboxRows = displayInboxRows.filter(isPendingByHod);
+        } else if (hodApprovalsTab === 'DRAFT') {
+          displayInboxRows = displayInboxRows.filter(isDraftRecord);
+        }
+      } else if (leadershipTopBox === 'YOUR_APPROVALS') {
+        if (yourApprovalsTab === 'PENDING_REVIEW') {
+          displayInboxRows = displayInboxRows.filter(isLeadershipPending);
+        } else if (yourApprovalsTab === 'APPROVED') {
+          displayInboxRows = displayInboxRows.filter(isLeadershipApproved);
+        }
+      } else {
+        displayInboxRows = [];
       }
     } else {
       if (leadershipStatusFilter !== 'ALL') {
@@ -7533,13 +7568,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       displayInboxRows = displayInboxRows.filter((row) => !row.iqacExcluded);
     }
 
-    const isBulkSelectAllowed = (isIQAC || isPrincipal) && ['ALL', 'PENDING', 'APPROVED'].includes(leadershipStatusFilter);
+    const isBulkSelectAllowed = (isIQAC || isPrincipal)
+      ? (leadershipTopBox === 'YOUR_APPROVALS' && ['PENDING_REVIEW', 'APPROVED'].includes(yourApprovalsTab))
+      : false;
     const isRowSelectable = (row) => {
-      if (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING') {
-        return isIqacPendingRecord(row);
-      }
-      if (leadershipStatusFilter === 'APPROVED') {
-        return isIqacApprovedRecord(row);
+      if (isIQAC || isPrincipal) {
+        if (leadershipTopBox !== 'YOUR_APPROVALS') return false;
+        if (yourApprovalsTab === 'PENDING_REVIEW') return isLeadershipPending(row);
+        if (yourApprovalsTab === 'APPROVED') return isLeadershipApproved(row);
+        return false;
       }
       return false;
     };
@@ -7887,88 +7924,257 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
           
           {activeReviewTab === 'inbox' && (
-          <div className="space-y-3">
-            {/* Quick Status Concept Filter Toolbar for Leadership & HoD */}
-            <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                {!isHod && !isIQAC && !isPrincipal && (
-                  <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
-                    <span>🎯</span> Status Concept:
-                  </span>
-                )}
-                {(isHod
-                  ? [
-                      { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
-                      { key: 'DRAFT', label: 'Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
-                      { key: 'PENDING', label: 'Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
-                      { key: 'APPROVED', label: 'Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
-                      { key: 'IQAC_APPROVED', label: 'Approved by Principal / IQAC', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
-                    ]
-                  : (isIQAC || isPrincipal)
-                    ? [
-                        { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
-                        { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
-                        { key: 'APPROVED', label: '✔ Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
-                        { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
-                      ]
-                    : [
-                        { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
-                        { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
-                        { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
-                        { key: 'APPROVED', label: '✔ Approved by HoD', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
-                        { key: 'IQAC_APPROVED', label: '📊 IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
-                        { key: 'RATIFIED', label: '🔒 Ratified', count: statusCounts.RATIFIED, color: 'bg-purple-600 text-white' },
-                      ]
-                ).map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setLeadershipStatusFilter(tab.key)}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                      leadershipStatusFilter === tab.key
-                        ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
-                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    <span
-                      className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                        leadershipStatusFilter === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-3 shrink-0">
-                {isBulkSelectAllowed && isIqacSelectMode && (
-                  <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
-                    {(leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING') && (
-                      <button
-                        type="button"
-                        disabled={selectedIqacRowIds.length === 0 || isSubmitting}
-                        onClick={handleOpenBulkApproveConfirm}
-                        className="text-[11px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        title={`Approve all selected records by ${isPrincipal ? 'Principal' : 'IQAC'}`}
-                      >
-                        <span>✔</span> Approved
-                      </button>
-                    )}
-                    {leadershipStatusFilter === 'APPROVED' && (
-                      <button
-                        type="button"
-                        disabled={selectedIqacRowIds.length === 0 || isSubmitting}
-                        onClick={handleOpenMoveToPendingConfirm}
-                        className="text-[11px] bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        title="Move selected appraisals back to Pending Review"
-                      >
-                        <span>⏳</span> Add to Pending Review
-                      </button>
-                    )}
+          <div className="space-y-4">
+            {/* Task 1: Two Large Top-Level Selectable Boxes Side-by-Side */}
+            {(isIQAC || isPrincipal) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Box 1: HOD Approvals */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadershipTopBox('HOD_APPROVALS');
+                    setHodApprovalsTab('HOD_APPROVED');
+                    setIsIqacSelectMode(false);
+                    setSelectedIqacRowIds([]);
+                  }}
+                  className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between group ${
+                    leadershipTopBox === 'HOD_APPROVALS'
+                      ? 'border-[#4A1519] bg-[#4A1519]/5 shadow-md ring-2 ring-[#4A1519]/20'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 transition-colors ${
+                      leadershipTopBox === 'HOD_APPROVALS'
+                        ? 'bg-[#4A1519] text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                    }`}>
+                      🏢
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className={`text-base font-bold tracking-tight ${
+                          leadershipTopBox === 'HOD_APPROVALS' ? 'text-[#4A1519]' : 'text-slate-800'
+                        }`}>
+                          HOD Approvals
+                        </h4>
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
+                          View-Only
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1 leading-snug">
+                        Department-level approvals, submissions pending HOD review, and drafts
+                      </p>
+                    </div>
                   </div>
-                )}
+                  <div className="text-right shrink-0 pl-3">
+                    <span className={`text-2xl font-black ${
+                      leadershipTopBox === 'HOD_APPROVALS' ? 'text-[#4A1519]' : 'text-slate-700'
+                    }`}>
+                      {hodCounts.TOTAL}
+                    </span>
+                    <span className="block text-[10px] font-bold uppercase text-slate-400">Total</span>
+                  </div>
+                </button>
+
+                {/* Box 2: Your Approvals */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadershipTopBox('YOUR_APPROVALS');
+                    setYourApprovalsTab('PENDING_REVIEW');
+                    setIsIqacSelectMode(false);
+                    setSelectedIqacRowIds([]);
+                  }}
+                  className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between group ${
+                    leadershipTopBox === 'YOUR_APPROVALS'
+                      ? 'border-blue-700 bg-blue-50/50 shadow-md ring-2 ring-blue-600/20'
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 transition-colors ${
+                      leadershipTopBox === 'YOUR_APPROVALS'
+                        ? 'bg-blue-700 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
+                    }`}>
+                      ✍️
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className={`text-base font-bold tracking-tight ${
+                          leadershipTopBox === 'YOUR_APPROVALS' ? 'text-blue-900' : 'text-slate-800'
+                        }`}>
+                          Your Approvals
+                        </h4>
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
+                          Action Area
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1 leading-snug">
+                        Institutional reviews awaiting or endorsed with your decision
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 pl-3">
+                    <span className={`text-2xl font-black ${
+                      leadershipTopBox === 'YOUR_APPROVALS' ? 'text-blue-700' : 'text-slate-700'
+                    }`}>
+                      {yourCounts.TOTAL}
+                    </span>
+                    <span className="block text-[10px] font-bold uppercase text-slate-400">Total</span>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {((isIQAC || isPrincipal) && leadershipTopBox === null) ? (
+              <div className="py-14 text-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/70 p-6 animate-in fade-in duration-200">
+                <div className="w-12 h-12 mx-auto rounded-full bg-slate-200/80 flex items-center justify-center text-2xl text-slate-600 mb-3">
+                  📂
+                </div>
+                <h4 className="text-sm font-bold text-slate-700">Select a category above to view appraisals</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                  Click <strong>HOD Approvals</strong> to audit departmental records, or <strong>Your Approvals</strong> to process institutional reviews.
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Quick Status Concept Filter Toolbar for Leadership & HoD */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    {!isHod && !isIQAC && !isPrincipal && (
+                      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mr-1 flex items-center gap-1">
+                        <span>🎯</span> Status Concept:
+                      </span>
+                    )}
+                    {(isIQAC || isPrincipal) ? (
+                      leadershipTopBox === 'HOD_APPROVALS' ? (
+                        [
+                          { key: 'HOD_APPROVED', label: 'Approved by HOD', count: hodCounts.HOD_APPROVED, color: 'bg-[#4A1519] text-white' },
+                          { key: 'HOD_PENDING', label: '⏳ Pending by HOD', count: hodCounts.HOD_PENDING, color: 'bg-amber-600 text-white' },
+                          { key: 'DRAFT', label: '📝 Draft', count: hodCounts.DRAFT, color: 'bg-slate-600 text-white' },
+                        ].map((tab) => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => {
+                              setHodApprovalsTab(tab.key);
+                              setIsIqacSelectMode(false);
+                              setSelectedIqacRowIds([]);
+                            }}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                              hodApprovalsTab === tab.key
+                                ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                          >
+                            <span>{tab.label}</span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                                hodApprovalsTab === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {tab.count}
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        [
+                          { key: 'PENDING_REVIEW', label: '⏳ Pending Review', count: yourCounts.PENDING_REVIEW, color: 'bg-amber-600 text-white' },
+                          { key: 'APPROVED', label: '✔ Approved', count: yourCounts.APPROVED, color: 'bg-green-600 text-white' },
+                        ].map((tab) => (
+                          <button
+                            key={tab.key}
+                            type="button"
+                            onClick={() => {
+                              setYourApprovalsTab(tab.key);
+                              setIsIqacSelectMode(false);
+                              setSelectedIqacRowIds([]);
+                            }}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                              yourApprovalsTab === tab.key
+                                ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                          >
+                            <span>{tab.label}</span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                                yourApprovalsTab === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {tab.count}
+                            </span>
+                          </button>
+                        ))
+                      )
+                    ) : (isHod
+                      ? [
+                          { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
+                          { key: 'DRAFT', label: 'Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
+                          { key: 'PENDING', label: 'Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
+                          { key: 'APPROVED', label: 'Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
+                          { key: 'IQAC_APPROVED', label: 'Approved by Principal / IQAC', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
+                        ]
+                      : [
+                          { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
+                          { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
+                          { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
+                          { key: 'APPROVED', label: '✔ Approved by HoD', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
+                          { key: 'IQAC_APPROVED', label: '📊 IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
+                          { key: 'RATIFIED', label: '🔒 Ratified', count: statusCounts.RATIFIED, color: 'bg-purple-600 text-white' },
+                        ]
+                    ).map((tab) => (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setLeadershipStatusFilter(tab.key)}
+                        className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                          leadershipStatusFilter === tab.key
+                            ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                            leadershipStatusFilter === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {tab.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    {isBulkSelectAllowed && isIqacSelectMode && (
+                      <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                        {((isIQAC || isPrincipal) ? yourApprovalsTab === 'PENDING_REVIEW' : (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING')) && (
+                          <button
+                            type="button"
+                            disabled={selectedIqacRowIds.length === 0 || isSubmitting}
+                            onClick={handleOpenBulkApproveConfirm}
+                            className="text-[11px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            title={`Approve all selected records by ${isPrincipal ? 'Principal' : 'IQAC'}`}
+                          >
+                            <span>✔</span> Approved
+                          </button>
+                        )}
+                        {((isIQAC || isPrincipal) ? yourApprovalsTab === 'APPROVED' : leadershipStatusFilter === 'APPROVED') && (
+                          <button
+                            type="button"
+                            disabled={selectedIqacRowIds.length === 0 || isSubmitting}
+                            onClick={handleOpenMoveToPendingConfirm}
+                            className="text-[11px] bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            title="Move selected appraisals back to Pending Review"
+                          >
+                            <span>⏳</span> Add to Pending Review
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                 {(isHod || isIQAC || isPrincipal) && (
                   <div className="relative flex items-center gap-2 shrink-0">
@@ -8192,6 +8398,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   </span>
                                 );
                               }
+                              if (!isHodApprovedOrLater(row)) {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm flex items-center gap-1 w-fit">
+                                    <span>⏳</span> Pending HoD Review
+                                  </span>
+                                );
+                              }
                               if (isIqacApprovedRecord(row)) {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
@@ -8294,8 +8507,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </tbody>
             </table>
           </div>
-        </div>
-        )}
+        </>
+      )}
+    </div>
+    )}
           
           {!isHod && activeReviewTab === 'analytics' && (
             <AnalyticsDashboard data={selectedInboxRows} computeScores={computeSectionScores} />
@@ -8706,7 +8921,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             onVerify: (targetStatus) => handleIqacVerifySubmission(selectedAppraisal._id || selectedAppraisal.id, selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline, iqacRemarksInput, targetStatus),
             onToggleExclusion: () => handleIqacToggleExclusion(selectedAppraisal._id || selectedAppraisal.id, Boolean(selectedAppraisal.iqacExcluded), selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline),
             isVerified: isIqacApprovedRecord(selectedAppraisal),
-            isExcluded: Boolean(selectedAppraisal.iqacExcluded)
+            isExcluded: Boolean(selectedAppraisal.iqacExcluded),
+            isViewOnly: Boolean((isIQAC || isPrincipal) && leadershipTopBox === 'HOD_APPROVALS')
           } : null}
         />
       )}

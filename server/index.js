@@ -1636,6 +1636,9 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     if (isIQACUser || isPrincipalUser) {
       const allowedStatuses = [
         'Draft', 'DRAFT', 'draft',
+        'Pending', 'PENDING', 'pending',
+        'Submitted', 'SUBMITTED', 'submitted',
+        'Pending Review', 'PENDING REVIEW',
         'Approved', 'APPROVED', 'approved',
         'HoD Approved', 'HOD APPROVED', 'hod approved',
         'IQAC Approved', 'IQAC APPROVED', 'iqac approved',
@@ -1648,6 +1651,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         ...queryFilter,
         $or: [
           { appraisalStatus: { $in: allowedStatuses } },
+          { isSubmitted: true },
           { principalApprovalStatus: { $in: ['Ratified', 'RATIFIED', 'Endorsed', 'ENDORSED', 'Approved', 'APPROVED'] } },
           { iqacStatus: { $in: ['IQAC Approved', 'IQAC APPROVED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC', 'Approved', 'Not Approved'] } }
         ]
@@ -1658,12 +1662,6 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     const seenMap = new Map();
     const records = [];
     for (const doc of rawRecords) {
-      if (isIQACUser || isPrincipalUser) {
-        const isDraft = String(doc.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-        if (!isDraft && !isHodApprovedOrLater(doc)) {
-          continue;
-        }
-      }
       normalizeAppraisalLeadershipDecision(doc);
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
       const tlKey = (doc.timeline || '').trim();
