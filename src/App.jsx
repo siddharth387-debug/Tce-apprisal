@@ -60,7 +60,7 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
   if (HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus)) return true;
   if (typeof recordOrStatus === 'object') {
     const pStatus = String(recordOrStatus.principalApprovalStatus || '').toUpperCase().trim();
-    if (pStatus === 'RATIFIED' || pStatus === 'ENDORSED') return true;
+    if (pStatus === 'RATIFIED' || pStatus === 'ENDORSED' || pStatus === 'APPROVED') return true;
     const iqStatus = String(recordOrStatus.iqacStatus || '').toUpperCase().trim();
     if (iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED' || iqStatus === 'NOT APPROVED' || iqStatus === 'NOT APPROVED BY IQAC') return true;
   }
@@ -82,32 +82,17 @@ export const isIqacApprovedRecord = (row) => {
     }
     return false;
   }
-  if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
-    return false;
-  }
   return iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED' || (iqStatus.includes('APPROVED') && !iqStatus.includes('NOT'));
 };
 
-export const isIqacNotApprovedRecord = (row) => {
-  if (!row) return false;
-  const iqStatus = String(row.iqacStatus || '').toUpperCase().trim();
-  if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
-    return true;
-  }
-  if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
-    const prStatus = String(row.principalApprovalStatus || '').toUpperCase().trim();
-    const apStatus = String(row.appraisalStatus || '').toUpperCase().trim();
-    if (prStatus === 'NOT APPROVED' || apStatus === 'NOT APPROVED BY IQAC') {
-      return true;
-    }
-    return false;
-  }
+export const isIqacNotApprovedRecord = (_row) => {
+  // NEW RULE: "Not Approved" no longer exists anywhere in leadership roles.
   return false;
 };
 
 export const isIqacPendingRecord = (row) => {
   if (!row) return false;
-  return !isIqacApprovedRecord(row) && !isIqacNotApprovedRecord(row);
+  return !isIqacApprovedRecord(row);
 };
 
 export const SUBSECTION_LABEL_MAP = {
@@ -871,25 +856,32 @@ function flattenAppraisalRecord(record) {
     res.mentoring = [];
   }
   let effectiveIqacStatus = record.iqacStatus || 'Pending';
+  let effectiveAppraisalStatus = record.appraisalStatus || 'Pending';
   const normIq = String(effectiveIqacStatus).toUpperCase().trim();
   const normPr = String(record.principalApprovalStatus || '').toUpperCase().trim();
-  const normAp = String(record.appraisalStatus || '').toUpperCase().trim();
+  const normAp = String(effectiveAppraisalStatus).toUpperCase().trim();
 
   if (normIq === 'APPROVED' || normIq === 'IQAC APPROVED') {
     effectiveIqacStatus = 'Approved';
   } else if (normIq === 'NOT APPROVED' || normIq === 'NOT APPROVED BY IQAC' || normIq === 'REJECTED' || normIq === 'NEEDS CLARIFICATION') {
-    effectiveIqacStatus = 'Not Approved';
+    effectiveIqacStatus = 'Pending';
   } else if (['RATIFIED', 'ENDORSED', 'APPROVED', 'PRINCIPAL APPROVED'].includes(normPr) || ['RATIFIED', 'ENDORSED', 'IQAC APPROVED', 'PRINCIPAL APPROVED'].includes(normAp)) {
     effectiveIqacStatus = 'Approved';
   } else if (normAp === 'NOT APPROVED BY IQAC' || normPr === 'NOT APPROVED') {
-    effectiveIqacStatus = 'Not Approved';
+    effectiveIqacStatus = 'Pending';
+  }
+
+  if (normAp === 'NOT APPROVED BY IQAC') {
+    effectiveAppraisalStatus = 'Approved';
+  } else if (normAp === 'NOT APPROVED' || normAp === 'FIX NEEDED' || normAp === 'REJECTED') {
+    effectiveAppraisalStatus = 'Pending';
   }
 
   return {
     ...res,
     ...(record.section9Data || {}),
     submittedAt: record.submittedAt,
-    appraisalStatus: record.appraisalStatus,
+    appraisalStatus: effectiveAppraisalStatus,
     hodRemarks: record.hodRemarks || rawSec.hodRemarks || '',
     subsectionRemarks: record.subsectionRemarks || rawSec.subsectionRemarks || {},
     hodSubsectionScores: record.hodSubsectionScores || rawSec.hodSubsectionScores || {},
@@ -3018,16 +3010,22 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const [loadingAiKey, setLoadingAiKey] = useState(null);
   const [principalRemarksInput, setPrincipalRemarksInput] = useState(principalControls?.remarks || appraisal.principalRemarks || '');
   const [isEndorsing, setIsEndorsing] = useState(false);
+  const [confirmApproveModal, setConfirmApproveModal] = useState(false);
+  const [isApproveSubmitting, setIsApproveSubmitting] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (confirmApproveModal) {
+          if (!isApproveSubmitting) setConfirmApproveModal(false);
+        } else {
+          onClose();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, confirmApproveModal, isApproveSubmitting]);
 
   const fetchAISuggestion = async (payload) => {
     try {
@@ -3616,8 +3614,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       {!isHodView && !isIqacView && (() => {
         const iqacState = (appraisal.iqacStatus || '').toUpperCase();
         const appraisalState = (appraisal.appraisalStatus || '').toUpperCase();
-        const isNeedsClarification = iqacState === 'NEEDS CLARIFICATION';
-        const isApproved = !isNeedsClarification && (iqacState.includes('IQAC') || iqacState.includes('APPROVED') || iqacState.includes('VERIF') || appraisalState.includes('IQAC'));
+        const isApproved = iqacState.includes('IQAC') || iqacState.includes('APPROVED') || iqacState.includes('VERIF') || appraisalState.includes('IQAC');
 
         if (isApproved) {
           return (
@@ -3650,37 +3647,6 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
               </div>
             </div>
           );
-        } else if (isNeedsClarification) {
-          return (
-            <div className="rounded-xl border border-amber-300 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50/80 p-4 shadow-sm">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl p-2 bg-amber-100 rounded-lg text-amber-900 shrink-0">⚠️</div>
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
-                      <span>⚠️ NOT APPROVED - NEEDS CLARIFICATION</span>
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-200 text-amber-900 border border-amber-300">
-                        Action Required
-                      </span>
-                    </h4>
-                    <span className="text-[11px] font-semibold text-amber-800">
-                      {appraisal.iqacEvaluatedAt
-                        ? `Flagged on ${new Date(appraisal.iqacEvaluatedAt).toLocaleDateString('en-GB')}`
-                        : 'IQAC Audit Flagged'}
-                    </span>
-                  </div>
-                  {appraisal.iqacAuditRemarks && (
-                    <div className="mt-2 text-xs text-amber-950 bg-white/90 border border-amber-200/80 rounded-lg p-2.5 leading-relaxed shadow-2xs">
-                      <span className="font-bold text-amber-950">IQAC Audit Observation:</span> "{appraisal.iqacAuditRemarks}"
-                    </div>
-                  )}
-                  <p className="text-[10px] text-amber-800 mt-1.5 font-medium">
-                    IQAC Audit Cell has reviewed this submission and marked it as requiring clarification or document correction.
-                  </p>
-                </div>
-              </div>
-            </div>
-          );
         } else {
           return (
             <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 via-gray-50 to-slate-50 p-3.5 shadow-sm">
@@ -3689,7 +3655,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                      <span>⏳ IQAC AUDIT STATUS: PENDING (NOT YET APPROVED)</span>
+                      <span>⏳ IQAC AUDIT STATUS: PENDING</span>
                       <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-slate-200 text-slate-700 border border-slate-300">
                         Awaiting Audit
                       </span>
@@ -4133,32 +4099,15 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  try {
-                    iqacControls?.onVerify('IQAC Approved');
-                  } catch (e) {
-                    console.error('Approval action error:', e);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 hover:bg-blue-800 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
-              >
-                <span>✔</span> Approve
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  try {
-                    iqacControls?.onVerify('Not Approved');
-                  } catch (e) {
-                    console.error('Not Approval action error:', e);
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 hover:bg-rose-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
-              >
-                <span>⚠️</span> Not Approved
-              </button>
+              {!iqacControls.isVerified && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmApproveModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 hover:bg-blue-800 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
+                >
+                  <span>✔</span> Approve
+                </button>
+              )}
             </div>
 
             <button
@@ -4199,7 +4148,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => hodControls.onAction('Approved')}
+              onClick={() => setConfirmApproveModal(true)}
               className="inline-flex items-center rounded-full border border-emerald-500 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 cursor-pointer"
             >
               Approve Appraisal
@@ -4283,9 +4232,86 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           ✕ Close Audit View
         </button>
       </div>
+
+      {/* Task 4: Confirmation Dialog before Approve */}
+      {confirmApproveModal && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isApproveSubmitting) {
+              setConfirmApproveModal(false);
+            }
+          }}
+        >
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+            <div className="px-5 py-4 bg-gradient-to-r from-[#4A1519] to-[#3B1013] text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center space-x-2.5">
+                <span className="text-xl">✔</span>
+                <h3 className="text-base font-bold text-white tracking-tight">Confirm Approval</h3>
+              </div>
+              {!isApproveSubmitting && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmApproveModal(false)}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                Are you sure you want to approve the appraisal of <strong>{facultyName}</strong>?
+              </p>
+            </div>
+
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                disabled={isApproveSubmitting}
+                onClick={() => setConfirmApproveModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 border border-slate-300 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isApproveSubmitting}
+                onClick={async () => {
+                  if (isApproveSubmitting) return;
+                  setIsApproveSubmitting(true);
+                  try {
+                    if (hodControls) {
+                      await hodControls.onAction('Approved');
+                    } else if (iqacControls) {
+                      await iqacControls.onVerify('IQAC Approved');
+                    }
+                    setConfirmApproveModal(false);
+                  } catch (err) {
+                    console.error('Approval execution error:', err);
+                  } finally {
+                    setIsApproveSubmitting(false);
+                  }
+                }}
+                className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2"
+              >
+                {isApproveSubmitting ? (
+                  <>
+                    <span className="animate-spin text-xs">⏳</span>
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <span>Yes, Approve</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   </div>
-);
+  );
 }
 
 // Maximum continuous idle duration before automatic session timeout (15 minutes max as required)
@@ -4467,8 +4493,21 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const [selectedInboxRecordId, setSelectedInboxRecordId] = useState('');
   const [hodFeedbackDraft, setHodFeedbackDraft] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [leadershipConfirmModal, setLeadershipConfirmModal] = useState(null);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
+
+  // Close leadership confirmation modal on Escape key press
+  useEffect(() => {
+    if (!leadershipConfirmModal) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        setLeadershipConfirmModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [leadershipConfirmModal, isSubmitting]);
   const [isManualSaving, setIsManualSaving] = useState(false);
   const [justSavedDraft, setJustSavedDraft] = useState(false);
   const [manualSaveToast, setManualSaveToast] = useState(null);
@@ -5251,22 +5290,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [user, effectiveRole, hodWorkspaceMode, iqacWorkspaceMode, isIQACUser, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, syncHistoryFromCloud]);
 
-  const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, customStatus = 'IQAC Approved') => {
+  const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, _customStatus = 'Approved') => {
     try {
       const cleanId = extractStringId(recordId);
       const roleTitle = effectiveRole === 'Principal' ? 'Principal' : 'IQAC';
       let trimmedRemarks = '';
       if (customRemarks !== null) {
         trimmedRemarks = String(customRemarks).trim();
-      } else {
-        const inputRemarks = window.prompt(`✔ (Optional) Enter ${roleTitle} audit remarks or notes for this appraisal approval:`);
-        if (inputRemarks === null) return;
-        trimmedRemarks = inputRemarks.trim();
       }
 
-      const rawTargetStatus = customStatus || 'Approved';
-      const isNotApprovedTarget = ['Needs Clarification', 'NEEDS CLARIFICATION', 'Not Approved', 'NOT APPROVED', 'Rejected', 'REJECTED', 'Not Approved by IQAC', 'NOT APPROVED BY IQAC'].includes(rawTargetStatus);
-      const targetStatus = isNotApprovedTarget ? 'Not Approved' : 'Approved';
+      const targetStatus = 'Approved';
       const targetEmail = recordEmail ? String(recordEmail).toLowerCase().trim() : '';
 
       // OPTIMISTIC LOCAL STATE UPDATE (0 ms instant UI render)
@@ -5278,14 +5311,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         if (isMatch) {
           return {
             ...rec,
-            iqacStatus: targetStatus,
-            appraisalStatus: isNotApprovedTarget
-              ? (rec.appraisalStatus === 'IQAC Approved' ? 'Approved' : (rec.appraisalStatus || 'Approved'))
-              : (rec.appraisalStatus || 'Approved'),
+            iqacStatus: 'Approved',
+            appraisalStatus: 'Approved',
             ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
             iqacEvaluatedAt: new Date().toISOString(),
             iqacEvaluatedBy: roleTitle,
-            principalApprovalStatus: targetStatus === 'Approved' ? (rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
+            principalApprovalStatus: rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved'
           };
         }
         return rec;
@@ -5299,7 +5330,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       setHodSubsectionRemarks({});
       setHodSubsectionScores({});
 
-      setSubmitSuccess(`Appraisal audit status updated to [${targetStatus}] by ${roleTitle}!`);
+      setSubmitSuccess(`Appraisal successfully approved by ${roleTitle}!`);
 
       const activeToken = getAuthToken() || user?.token;
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
@@ -5309,7 +5340,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           id: cleanId, 
           email: recordEmail,
           timeline: recordTimeline,
-          iqacStatus: targetStatus,
+          iqacStatus: 'Approved',
           iqacAuditRemarks: trimmedRemarks,
           evaluatorRole: roleTitle
         },
@@ -5320,120 +5351,133 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       await syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
       console.error('IQAC/Principal Verification Error:', err);
-      setSubmitError(err.response?.data?.message || 'Failed to update verification status.');
-      // Do NOT call syncHistoryFromCloud here — it would overwrite the optimistic state with stale server data
+      setSubmitError(err.response?.data?.message || 'Failed to update approval status.');
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
-  const handleIqacBulkAction = useCallback(async (action) => {
+  const handleOpenBulkApproveConfirm = useCallback(() => {
     if (!selectedIqacRowIds || selectedIqacRowIds.length === 0) return;
-    const targetStatus = action === 'Approved' ? 'Approved' : 'Not Approved';
-    const isNotApprovedTarget = targetStatus === 'Not Approved';
-
     const selectedIdSet = new Set(selectedIqacRowIds.map(String));
-    let selectedRecords = appraisals.filter(rec => selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id))));
-    if (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING') {
-      selectedRecords = selectedRecords.filter(r => isIqacPendingRecord(r));
-    } else if (leadershipStatusFilter === 'APPROVED') {
-      selectedRecords = selectedRecords.filter(r => isIqacApprovedRecord(r));
-    } else if (leadershipStatusFilter === 'NOT_APPROVED') {
-      selectedRecords = selectedRecords.filter(r => isIqacNotApprovedRecord(r));
-    }
+    const selectedRecords = appraisals.filter(rec => (selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id)))) && isIqacPendingRecord(rec));
     if (selectedRecords.length === 0) return;
 
-    const roleTitle = isPrincipal ? 'Principal' : 'IQAC';
-    const promptMessage = action === 'Approved'
-      ? `✔ (Optional) Enter ${roleTitle} audit remarks or notes for approving ${selectedRecords.length} selected appraisal(s):`
-      : `⚠️ (Optional) Enter ${roleTitle} audit remarks / notes for marking ${selectedRecords.length} selected appraisal(s) as Not Approved:`;
-    const inputRemarks = window.prompt(promptMessage);
-    if (inputRemarks === null) return;
-    const trimmedRemarks = inputRemarks.trim();
-
-    const finalTargetIdSet = new Set(selectedRecords.map(r => String(r._id || r.id)));
-
-    // Optimistic local state update (0 ms instant UI render)
-    setAppraisals(prev => prev.map(rec => {
-      const recIdStr = String(rec._id || rec.id);
-      if (finalTargetIdSet.has(recIdStr) || (rec._id && finalTargetIdSet.has(String(rec._id)))) {
-        return {
-          ...rec,
-          iqacStatus: targetStatus,
-          appraisalStatus: isNotApprovedTarget
-            ? (rec.appraisalStatus === 'IQAC Approved' ? 'Approved' : (rec.appraisalStatus || 'Approved'))
-            : 'Approved',
-          ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-          iqacEvaluatedAt: new Date().toISOString(),
-          iqacEvaluatedBy: roleTitle,
-          principalApprovalStatus: targetStatus === 'Approved' ? (rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
-        };
-      }
-      return rec;
-    }));
-
-    setSelectedAppraisal(prev => {
-      if (!prev) return null;
-      const prevIdStr = String(prev._id || prev.id);
-      if (finalTargetIdSet.has(prevIdStr) || (prev._id && finalTargetIdSet.has(String(prev._id)))) {
-        return {
-          ...prev,
-          iqacStatus: targetStatus,
-          appraisalStatus: isNotApprovedTarget
-            ? (prev.appraisalStatus === 'IQAC Approved' ? 'Approved' : (prev.appraisalStatus || 'Approved'))
-            : 'Approved',
-          ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-          iqacEvaluatedAt: new Date().toISOString(),
-          iqacEvaluatedBy: roleTitle,
-          principalApprovalStatus: targetStatus === 'Approved' ? (prev.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved') : 'Not Approved'
-        };
-      }
-      return prev;
+    const count = selectedRecords.length;
+    const facultyName = selectedRecords[0].facultyName || selectedRecords[0].name || selectedRecords[0].facultyEmail || selectedRecords[0].email || 'Faculty Member';
+    setLeadershipConfirmModal({
+      type: 'APPROVE',
+      title: 'Confirm Approval',
+      message: count === 1
+        ? `Are you sure you want to approve the appraisal of ${facultyName}?`
+        : `Are you sure you want to approve ${count} selected appraisals?`,
+      confirmButtonText: 'Yes, Approve',
+      confirmButtonClass: 'bg-emerald-700 hover:bg-emerald-800 text-white',
+      records: selectedRecords
     });
+  }, [selectedIqacRowIds, appraisals]);
 
+  const handleOpenMoveToPendingConfirm = useCallback(() => {
+    if (!selectedIqacRowIds || selectedIqacRowIds.length === 0) return;
+    const selectedIdSet = new Set(selectedIqacRowIds.map(String));
+    const selectedRecords = appraisals.filter(rec => (selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id)))) && isIqacApprovedRecord(rec));
+    if (selectedRecords.length === 0) return;
+
+    const count = selectedRecords.length;
+    const facultyName = selectedRecords[0].facultyName || selectedRecords[0].name || selectedRecords[0].facultyEmail || selectedRecords[0].email || 'Faculty Member';
+    setLeadershipConfirmModal({
+      type: 'MOVE_TO_PENDING',
+      title: 'Move to Pending Review',
+      message: count === 1
+        ? `Move the appraisal of ${facultyName} back to Pending Review?`
+        : `Move ${count} selected appraisals back to Pending Review?`,
+      confirmButtonText: 'Yes, Move',
+      confirmButtonClass: 'bg-amber-600 hover:bg-amber-700 text-white',
+      records: selectedRecords
+    });
+  }, [selectedIqacRowIds, appraisals]);
+
+  const handleExecuteLeadershipConfirm = useCallback(async () => {
+    if (!leadershipConfirmModal || isSubmitting) return;
+    const { type, records } = leadershipConfirmModal;
+    if (!records || records.length === 0) {
+      setLeadershipConfirmModal(null);
+      return;
+    }
     setIsSubmitting(true);
     try {
+      const roleTitle = isPrincipal ? 'Principal' : 'IQAC';
       const activeToken = getAuthToken() || user?.token;
       const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
 
-      const results = await Promise.allSettled(
-        selectedRecords.map(rec => {
-          const cleanId = extractStringId(rec._id || rec.id);
-          return axios.post(
-            `${API_BASE_URL}/appraisals/iqac-verify`,
-            {
-              id: cleanId,
-              email: rec.facultyEmail || rec.email || '',
-              timeline: rec.timeline || '',
-              iqacStatus: targetStatus,
-              iqacAuditRemarks: trimmedRemarks,
-              evaluatorRole: roleTitle
-            },
-            { headers }
-          );
-        })
-      );
+      if (type === 'APPROVE') {
+        const results = await Promise.allSettled(
+          records.map(rec => {
+            const cleanId = extractStringId(rec._id || rec.id);
+            return axios.post(
+              `${API_BASE_URL}/appraisals/iqac-verify`,
+              {
+                id: cleanId,
+                email: rec.facultyEmail || rec.email || '',
+                timeline: rec.timeline || '',
+                iqacStatus: 'Approved',
+                evaluatorRole: roleTitle
+              },
+              { headers }
+            );
+          })
+        );
 
-      const fulfilledCount = results.filter(r => r.status === 'fulfilled').length;
-      const rejectedList = selectedRecords.filter((_, idx) => results[idx].status === 'rejected');
+        const fulfilledCount = results.filter(r => r.status === 'fulfilled').length;
+        const rejectedList = records.filter((_, idx) => results[idx].status === 'rejected');
 
-      if (rejectedList.length === 0) {
-        setSubmitSuccess(`Successfully updated ${fulfilledCount} appraisal(s) to [${targetStatus}] by ${roleTitle}.`);
-      } else {
-        const failedNames = rejectedList.map(r => r.facultyName || r.facultyEmail || r.id).join(', ');
-        setSubmitError(`Updated ${fulfilledCount} appraisal(s). Failed for ${rejectedList.length} record(s): ${failedNames}`);
+        if (rejectedList.length === 0) {
+          setSubmitSuccess(`Successfully approved ${fulfilledCount} appraisal(s).`);
+        } else {
+          const failedNames = rejectedList.map(r => r.facultyName || r.facultyEmail || r.id).join(', ');
+          setSubmitError(`Approved ${fulfilledCount} appraisal(s). Failed for ${rejectedList.length} record(s): ${failedNames}`);
+        }
+      } else if (type === 'MOVE_TO_PENDING') {
+        const results = await Promise.allSettled(
+          records.map(rec => {
+            const cleanId = extractStringId(rec._id || rec.id);
+            return axios.post(
+              `${API_BASE_URL}/appraisals/iqac-verify`,
+              {
+                id: cleanId,
+                email: rec.facultyEmail || rec.email || '',
+                timeline: rec.timeline || '',
+                iqacStatus: 'Pending',
+                evaluatorRole: roleTitle,
+                iqacAuditRemarks: ''
+              },
+              { headers }
+            );
+          })
+        );
+
+        const fulfilledCount = results.filter(r => r.status === 'fulfilled').length;
+        const rejectedList = records.filter((_, idx) => results[idx].status === 'rejected');
+
+        if (rejectedList.length === 0) {
+          setSubmitSuccess(`Successfully moved ${fulfilledCount} appraisal(s) back to Pending Review.`);
+        } else {
+          const failedNames = rejectedList.map(r => r.facultyName || r.facultyEmail || r.id).join(', ');
+          setSubmitError(`Moved ${fulfilledCount} appraisal(s) back to Pending Review. Failed for ${rejectedList.length} record(s): ${failedNames}`);
+        }
       }
 
       setSelectedIqacRowIds([]);
       setIsIqacSelectMode(false);
+      setLeadershipConfirmModal(null);
 
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC) ? selectedDeptFilter : (user?.department || 'ALL');
       await syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
     } catch (err) {
-      console.error('Bulk Action Error:', err);
+      console.error('Leadership bulk action execution error:', err);
       setSubmitError('Failed to execute bulk update.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedIqacRowIds, appraisals, user, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, effectiveRole, leadershipStatusFilter, syncHistoryFromCloud]);
+  }, [leadershipConfirmModal, isSubmitting, isPrincipal, user, selectedDeptFilter, effectiveRole, syncHistoryFromCloud]);
 
   const handleIqacToggleExclusion = useCallback(async (recordId, currentExcludedState, recordEmail = '', recordTimeline = '') => {
     try {
@@ -5529,13 +5573,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         facultyEmail: record.email || record.facultyEmail,
         department: record.department || 'CSE',
         departmentName: record.departmentName || '',
-        appraisalStatus: record.appraisalStatus || 'Pending',
-        iqacStatus: record.iqacStatus || 'Pending',
+        appraisalStatus: ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(String(record.appraisalStatus || '').toUpperCase().trim())
+          ? 'Pending'
+          : (String(record.appraisalStatus || '').toUpperCase().trim() === 'NOT APPROVED BY IQAC' ? 'Approved' : (record.appraisalStatus || 'Pending')),
+        iqacStatus: ['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(String(record.iqacStatus || '').toUpperCase().trim()) || String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED'
+          ? 'Pending'
+          : (record.iqacStatus || 'Pending'),
         iqacExcluded: Boolean(record.iqacExcluded),
         iqacAuditRemarks: record.iqacAuditRemarks || '',
-        iqacEvaluatedAt: record.iqacEvaluatedAt || null,
-        iqacEvaluatedBy: record.iqacEvaluatedBy || '',
-        principalApprovalStatus: record.principalApprovalStatus || 'Pending',
+        iqacEvaluatedAt: (['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(String(record.iqacStatus || '').toUpperCase().trim()) || String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED') ? null : (record.iqacEvaluatedAt || null),
+        iqacEvaluatedBy: (['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(String(record.iqacStatus || '').toUpperCase().trim()) || String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED') ? '' : (record.iqacEvaluatedBy || ''),
+        principalApprovalStatus: (String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED' || String(record.iqacStatus || '').toUpperCase().trim() === 'NOT APPROVED')
+          ? 'Pending'
+          : (record.principalApprovalStatus || 'Pending'),
         hodRemarks: record.hodRemarks || '',
         subsectionRemarks: record.subsectionRemarks || {},
         hodSubsectionScores: record.hodSubsectionScores || {},
@@ -7389,7 +7439,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const renderOverview = () => {
     // Tally counts across all workflow concepts for the active department/timeline scope
-    const statusCounts = { ALL: 0, DRAFT: 0, PENDING: 0, APPROVED: 0, NOT_APPROVED_HOD: 0, IQAC_APPROVED: 0, NOT_APPROVED_IQAC: 0, RATIFIED: 0, NOT_APPROVED: 0 };
+    const statusCounts = { ALL: 0, DRAFT: 0, PENDING: 0, APPROVED: 0, IQAC_APPROVED: 0, RATIFIED: 0 };
     if (isIQAC || isPrincipal) {
       selectedInboxRows.forEach((row) => {
         const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
@@ -7398,7 +7448,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         } else {
           statusCounts.ALL++;
           if (isIqacApprovedRecord(row)) statusCounts.APPROVED++;
-          else if (isIqacNotApprovedRecord(row)) statusCounts.NOT_APPROVED++;
           else statusCounts.PENDING++;
         }
       });
@@ -7406,14 +7455,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       selectedInboxRows.forEach((row) => {
         const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
         const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
-        const iqStatus = (row.iqacStatus || '').toUpperCase().trim();
-        if (apStatus === 'DRAFT') statusCounts.DRAFT++;
-        else if (apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || !apStatus) statusCounts.PENDING++;
+        if (apStatus === 'DRAFT') {
+          statusCounts.DRAFT++;
+        } else if (apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED') {
+          statusCounts.APPROVED++;
+        } else {
+          statusCounts.PENDING++;
+        }
 
-        if (apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED') statusCounts.APPROVED++;
-        if (['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus)) statusCounts.NOT_APPROVED_HOD++;
         if (isIqacApprovedRecord(row)) statusCounts.IQAC_APPROVED++;
-        if (isIqacNotApprovedRecord(row)) statusCounts.NOT_APPROVED_IQAC++;
         if (prStatus === 'RATIFIED' || apStatus === 'RATIFIED') statusCounts.RATIFIED++;
       });
       statusCounts.ALL = selectedInboxRows.length;
@@ -7442,11 +7492,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
           return !isDraft && isIqacApprovedRecord(row);
         });
-      } else if (leadershipStatusFilter === 'NOT_APPROVED' || leadershipStatusFilter === 'RATIFIED') {
-        displayInboxRows = displayInboxRows.filter((row) => {
-          const isDraft = String(row.appraisalStatus || '').toUpperCase().trim() === 'DRAFT';
-          return !isDraft && isIqacNotApprovedRecord(row);
-        });
       }
     } else {
       if (leadershipStatusFilter !== 'ALL') {
@@ -7454,11 +7499,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
           const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
           if (leadershipStatusFilter === 'DRAFT') return apStatus === 'DRAFT';
-          if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || !apStatus;
+          if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus) || !apStatus;
           if (leadershipStatusFilter === 'APPROVED') return apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED';
-          if (leadershipStatusFilter === 'NOT_APPROVED_HOD') return ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus);
           if (leadershipStatusFilter === 'IQAC_APPROVED') return isIqacApprovedRecord(row);
-          if (leadershipStatusFilter === 'NOT_APPROVED_IQAC') return isIqacNotApprovedRecord(row);
           if (leadershipStatusFilter === 'RATIFIED') return prStatus === 'RATIFIED' || apStatus === 'RATIFIED';
           return true;
         });
@@ -7490,16 +7533,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       displayInboxRows = displayInboxRows.filter((row) => !row.iqacExcluded);
     }
 
-    const isBulkSelectAllowed = (isIQAC || isPrincipal) && ['ALL', 'PENDING', 'APPROVED', 'NOT_APPROVED'].includes(leadershipStatusFilter);
+    const isBulkSelectAllowed = (isIQAC || isPrincipal) && ['ALL', 'PENDING', 'APPROVED'].includes(leadershipStatusFilter);
     const isRowSelectable = (row) => {
       if (leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING') {
         return isIqacPendingRecord(row);
       }
       if (leadershipStatusFilter === 'APPROVED') {
         return isIqacApprovedRecord(row);
-      }
-      if (leadershipStatusFilter === 'NOT_APPROVED') {
-        return isIqacNotApprovedRecord(row);
       }
       return false;
     };
@@ -7862,17 +7902,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       { key: 'DRAFT', label: 'Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
                       { key: 'PENDING', label: 'Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
                       { key: 'APPROVED', label: 'Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
-                      { key: 'NOT_APPROVED_HOD', label: 'Not Approved', count: statusCounts.NOT_APPROVED_HOD, color: 'bg-rose-600 text-white' },
                       { key: 'IQAC_APPROVED', label: 'Approved by Principal / IQAC', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
-                      { key: 'NOT_APPROVED_IQAC', label: 'Not Approved by Principal / IQAC', count: statusCounts.NOT_APPROVED_IQAC, color: 'bg-orange-600 text-white' },
                     ]
                   : (isIQAC || isPrincipal)
                     ? [
                         { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
-                        { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
                         { key: 'PENDING', label: '⏳ Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
                         { key: 'APPROVED', label: '✔ Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
-                        { key: 'NOT_APPROVED', label: '⚠️ Not Approved', count: statusCounts.NOT_APPROVED, color: 'bg-rose-600 text-white' },
+                        { key: 'DRAFT', label: '📝 Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
                       ]
                     : [
                         { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
@@ -7908,26 +7945,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <div className="flex items-center gap-3 shrink-0">
                 {isBulkSelectAllowed && isIqacSelectMode && (
                   <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
-                    {(leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING' || leadershipStatusFilter === 'NOT_APPROVED') && (
+                    {(leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING') && (
                       <button
                         type="button"
                         disabled={selectedIqacRowIds.length === 0 || isSubmitting}
-                        onClick={() => handleIqacBulkAction('Approved')}
+                        onClick={handleOpenBulkApproveConfirm}
                         className="text-[11px] bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         title={`Approve all selected records by ${isPrincipal ? 'Principal' : 'IQAC'}`}
                       >
                         <span>✔</span> Approved
                       </button>
                     )}
-                    {(leadershipStatusFilter === 'ALL' || leadershipStatusFilter === 'PENDING' || leadershipStatusFilter === 'APPROVED') && (
+                    {leadershipStatusFilter === 'APPROVED' && (
                       <button
                         type="button"
                         disabled={selectedIqacRowIds.length === 0 || isSubmitting}
-                        onClick={() => handleIqacBulkAction('Not Approved')}
-                        className="text-[11px] bg-rose-700 hover:bg-rose-800 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        title={`Mark all selected records as Not Approved by ${isPrincipal ? 'Principal' : 'IQAC'}`}
+                        onClick={handleOpenMoveToPendingConfirm}
+                        className="text-[11px] bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-md shadow-sm transition font-bold flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        title="Move selected appraisals back to Pending Review"
                       >
-                        <span>⚠️</span> Not Approved
+                        <span>⏳</span> Add to Pending Review
                       </button>
                     )}
                   </div>
@@ -8161,12 +8198,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                     <span>✔</span> Approved
                                   </span>
                                 );
-                              } else if (isIqacNotApprovedRecord(row)) {
-                                return (
-                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 border border-rose-300 shadow-sm flex items-center gap-1 w-fit">
-                                    <span>⚠️</span> Not Approved
-                                  </span>
-                                );
                               } else {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
@@ -8177,22 +8208,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             }
 
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
-                            const isElevatedView = isPrincipal || isRegistrar || isIQAC || isHod;
-                            const isNeedsClarification = isElevatedView && (row.iqacStatus || '').toUpperCase() === 'NEEDS CLARIFICATION';
 
-                            if (isNeedsClarification) {
-                              return (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300 shadow-sm flex items-center gap-1 w-fit">
-                                  <span>⚠️</span> Needs Clarification
-                                </span>
-                              );
-                            } else if (isIqacNotApprovedRecord(row)) {
-                              return (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-orange-100 text-orange-900 border border-orange-300 shadow-sm flex items-center gap-1 w-fit">
-                                  <span>⚠️</span> Not Approved by Principal / IQAC
-                                </span>
-                              );
-                            } else if (isRatified && isIqacApproved) {
+                            if (isRatified && isIqacApproved) {
                               return (
                                 <div className="flex flex-col gap-1 items-start">
                                   <span className="px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
@@ -8219,12 +8236,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-green-50 text-green-700 border border-green-200 shadow-sm flex items-center gap-1 w-fit">
                                   <span>✔</span> {isHod ? 'Approved' : 'Approved by HoD'}
-                                </span>
-                              );
-                            } else if (activeStatus === 'NOT APPROVED' || activeStatus === 'FIX NEEDED' || activeStatus === 'REJECTED') {
-                              return (
-                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200 shadow-sm flex items-center gap-1 w-fit">
-                                  <span>⚠</span> {isHod ? 'Not Approved' : 'Fix Needed'}
                                 </span>
                               );
                             } else if (activeStatus === 'DRAFT') {
@@ -10490,6 +10501,74 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       isOpen={isFacultyModalOpen}
       onClose={() => setIsFacultyModalOpen(false)}
     />
+
+    {/* Tasks 4 & 5: Leadership Confirmation Modal for Bulk Approve and Move to Pending Review */}
+    {leadershipConfirmModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isSubmitting) {
+            setLeadershipConfirmModal(null);
+          }
+        }}
+      >
+        <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col">
+          <div className={`px-5 py-4 text-white flex items-center justify-between shrink-0 ${
+            leadershipConfirmModal.type === 'APPROVE'
+              ? 'bg-gradient-to-r from-emerald-800 to-teal-900'
+              : 'bg-gradient-to-r from-amber-700 to-orange-800'
+          }`}>
+            <div className="flex items-center space-x-2.5">
+              <span className="text-xl">{leadershipConfirmModal.type === 'APPROVE' ? '✔' : '⏳'}</span>
+              <h3 className="text-base font-bold text-white tracking-tight">
+                {leadershipConfirmModal.title}
+              </h3>
+            </div>
+            {!isSubmitting && (
+              <button
+                type="button"
+                onClick={() => setLeadershipConfirmModal(null)}
+                className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold transition-all cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          <div className="p-5 space-y-3">
+            <p className="text-sm text-slate-700 leading-relaxed font-medium">
+              {leadershipConfirmModal.message}
+            </p>
+          </div>
+
+          <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => setLeadershipConfirmModal(null)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 border border-slate-300 hover:bg-slate-100 transition cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={handleExecuteLeadershipConfirm}
+              className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition shadow-md cursor-pointer disabled:opacity-50 flex items-center gap-2 ${leadershipConfirmModal.confirmButtonClass}`}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="animate-spin text-xs">⏳</span>
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <span>{leadershipConfirmModal.confirmButtonText}</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Faculty Submission Confirmation / Incomplete / Success Gate Modal */}
     {submitModalState && (

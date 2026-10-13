@@ -60,32 +60,20 @@ export const isIqacApprovedRecord = (row) => {
   return iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED' || (iqStatus.includes('APPROVED') && !iqStatus.includes('NOT'));
 };
 
-export const isIqacNotApprovedRecord = (row) => {
-  if (!row) return false;
-  const iqStatus = String(row.iqacStatus || '').toUpperCase().trim();
-  if (iqStatus.includes('NOT APPROVED') || ['NEEDS CLARIFICATION', 'REJECTED'].includes(iqStatus)) {
-    return true;
-  }
-  if (!iqStatus || iqStatus === 'PENDING' || iqStatus.includes('PENDING')) {
-    const prStatus = String(row.principalApprovalStatus || '').toUpperCase().trim();
-    const apStatus = String(row.appraisalStatus || '').toUpperCase().trim();
-    if (prStatus === 'NOT APPROVED' || apStatus === 'NOT APPROVED BY IQAC') {
-      return true;
-    }
-    return false;
-  }
+export const isIqacNotApprovedRecord = (_row) => {
+  // NEW RULE: "Not Approved" no longer exists anywhere in leadership roles.
   return false;
 };
 
 export const isIqacPendingRecord = (row) => {
   if (!row) return false;
-  return !isIqacApprovedRecord(row) && !isIqacNotApprovedRecord(row);
+  return !isIqacApprovedRecord(row);
 };
 
 export function applyLeadershipDecision({ targetRecord, decision, evaluatorRole, remarks = '', excluded = undefined }) {
   const normDecision = String(decision || '').toUpperCase().trim();
-  const isNotApproved = ['NEEDS CLARIFICATION', 'NOT APPROVED', 'REJECTED', 'NOT APPROVED BY IQAC'].includes(normDecision) || normDecision.includes('NOT');
-  const finalStatus = isNotApproved ? 'Not Approved' : (normDecision === 'PENDING' ? 'Pending' : 'Approved');
+  const isPendingOrLegacyNotApproved = normDecision === 'PENDING' || ['NEEDS CLARIFICATION', 'NOT APPROVED', 'REJECTED', 'NOT APPROVED BY IQAC'].includes(normDecision) || normDecision.includes('NOT');
+  const finalStatus = isPendingOrLegacyNotApproved ? 'Pending' : 'Approved';
 
   const now = new Date();
   const updateFields = {
@@ -100,10 +88,9 @@ export function applyLeadershipDecision({ targetRecord, decision, evaluatorRole,
   if (finalStatus === 'Approved') {
     updateFields.appraisalStatus = 'Approved';
     updateFields.principalApprovalStatus = targetRecord?.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved';
-  } else if (finalStatus === 'Not Approved') {
-    updateFields.appraisalStatus = 'Approved';
-    updateFields.principalApprovalStatus = 'Not Approved';
   } else {
+    // Moved back to Pending Review
+    updateFields.appraisalStatus = 'Approved';
     updateFields.principalApprovalStatus = 'Pending';
   }
 
@@ -123,11 +110,12 @@ export function normalizeAppraisalLeadershipDecision(doc) {
     }
     return doc;
   }
+  // NEW RULE: Map any stored "Not Approved", "Rejected", "Needs Clarification" to "Pending" on read
   if (rawIq === 'NOT APPROVED' || rawIq === 'NOT APPROVED BY IQAC' || rawIq === 'REJECTED' || rawIq === 'NEEDS CLARIFICATION') {
-    doc.iqacStatus = 'Not Approved';
-    if (!doc.iqacEvaluatedBy) {
-      doc.iqacEvaluatedBy = rawPr === 'NOT APPROVED' ? 'Principal' : 'IQAC';
-    }
+    doc.iqacStatus = 'Pending';
+    doc.principalApprovalStatus = 'Pending';
+    doc.iqacEvaluatedBy = '';
+    doc.iqacEvaluatedAt = null;
     return doc;
   }
 
@@ -137,11 +125,20 @@ export function normalizeAppraisalLeadershipDecision(doc) {
     if (!doc.iqacEvaluatedBy) {
       doc.iqacEvaluatedBy = (rawPr === 'RATIFIED' || rawAp === 'RATIFIED' || rawPr === 'APPROVED') ? 'Principal' : 'IQAC';
     }
-  } else if (rawAp === 'NOT APPROVED BY IQAC' || rawPr === 'NOT APPROVED') {
-    doc.iqacStatus = 'Not Approved';
-    if (!doc.iqacEvaluatedBy) {
-      doc.iqacEvaluatedBy = rawPr === 'NOT APPROVED' ? 'Principal' : 'IQAC';
-    }
+  }
+  if (rawAp === 'NOT APPROVED BY IQAC') {
+    doc.appraisalStatus = 'Approved';
+    doc.iqacStatus = 'Pending';
+    doc.principalApprovalStatus = 'Pending';
+    doc.iqacEvaluatedBy = '';
+    doc.iqacEvaluatedAt = null;
+  } else if (rawAp === 'NOT APPROVED' || rawAp === 'FIX NEEDED' || rawAp === 'REJECTED') {
+    doc.appraisalStatus = 'Pending';
+  } else if (rawPr === 'NOT APPROVED') {
+    doc.iqacStatus = 'Pending';
+    doc.principalApprovalStatus = 'Pending';
+    doc.iqacEvaluatedBy = '';
+    doc.iqacEvaluatedAt = null;
   }
 
   return doc;
