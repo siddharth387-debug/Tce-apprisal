@@ -4157,7 +4157,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                 }}
                 className="inline-flex items-center gap-1.5 rounded-md bg-rose-600 hover:bg-rose-700 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition cursor-pointer"
               >
-                <span>⚠️</span> Not Approve
+                <span>⚠️</span> Not Approved
               </button>
             </div>
 
