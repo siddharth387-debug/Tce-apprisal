@@ -25,6 +25,34 @@ const toNum = (val) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+export function parseDateStringToIso(str) {
+  if (!str || typeof str !== 'string') return null;
+  const trimmed = str.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parts = trimmed.split(/[-/]/);
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+    } else if (parts[2].length === 4) {
+      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+export function calculateInclusiveDays(startDateStr, endDateStr) {
+  if (!startDateStr || !endDateStr) return '';
+  const sIso = parseDateStringToIso(startDateStr);
+  const eIso = parseDateStringToIso(endDateStr);
+  if (!sIso || !eIso) return '';
+  const s = new Date(sIso + 'T00:00:00Z');
+  const e = new Date(eIso + 'T00:00:00Z');
+  const diffTime = e.getTime() - s.getTime();
+  if (diffTime < 0) return '';
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  return diffDays > 0 ? String(diffDays) : '';
+}
+
 // ── Standard Engineering Scoring Rubrics ──────────────────────────────────────
 export const SUBSECTION_MAX_MARKS = {
   '1.1': 8, '1.2': 5, '1.3': 5, '1.4': 4, '1.5': 5, '1.6': 4, '1.7': 2, '1.8': 4, '1.9': 4, '1.10': 5, '1.11': 4,
@@ -44,7 +72,7 @@ export const SUBSECTION_MAX_MARKS_ARCH = {
   '2.1': 15, '2.2': 8, '2.3': 7, '2.4': 5, '2.5': 4, '2.6': 6, '2.7': 5, '2.8': 6,
   '3.1': 1, '3.2': 3, '3.3': 2, '3.4': 3, '3.5': 2, '3.6': 4,
   '4.1': 8, '4.2': 7,
-  '5.1': 1, '5.2': 2, '5.3': 1, '5.4': 1, '5.5': 1, '5.6': 4,
+  '5.1': 1, '5.2': 4, '5.3': 1, '5.4': 1, '5.5': 1, '5.6': 4,
   '6.1': 3, '6.2': 4, '6.3': 4, '6.4': 1, '6.5': 2, '6.6': 6,
   '7.1': 4, '7.2': 2, '7.3': 3, '7.4': 1,
   '8.1': 1, '8.2': 2, '8.3': 1, '8.4': 1,
@@ -328,9 +356,16 @@ export function computeAutomatedScores(sectionData = {}) {
     2
   );
   const s5_2 = Math.min(
-    (safeData.visitingPositions || []).filter(
-      (r) => isRowFullyFilled(r, ['institution', 'country', 'evidenceLink'])
-    ).length * 2,
+    (safeData.visitingPositions || []).reduce((sum, r) => {
+      let dur = toNum(r.durationDays || r.duration);
+      if (!dur && r.fromDate && r.toDate) {
+        dur = toNum(calculateInclusiveDays(r.fromDate, r.toDate));
+      }
+      if (dur >= 30) return sum + 4;
+      if (dur >= 15) return sum + 3;
+      if (dur >= 7) return sum + 2;
+      return sum;
+    }, 0),
     4
   );
   const s5_3 = Math.min(
@@ -362,15 +397,17 @@ export function computeAutomatedScores(sectionData = {}) {
 
   // Section 6
   const s6_1 = Math.min(
-    (safeData.fdpAttended || []).filter(
-      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink']) && toNum(r.duration) >= 5
-    ).length * 1.5,
+    (safeData.fdpAttended || []).filter((r) => {
+      if (!isRowFullyFilled(r, ['programName', 'organizer', 'evidenceLink'])) return false;
+      const dur = toNum(r.duration || (r.dateRange && r.endDate ? calculateInclusiveDays(r.dateRange, r.endDate) : 0));
+      return dur >= 5;
+    }).length * 2,
     3
   );
   const s6_2 = Math.min(
     (safeData.programsOrganized || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['programName', ['days', 'numberOfDays'], 'role', 'evidenceLink'])) return sum;
-      const d = toNum(r.days || r.numberOfDays);
+      const d = toNum(r.days || r.numberOfDays || (r.dateRange && r.endDate ? calculateInclusiveDays(r.dateRange, r.endDate) : 0));
       if (d >= 5) return sum + 2;
       if (d >= 2) return sum + 1;
       return sum;
@@ -801,13 +838,16 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   const s5_2 = Math.min(
     (safeData.visitingPositions || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['institution', 'country'])) return sum;
-      const v = toNum(r.durationDays || r.duration);
-      if (v >= 30) return sum + 2;
-      if (v >= 1) return sum + 1;
+      let dur = toNum(r.durationDays || r.duration);
+      if (!dur && r.fromDate && r.toDate) {
+        dur = toNum(calculateInclusiveDays(r.fromDate, r.toDate));
+      }
+      if (dur >= 30) return sum + 4;
+      if (dur >= 15) return sum + 3;
+      if (dur >= 7) return sum + 2;
       return sum;
     }, 0),
-    2
+    4
   );
   const s5_3 = Math.min(
     (safeData.foreignFaculty || []).filter(
@@ -838,15 +878,17 @@ export function computeAutomatedScoresArch(sectionData = {}) {
 
   // Section 6 (FDP & Professional Activities)
   const s6_1 = Math.min(
-    (safeData.fdpAttended || []).filter(
-      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink']) && toNum(r.duration) >= 5
-    ).length * 1.5,
+    (safeData.fdpAttended || []).filter((r) => {
+      if (!isRowFullyFilled(r, ['programName', 'organizer', 'evidenceLink'])) return false;
+      const dur = toNum(r.duration || (r.dateRange && r.endDate ? calculateInclusiveDays(r.dateRange, r.endDate) : 0));
+      return dur >= 5;
+    }).length * 2,
     3
   );
   const s6_2 = Math.min(
     (safeData.programsOrganized || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['programName', ['days', 'numberOfDays'], 'role', 'evidenceLink'])) return sum;
-      const d = toNum(r.numberOfDays || r.days);
+      const d = toNum(r.numberOfDays || r.days || (r.dateRange && r.endDate ? calculateInclusiveDays(r.dateRange, r.endDate) : 0));
       if (d >= 5) return sum + 2;
       if (d >= 2) return sum + 1;
       return sum;

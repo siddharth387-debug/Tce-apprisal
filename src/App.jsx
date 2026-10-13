@@ -263,7 +263,7 @@ export const getScoreboardSectionConfig = (sectionId, isArch, scores = {}) => {
       max: 10,
       items: [
         { key: '5.1', label: '5.1 International Engagement / MoU', value: scores.sub5_1 || 0, max: isArch ? 1 : 2 },
-        { key: '5.2', label: '5.2 Visiting / Adjunct Position Abroad', value: scores.sub5_2 || 0, max: isArch ? 2 : 4 },
+        { key: '5.2', label: '5.2 Visiting / Adjunct Position Abroad', value: scores.sub5_2 || 0, max: 4 },
         { key: '5.3', label: '5.3 Foreign Faculty / Student Hosted or Engaged', value: scores.sub5_3 || 0, max: isArch ? 1 : 2 },
         { key: '5.4', label: '5.4 QS / THE Reputation Survey Nominations Contribution', value: scores.sub5_4 || 0, max: 1 },
         { key: '5.5', label: '5.5 NIRF Survey Nomination', value: scores.sub5_5 || 0, max: 1 },
@@ -1861,7 +1861,16 @@ function unusedComputeSectionScores(sectionData = {}, role) {
   // --- Section V Scoring Engine ---
   const sub5_1 = Math.min((safeData.internationalEngagement || []).filter(r => isNonEmpty(r.institution) && isNonEmpty(r.country)).length * 1, 2);
   const sub5_2 = Math.min(
-    (safeData.visitingPositions || []).filter(r => isNonEmpty(r.institution) && (isNonEmpty(r.country) || isNonEmpty(r.period))).length * 2,
+    (safeData.visitingPositions || []).reduce((sum, r) => {
+      let dur = parseInt(r.durationDays || r.duration || 0, 10);
+      if (!dur && r.fromDate && r.toDate) {
+        dur = parseInt(calculateInclusiveDays(r.fromDate, r.toDate) || 0, 10);
+      }
+      if (dur >= 30) return sum + 4;
+      if (dur >= 15) return sum + 3;
+      if (dur >= 7) return sum + 2;
+      return sum;
+    }, 0),
     4
   );
   const sub5_3 = Math.min((safeData.foreignFaculty || []).filter(r => isNonEmpty(r.name) && isNonEmpty(r.institution)).length * 1, 2);
@@ -1871,15 +1880,17 @@ function unusedComputeSectionScores(sectionData = {}, role) {
 
   // --- Section VI Scoring Engine ---
   const sub6_1 = Math.min(
-    (safeData.fdpAttended || []).filter(
-      r => isNonEmpty(r.programName) && isNonEmpty(r.organizer) && Number(r.duration) >= 5
-    ).length * 1.5,
+    (safeData.fdpAttended || []).filter((r) => {
+      if (!isNonEmpty(r.programName) || !isNonEmpty(r.organizer)) return false;
+      const dur = Number(r.duration || (r.dateRange && r.endDate ? calculateInclusiveDays(r.dateRange, r.endDate) : 0));
+      return dur >= 5;
+    }).length * 2,
     3
   );
   const sub6_2 = Math.min(
     (safeData.programsOrganized || []).reduce((sum, row) => {
       if (!isNonEmpty(row.programName)) return sum;
-      const days = parseInt(row.days || 0, 10);
+      const days = parseInt(row.days || (row.dateRange && row.endDate ? calculateInclusiveDays(row.dateRange, row.endDate) : 0) || 0, 10);
       if (days >= 5) return sum + 2;
       if (days >= 2) return sum + 1;
       return sum;
@@ -4192,13 +4203,6 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
               className="inline-flex items-center rounded-full border border-emerald-500 px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 cursor-pointer"
             >
               Approve Appraisal
-            </button>
-            <button
-              type="button"
-              onClick={() => hodControls.onAction('Not Approved')}
-              className="inline-flex items-center rounded-full border border-red-500 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 cursor-pointer"
-            >
-              Return for Correction
             </button>
           </div>
         </div>
@@ -9588,9 +9592,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="5.2 Visiting / Adjunct Position Abroad"
-                subtitle={isArch ? "(Calculation Rubric: ≥30 days = 2 marks | 1-29 days = 1 mark | Max 2 marks)" : "(Calculation Rubric: 2 Marks per international keynote/invited talk abroad | Max 4 marks)"}
+                subtitle="Rubric: >=30 days = 4 | 15-30 days = 3 | 7-15 days = 2 | Max 4"
                 subScore={scores.sub5_2 || 0}
-                maxScore={isArch ? 2 : 4}
+                maxScore={4}
                 rows={currentSectionData.visitingPositions || []}
                 canAdd={canAddVisitingPositions(currentSectionData.visitingPositions || [])}
                 disabled={!isEditable}
@@ -9678,7 +9682,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 return (
                   <DynamicArraySection
                     title="6.1 FDP / STTP Attended (5 days and above)"
-                    subtitle="(Calculation Rubric: 1.5 marks per 5-day FDP | Max 3 marks)"
+                    subtitle="(Calculation Rubric: 2 marks per 5-day FDP | Max 3 marks)"
                     subScore={scores.sub6_1 || 0}
                     maxScore={3}
                     rows={fdpList}
