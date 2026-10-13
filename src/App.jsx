@@ -7591,12 +7591,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <h2 className="text-xl font-semibold text-slate-900">
                 Campus-Wide Accreditation &amp; Analytics
               </h2>
+            ) : isIQAC ? (
+              <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+                <span>📊</span> IQAC Accreditation &amp; Quality Audit
+              </h2>
             ) : (
               <>
                 <p className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                  {isRegistrar ? '🏛️ Institutional Governance & Review' : isIQAC ? '📊 IQAC Accreditation & Quality Audit' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
+                  {isRegistrar ? '🏛️ Institutional Governance & Review' : isHod ? 'DEPARTMENTAL EVALUATION' : 'Academic Timeline'}
                 </p>
-                {!isHod && !isIQAC && (
+                {!isHod && (
                   <>
                     <h2 className="mt-1 text-xl font-semibold text-slate-900">
                       {isRegistrar
@@ -7665,6 +7669,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 className="h-8 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition"
               >
                 <span>🔄</span> Refresh
+              </button>
+            )}
+
+            {(isIQAC || isPrincipal) && (
+              <button
+                type="button"
+                onClick={() => {
+                  exportIqacRosterPDF({
+                    rows: displayInboxRows,
+                    timeline: selectedTimeline,
+                    departmentFilter: selectedDeptFilter,
+                    targetScore: hodScoreSliderValue,
+                    scoreFrom: 0,
+                    scoreTo: hodScoreSliderValue,
+                    scoreFilterMode: (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? 'range' : hodScoreFilterMode,
+                    showExcludedArchive: false,
+                  });
+                }}
+                className="h-8 px-3 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
+                title="Export Audit Report as PDF"
+              >
+                <span>📄</span> Export Audit PDF
               </button>
             )}
           </div>
@@ -7856,117 +7882,119 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       </div>
 
       {isReviewMode ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5">
-          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center w-full gap-3 sm:gap-4 mb-4">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">
-                {isPrincipal ? 'Principal Review Dashboard' : isRegistrar ? 'Institutional Faculty Dashboard' : isIQAC ? 'IQAC Accreditation & Quality Audit Dashboard' : isHod ? 'FACULTY APPRAISAL DASHBOARD' : 'Department Faculty Appraisal Dashboard'}
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Showing {displayInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
-                {(isPrincipal || isRegistrar) && selectedDeptFilter !== 'ALL' ? ` [Filtered: Department of ${selectedDeptFilter}]` : ''}
-              </p>
-            </div>
+        <div className={(isIQAC || isPrincipal) ? "space-y-3" : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5"}>
+          {!isIQAC && !isPrincipal && (
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center w-full gap-3 sm:gap-4 mb-4">
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">
+                  {isRegistrar ? 'Institutional Faculty Dashboard' : isHod ? 'FACULTY APPRAISAL DASHBOARD' : 'Department Faculty Appraisal Dashboard'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Showing {displayInboxRows.length} {selectedTimeline === 'All' ? 'total submission(s)' : `submission(s) for ${selectedTimeline}`}
+                  {isRegistrar && selectedDeptFilter !== 'ALL' ? ` [Filtered: Department of ${selectedDeptFilter}]` : ''}
+                </p>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              {(isIQAC || isPrincipal) && (
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="flex rounded-md shadow-sm border border-slate-200 p-1 bg-slate-50">
+                  <button
+                    onClick={() => setActiveReviewTab('inbox')}
+                    className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'inbox' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+                    {isHod ? 'Inbox' : 'Inbox Roster'}
+                  </button>
+                  {!isHod && (
+                    <button
+                      onClick={() => setActiveReviewTab('analytics')}
+                      className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'analytics' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                      Analytics & Reports
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setActiveReviewTab('section_audit')}
+                    className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'section_audit' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+                    {isHod ? 'Section Audit' : 'Section / Criteria Audit'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(isIQAC || isPrincipal) && (
+            <div className="flex items-center">
+              <div className="inline-flex rounded-md shadow-sm border border-slate-200 p-1 bg-slate-50">
                 <button
                   type="button"
-                  onClick={() => {
-                    exportIqacRosterPDF({
-                      rows: displayInboxRows,
-                      timeline: selectedTimeline,
-                      departmentFilter: selectedDeptFilter,
-                      targetScore: hodScoreSliderValue,
-                      scoreFrom: 0,
-                      scoreTo: hodScoreSliderValue,
-                      scoreFilterMode: (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? 'range' : hodScoreFilterMode,
-                      showExcludedArchive: false,
-                    });
-                  }}
-                  className="px-3 py-1 bg-[#4A1519] hover:bg-[#3B1013] text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5"
-                  title="Export Audit Report as PDF"
-                >
-                  <span>📄</span> Export Audit PDF
-                </button>
-              )}
-
-              <div className="flex rounded-md shadow-sm border border-slate-200 p-1 bg-slate-50">
-                <button
                   onClick={() => setActiveReviewTab('inbox')}
                   className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'inbox' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
-                  {isHod || isIQAC || isPrincipal ? 'Inbox' : 'Inbox Roster'}
+                  Inbox
                 </button>
-                {!isHod && (
-                  <button
-                    onClick={() => setActiveReviewTab('analytics')}
-                    className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'analytics' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                    Analytics & Reports
-                  </button>
-                )}
                 <button
+                  type="button"
+                  onClick={() => setActiveReviewTab('analytics')}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'analytics' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                  Analytics &amp; Reports
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveReviewTab('section_audit')}
                   className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'section_audit' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-                  {isHod || isIQAC || isPrincipal ? 'Section Audit' : 'Section / Criteria Audit'}
+                  Section Audit
                 </button>
               </div>
             </div>
-          </div>
+          )}
           
           {activeReviewTab === 'inbox' && (
-          <div className="space-y-4">
-            {/* Task 1: Two Large Top-Level Selectable Boxes Side-by-Side */}
+          <div className="space-y-3">
+            {/* Task 3: ROW A - Compact segmented toggle */}
             {(isIQAC || isPrincipal) && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Box 1: HOD Approvals */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLeadershipTopBox('HOD_APPROVALS');
-                    setHodApprovalsTab('HOD_APPROVED');
-                    setIsIqacSelectMode(false);
-                    setSelectedIqacRowIds([]);
-                  }}
-                  className={`p-5 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center min-h-[72px] group ${
-                    leadershipTopBox === 'HOD_APPROVALS'
-                      ? 'border-[#4A1519] bg-[#4A1519]/5 shadow-md ring-2 ring-[#4A1519]/20'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
-                  }`}
-                >
-                  <h4 className={`text-base font-bold tracking-tight ${
-                    leadershipTopBox === 'HOD_APPROVALS' ? 'text-[#4A1519]' : 'text-slate-800'
-                  }`}>
+              <div className="flex items-center">
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLeadershipTopBox('HOD_APPROVALS');
+                      setHodApprovalsTab('HOD_APPROVED');
+                      setIsIqacSelectMode(false);
+                      setSelectedIqacRowIds([]);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
+                      leadershipTopBox === 'HOD_APPROVALS'
+                        ? 'bg-[#4A1519] text-white shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
                     HOD Approvals
-                  </h4>
-                </button>
-
-                {/* Box 2: Your Approvals */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLeadershipTopBox('YOUR_APPROVALS');
-                    setYourApprovalsTab('PENDING_REVIEW');
-                    setIsIqacSelectMode(false);
-                    setSelectedIqacRowIds([]);
-                  }}
-                  className={`p-5 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center min-h-[72px] group ${
-                    leadershipTopBox === 'YOUR_APPROVALS'
-                      ? 'border-blue-700 bg-blue-50/50 shadow-md ring-2 ring-blue-600/20'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
-                  }`}
-                >
-                  <h4 className={`text-base font-bold tracking-tight ${
-                    leadershipTopBox === 'YOUR_APPROVALS' ? 'text-blue-900' : 'text-slate-800'
-                  }`}>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLeadershipTopBox('YOUR_APPROVALS');
+                      setYourApprovalsTab('PENDING_REVIEW');
+                      setIsIqacSelectMode(false);
+                      setSelectedIqacRowIds([]);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
+                      leadershipTopBox === 'YOUR_APPROVALS'
+                        ? 'bg-[#4A1519] text-white shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
                     Your Approvals
-                  </h4>
-                </button>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -8186,7 +8214,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className={(isIQAC || isPrincipal) ? "overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs" : "overflow-x-auto"}>
               <table className="min-w-full text-left">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
