@@ -155,6 +155,8 @@ const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const jwtSecret = process.env.JWT_SECRET;
 const mongoUri = process.env.MONGO_URI;
+const distPath = path.join(__dirname, '..', 'dist');
+const spaIndex = path.join(distPath, 'index.html');
 // Dynamically generate academic timelines up to 2100 (e.g. 2020-2021 through 2099-2100)
 const generateTimelines = (startYear = 2020, endYear = 2100) => {
   const list = [];
@@ -852,6 +854,9 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 app.get('/', (req, res) => {
+  if (fs.existsSync(spaIndex)) {
+    return res.sendFile(spaIndex);
+  }
   res.status(200).json({ status: 'ok', message: 'TCE Appraisal API is live' });
 });
 
@@ -1113,6 +1118,7 @@ app.post('/api/auth/google', async (request, response) => {
 
     return response.status(401).json({
       message: 'Google authentication failed. Please try again.',
+      detail: error?.message || String(error),
     });
   }
 });
@@ -2705,6 +2711,16 @@ async function migrateGmailLoginsToMca() {
   } catch (err) {
     console.warn('⚠️ Gmail to MCA migration warning:', err.message);
   }
+}
+
+// Express 5 rejects app.get('*'). Serve the Vite build when dist/ exists
+// (single-container TCE image: vite build + node server/index.js).
+if (fs.existsSync(spaIndex)) {
+  app.use(express.static(distPath));
+  app.get('/{*splat}', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    return res.sendFile(path.join(distPath, 'index.html'));
+  });
 }
 
 // ── Asynchronous Server Initialization ───────────────────────────────────────

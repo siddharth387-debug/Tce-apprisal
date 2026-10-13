@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api');
+import { API_BASE_URL } from './apiBase.js';
 
 export default function DepartmentManagementModal({ isOpen, onClose, currentUser, onHodRotated }) {
   const [departments, setDepartments] = useState([]);

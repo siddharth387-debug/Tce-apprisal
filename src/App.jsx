@@ -20,9 +20,9 @@ import AppDateInput, {
   calculateInclusiveDays,
 } from './AppDateInput.jsx';
 import AppLinkInput, { parseLink } from './AppLinkInput.jsx';
+import { API_BASE_URL } from './apiBase.js';
 
 // ── Module-level constants ────────────────────────────────────────────────────
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api');
 
 // Resolves the active JWT from every known localStorage key slot.
 const getAuthToken = () => {
@@ -2679,6 +2679,11 @@ const LandingPage = React.memo(function LandingPage({
   const [sessionConflictData, setSessionConflictData] = useState(null);
   const [pendingCredential, setPendingCredential] = useState(null);
   const [isTerminatingOther, setIsTerminatingOther] = useState(false);
+  const [pageOrigin, setPageOrigin] = useState('');
+
+  useEffect(() => {
+    setPageOrigin(window.location.origin);
+  }, []);
 
   const resolvedClientId = useMemo(
     () =>
@@ -2741,8 +2746,17 @@ const LandingPage = React.memo(function LandingPage({
             setSessionConflictData(error.response.data);
             return;
           }
+          if (!error.response) {
+            setErrorMessage(
+              `Cannot reach the API at ${API_BASE_URL}/auth/google. Open this stack on its own host port, not through another app on this server.`
+            );
+            return;
+          }
+          const apiMessage = error.response.data?.detail || error.response.data?.message;
           setErrorMessage(
-            error.response?.data?.message || 'Google authentication failed. Please try again.'
+            apiMessage
+              ? `${error.response.status}: ${apiMessage}`
+              : `Google authentication failed (${error.response.status}) at ${API_BASE_URL}/auth/google.`
           );
           return;
         }
@@ -2896,7 +2910,6 @@ const LandingPage = React.memo(function LandingPage({
                 <GoogleLogin
                   onSuccess={handleGoogleSuccess}
                   onError={handleGoogleError}
-                  auto_select
                   useOneTap={false}
                   shape="pill"
                   size="large"
@@ -2910,6 +2923,14 @@ const LandingPage = React.memo(function LandingPage({
                 </p>
               )}
             </div>
+            {pageOrigin && (
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500">
+                Google <span className="font-semibold">origin_mismatch</span> means this exact origin is missing
+                from Authorized JavaScript origins:
+                <br />
+                <code className="mt-1 inline-block font-mono text-slate-800">{pageOrigin}</code>
+              </p>
+            )}
 
             {errorMessage && (
               <p className="mt-4 text-center text-sm font-medium text-rose-600">
