@@ -71,25 +71,26 @@ export function calculateInclusiveDays(startDateStr, endDateStr) {
  * - 'year': 01 Jan {startYear} to 31 Dec {startYear}
  * - 'academic': 01 Jul {startYear} to 30 Jun {endYear}
  */
-export function getCalendarRangeForBatch(batch, calendarType) {
-  if (!batch || calendarType === 'none' || !calendarType) {
+export function getCalendarRangeForBatch(batch, calendarType = 'academic') {
+  const cType = calendarType || 'academic';
+  if (!batch || cType === 'none') {
     return { minDate: undefined, maxDate: undefined, label: '', calendarName: '' };
   }
   const match = String(batch).match(/(\d{4})/g);
   const startYear = match && match[0] ? parseInt(match[0], 10) : 2025;
   const endYear = match && match[1] ? parseInt(match[1], 10) : startYear + 1;
 
-  if (calendarType === 'year') {
+  if (cType === 'year') {
     return {
       minDate: `${startYear}-01-01`,
       maxDate: `${startYear}-12-31`,
       label: `01 Jan ${startYear} to 31 Dec ${startYear}`,
-      calendarName: 'Year Calendar',
+      calendarName: 'Calendar Year',
       startYear,
       endYear,
     };
   }
-  if (calendarType === 'academic') {
+  if (cType === 'academic') {
     return {
       minDate: `${startYear}-07-01`,
       maxDate: `${endYear}-06-30`,
@@ -127,7 +128,7 @@ export function computeExpectedEndDate(startDateStr, durationDays) {
 export default function AppDateInput({
   value = '',
   onChange,
-  calendarType = 'none',
+  calendarType = 'academic',
   batch = '2025 - 2026',
   minDate: customMinDate,
   maxDate: customMaxDate,

@@ -341,15 +341,15 @@ export function computeAutomatedScores(sectionData = {}) {
   );
   const s5_4 = Math.min(
     (safeData.reputationSurvey || []).filter(
-      (r) => isRowFullyFilled(r, ['surveyName', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
-        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+      (r) => isRowFullyFilled(r, ['surveyName', 'evidenceLink']) &&
+        (!r.submitted && !r.evidenceSubmitted ? true : (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes')
     ).length * 1,
     1
   );
   const s5_5 = Math.min(
     (safeData.nirfSurvey || []).filter(
-      (r) => isRowFullyFilled(r, ['nominationDetails', ['submitted', 'evidenceSubmitted'], 'evidenceLink']) &&
-        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+      (r) => isRowFullyFilled(r, ['nominationDetails', 'evidenceLink']) &&
+        (!r.submitted && !r.evidenceSubmitted ? true : (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes')
     ).length * 1,
     1
   );
@@ -388,8 +388,8 @@ export function computeAutomatedScores(sectionData = {}) {
   );
   const s6_4 = Math.min(
     (safeData.professionalMembership || []).filter(
-      (r) => isRowFullyFilled(r, ['societyName', 'membershipType', 'status', 'evidenceLink']) &&
-        (r.status || '').toLowerCase() === 'active'
+      (r) => isRowFullyFilled(r, ['societyName', 'membershipType', 'evidenceLink']) &&
+        (!r.status ? true : (r.status || '').toLowerCase() === 'active')
     ).length * 1,
     1
   );
@@ -817,15 +817,15 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   const s5_4 = Math.min(
     (safeData.reputationSurvey || []).filter(
-      (r) => isRowFullyFilled(r, ['surveyName', ['submitted', 'evidenceSubmitted']]) &&
-        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+      (r) => isRowFullyFilled(r, ['surveyName']) &&
+        (!r.submitted && !r.evidenceSubmitted ? true : (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes')
     ).length * 1,
     1
   );
   const s5_5 = Math.min(
     (safeData.nirfSurvey || []).filter(
-      (r) => isRowFullyFilled(r, ['nominationDetails', ['submitted', 'evidenceSubmitted']]) &&
-        (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes'
+      (r) => isRowFullyFilled(r, ['nominationDetails']) &&
+        (!r.submitted && !r.evidenceSubmitted ? true : (r.submitted || r.evidenceSubmitted || '').toLowerCase() === 'yes')
     ).length * 1,
     1
   );
@@ -863,8 +863,8 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   );
   const s6_4 = Math.min(
     (safeData.professionalMembership || []).filter(
-      (r) => isRowFullyFilled(r, ['societyName', 'membershipType', 'status', 'evidenceLink']) &&
-        (r.status || '').toLowerCase() === 'active'
+      (r) => isRowFullyFilled(r, ['societyName', 'membershipType', 'evidenceLink']) &&
+        (!r.status ? true : (r.status || '').toLowerCase() === 'active')
     ).length * 1,
     1
   );

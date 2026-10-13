@@ -1083,14 +1083,18 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
   const errors = {};
 
   columns.forEach((column) => {
+    if (column.condition && !column.condition(row)) {
+      return;
+    }
+
+    if (column.isCalculatedDays || column.isReadOnly) {
+      // Disabled / calculated fields are never shown as an error; dates/inputs carry required errors.
+      return;
+    }
+
     const rawValue = row[column.name];
     const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
     const trimmed = value.trim();
-
-    if (column.isCalculatedDays) {
-      // Disabled days field is never shown as an error; dates carry required errors.
-      return;
-    }
 
     if (column.name === 'courseCode') {
       if (!isValidCourseCode(trimmed)) {
@@ -1137,8 +1141,9 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
         if (iso === 'invalid') {
           errors[column.name] = 'invalid_date';
         } else {
-          if (options.batch && column.calendarType && column.calendarType !== 'none') {
-            const range = getCalendarRangeForBatch(options.batch, column.calendarType);
+          const cType = column.calendarType || 'academic';
+          if (options.batch && cType !== 'none') {
+            const range = getCalendarRangeForBatch(options.batch, cType);
             if (range.minDate && range.maxDate && (iso < range.minDate || iso > range.maxDate)) {
               errors[column.name] = 'out_of_range';
             }
@@ -1395,7 +1400,7 @@ function canAddResourcePerson(rows) {
 function canAddProfessionalMembership(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.societyName && last.membershipType && last.status && last.evidenceLink);
+  return !!(last.societyName && last.membershipType && ((last.fromDate && last.toDate) || last.status) && last.evidenceLink);
 }
 function canAddEditorialBoard(rows) {
   if (rows.length === 0) return true;
@@ -1487,7 +1492,8 @@ function canAddHackathonPrizes(rows) {
 function canAddResearchProjects(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.projectName && last.fundingAgency && last.period && last.amount && last.role && last.status && last.evidenceLink);
+  const dateOk = last.status === 'Completed' ? !!last.completedDate : true;
+  return !!(last.projectName && last.fundingAgency && last.period && last.amount && last.role && last.status && dateOk && last.evidenceLink);
 }
 function canAddConsultancyProjects(rows) {
   if (rows.length === 0) return true;
@@ -1502,7 +1508,7 @@ function canAddInternationalEngagement(rows) {
 function canAddVisitingPositions(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.institution && last.country && last.duration && last.period && last.evidenceLink);
+  return !!(last.institution && last.country && last.duration && ((last.fromDate && last.toDate) || last.period) && last.evidenceLink);
 }
 function canAddForeignFaculty(rows) {
   if (rows.length === 0) return true;
@@ -1512,12 +1518,12 @@ function canAddForeignFaculty(rows) {
 function canAddReputationSurvey(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.surveyName && last.contributionDetails && last.startDate && last.endDate && last.evidenceSubmitted && last.evidenceLink);
+  return !!(last.surveyName && last.contributionDetails && (last.date || last.startDate) && last.evidenceLink);
 }
 function canAddNirfSurvey(rows) {
   if (rows.length === 0) return true;
   const last = rows[rows.length - 1];
-  return !!(last.nominationDetails && last.startDate && last.endDate && last.evidenceSubmitted && last.evidenceLink);
+  return !!(last.nominationDetails && (last.date || last.startDate) && last.evidenceLink);
 }
 function canAddStudioPedagogy(rows) {
   if (rows.length === 0) return true;
@@ -2107,11 +2113,14 @@ function DynamicArraySection({
     }
 
     const colDef = safeColumns.find((c) => c.name === columnName);
-    if (colDef && colDef.isCalculatedDays) {
+    if (colDef && (colDef.isCalculatedDays || colDef.isReadOnly)) {
+      return '';
+    }
+    if (colDef && colDef.condition && !colDef.condition(row)) {
       return '';
     }
     if (colDef && colDef.type === 'date') {
-      const dateVal = String(row[columnName] || '').trim();
+      const dateVal = String(row[columnName] || (columnName === 'date' ? row.startDate : '') || '').trim();
       if (dateVal) {
         const iso = parseDateStringToIso(dateVal);
         if (iso === 'invalid') {
@@ -2124,8 +2133,9 @@ function DynamicArraySection({
             return 'End date cannot be earlier than start date';
           }
         }
-        if (colDef.calendarType && colDef.calendarType !== 'none') {
-          const range = getCalendarRangeForBatch(effectiveBatch, colDef.calendarType);
+        const cType = colDef.calendarType || 'academic';
+        if (cType !== 'none') {
+          const range = getCalendarRangeForBatch(effectiveBatch, cType);
           if (range.minDate && range.maxDate && (iso < range.minDate || iso > range.maxDate)) {
             return `Date must be within ${range.calendarName} (${range.label})`;
           }
@@ -2179,7 +2189,8 @@ function DynamicArraySection({
   };
 
   const hasRowColumnError = (row, column) => {
-    if (column.isCalculatedDays) return false;
+    if (column.condition && !column.condition(row)) return false;
+    if (column.isCalculatedDays || column.isReadOnly) return false;
     if (column.name === 'toDate' && Boolean(row.isTillDate)) return false;
     if (rowErrors?.[row.id]?.[column.name]) return true;
     if (column.name === 'courseCode' && isNonEmpty(row[column.name])) {
@@ -2302,9 +2313,10 @@ function DynamicArraySection({
     }
 
     if (column.type === 'date') {
+      const rawVal = row[column.name] || (column.name === 'date' ? row.startDate : '');
       return (
         <AppDateInput
-          value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] || '')}
+          value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (rawVal || '')}
           onChange={(val) => {
             onChange(row.id, column.name, val);
             if (column.endDateField && row[column.endDateField]) {
@@ -2315,7 +2327,7 @@ function DynamicArraySection({
               }
             }
           }}
-          calendarType={column.calendarType || 'none'}
+          calendarType={column.calendarType || 'academic'}
           batch={effectiveBatch}
           startDateForOrdering={column.isEndDate ? (row[column.startDateField || 'startDate'] || row.dateRange || row.fromDate) : undefined}
           disabled={disabled || Boolean(column.name === 'toDate' && row.isTillDate)}
@@ -2396,7 +2408,17 @@ function DynamicArraySection({
       );
     }
 
-    if (column.isCalculatedDays) {
+    if (column.isCalculatedDays || column.isReadOnly) {
+      let displayVal = row[column.name] ?? '';
+      if (column.name === 'duration' && (row.fromDate || row.toDate)) {
+        displayVal = (row.fromDate && row.toDate) ? calculateInclusiveDays(row.fromDate, row.toDate) : '';
+      } else if (column.name === 'totalStudents') {
+        const intFilled = row.internalStudents !== '' && row.internalStudents !== undefined;
+        const extFilled = row.externalStudents !== '' && row.externalStudents !== undefined;
+        displayVal = (intFilled || extFilled)
+          ? String((Number(row.internalStudents) || 0) + (Number(row.externalStudents) || 0))
+          : (row.totalStudents ?? '');
+      }
       return (
         <div onFocus={handleFieldFocus} className="w-full">
           <input
@@ -2404,8 +2426,8 @@ function DynamicArraySection({
             readOnly
             disabled
             tabIndex={-1}
-            value={row[column.name] ?? ''}
-            title="Calculated automatically from the dates"
+            value={displayVal}
+            title={column.name === 'totalStudents' ? 'Calculated automatically from Internal + External Students' : 'Calculated automatically'}
             aria-label={fieldPlaceholder}
             placeholder={fieldPlaceholder}
             className="w-full rounded-md border border-slate-200 bg-slate-100 disabled:bg-slate-100 disabled:cursor-not-allowed h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none select-none placeholder:text-[11px] placeholder:text-gray-400 truncate whitespace-nowrap [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -2616,11 +2638,16 @@ function DynamicArraySection({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(215px,1fr))] gap-2.5 sm:gap-3 w-full items-start">
-                {safeColumns.map((column) => (
-                  <div key={column.name} className="w-full min-w-0 flex flex-col">
-                    {renderColumnField(column, row)}
-                  </div>
-                ))}
+                {safeColumns.map((column) => {
+                  if (column.condition && !column.condition(row)) {
+                    return null;
+                  }
+                  return (
+                    <div key={column.name} className="w-full min-w-0 flex flex-col">
+                      {renderColumnField(column, row)}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -3283,10 +3310,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
 
   const section5Arrays = [
     { label: "5.1 International Engagement", rows: (sec5.internationalEngagement || []).filter(r => !isRowBlank(r)), fields: ["institution", "country", "nature", "evidenceLink"] },
-    { label: "5.2 Visiting Positions", rows: (sec5.visitingPositions || []).filter(r => !isRowBlank(r)), fields: ["institution", "duration", "period", "evidenceLink"] },
+    { label: "5.2 Visiting Positions", rows: (sec5.visitingPositions || []).filter(r => !isRowBlank(r)), fields: ["institution", "country", "fromDate", "toDate", "duration", "evidenceLink"] },
     { label: "5.3 Foreign Faculty", rows: (sec5.foreignFaculty || []).filter(r => !isRowBlank(r)), fields: ["name", "institution", "period", "engagementType", "evidenceLink"] },
-    { label: "5.4 Reputation Survey", rows: (sec5.reputationSurvey || []).filter(r => !isRowBlank(r)), fields: ["surveyName", "evidenceSubmitted", "evidenceLink"] },
-    { label: "5.5 NIRF Survey", rows: (sec5.nirfSurvey || []).filter(r => !isRowBlank(r)), fields: ["nominationDetails", "evidenceSubmitted", "evidenceLink"] }
+    { label: "5.4 Reputation Survey", rows: (sec5.reputationSurvey || []).filter(r => !isRowBlank(r)), fields: ["surveyName", "contributionDetails", "date", "evidenceLink"] },
+    { label: "5.5 NIRF Survey", rows: (sec5.nirfSurvey || []).filter(r => !isRowBlank(r)), fields: ["nominationDetails", "date", "evidenceLink"] }
   ];
   const isSection5Populated = section5Arrays.some(s => s.rows.length > 0);
 
@@ -3294,9 +3321,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: "6.1 FDP / STTP Attended", rows: (sec6.fdpAttended || []).filter(r => !isRowBlank(r)), fields: ["programName", "organizer", "duration", "dateRange", "evidenceLink"] },
     { label: "6.2 Programs Organized", rows: (sec6.programsOrganized || []).filter(r => !isRowBlank(r)), fields: ["programName", "days", "dateRange", "role", "participants", "evidenceLink"] },
     { label: "6.3 Resource Person", rows: (sec6.resourcePerson || []).filter(r => !isRowBlank(r)), fields: ["eventName", "level", "topic", "date", "evidenceLink"] },
-    { label: "6.4 Professional Membership", rows: (sec6.professionalMembership || []).filter(r => !isRowBlank(r)), fields: ["societyName", "membershipType", "status", "evidenceLink"] },
+    { label: "6.4 Professional Membership", rows: (sec6.professionalMembership || []).filter(r => !isRowBlank(r)), fields: ["societyName", "membershipType", "fromDate", "toDate", "evidenceLink"] },
     { label: "6.5 Editorial Board", rows: (sec6.editorialBoard || []).filter(r => !isRowBlank(r)), fields: ["bodyName", "position", "period", "evidenceLink"] },
-    { label: "6.6 MOOC Developed", rows: (sec6.moocDeveloped || []).filter(r => !isRowBlank(r)), fields: ["courseName", "weeks", "coFacultyCount", "takersCount", "evidenceLink"] }
+    { label: "6.6 MOOC Developed", rows: (sec6.moocDeveloped || []).filter(r => !isRowBlank(r)), fields: ["courseName", "weeks", "coFacultyCount", "totalStudents", "evidenceLink"] }
   ];
   const isSection6Populated = section6Arrays.some(s => s.rows.length > 0);
 
@@ -4717,16 +4744,32 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       };
 
       const cleanedSection4Data = {
-        researchProjects: cleanDraftArray(currentDraft.researchProjects),
+        researchProjects: cleanDraftArray(currentDraft.researchProjects).map(r => ({
+          ...r,
+          completedDate: r.status === 'Completed' ? (r.completedDate || '') : ''
+        })),
         consultancyProjects: cleanDraftArray(currentDraft.consultancyProjects),
       };
 
       const cleanedSection5Data = {
         internationalEngagement: cleanDraftArray(currentDraft.internationalEngagement),
-        visitingPositions: cleanDraftArray(currentDraft.visitingPositions),
+        visitingPositions: cleanDraftArray(currentDraft.visitingPositions).map(r => ({
+          ...r,
+          duration: (r.fromDate && r.toDate) ? calculateInclusiveDays(r.fromDate, r.toDate) : (r.duration || '')
+        })),
         foreignFaculty: cleanDraftArray(currentDraft.foreignFaculty),
-        reputationSurvey: cleanDraftArray(currentDraft.reputationSurvey),
-        nirfSurvey: cleanDraftArray(currentDraft.nirfSurvey),
+        reputationSurvey: cleanDraftArray(currentDraft.reputationSurvey).map(r => ({
+          ...r,
+          startDate: r.date || r.startDate || '',
+          evidenceSubmitted: r.evidenceSubmitted || 'Yes',
+          submitted: r.submitted || r.evidenceSubmitted || 'Yes'
+        })),
+        nirfSurvey: cleanDraftArray(currentDraft.nirfSurvey).map(r => ({
+          ...r,
+          startDate: r.date || r.startDate || '',
+          evidenceSubmitted: r.evidenceSubmitted || 'Yes',
+          submitted: r.submitted || r.evidenceSubmitted || 'Yes'
+        })),
         internationalDesignStudio: cleanDraftArray(currentDraft.internationalDesignStudio),
       };
 
@@ -4734,7 +4777,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         fdpAttended: cleanDraftArray(currentDraft.fdpAttended),
         programsOrganized: cleanDraftArray(currentDraft.programsOrganized),
         resourcePerson: cleanDraftArray(currentDraft.resourcePerson),
-        professionalMembership: cleanDraftArray(currentDraft.professionalMembership),
+        professionalMembership: cleanDraftArray(currentDraft.professionalMembership).map(r => ({
+          ...r,
+          status: r.status || 'Active'
+        })),
         editorialBoard: cleanDraftArray(currentDraft.editorialBoard).map(r => ({
           ...r,
           isTillDate: Boolean(r.isTillDate),
@@ -4743,12 +4789,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             ? (Boolean(r.isTillDate) ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
             : (r.period || '')
         })),
-        moocDeveloped: cleanDraftArray(currentDraft.moocDeveloped).map(r => ({
-          ...r,
-          takersCount: ((r.internalStudents !== undefined && r.internalStudents !== '') || (r.externalStudents !== undefined && r.externalStudents !== ''))
-            ? `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
-            : (r.takersCount || '')
-        })),
+        moocDeveloped: cleanDraftArray(currentDraft.moocDeveloped).map(r => {
+          const intFilled = r.internalStudents !== undefined && r.internalStudents !== '';
+          const extFilled = r.externalStudents !== undefined && r.externalStudents !== '';
+          return {
+            ...r,
+            totalStudents: (intFilled || extFilled)
+              ? String((Number(r.internalStudents) || 0) + (Number(r.externalStudents) || 0))
+              : (r.totalStudents || ''),
+            takersCount: (intFilled || extFilled)
+              ? `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
+              : (r.takersCount || '')
+          };
+        }),
       };
 
       const cleanedSection7Data = {
@@ -5591,7 +5644,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const designPatentsColumns = [
     { name: 'refNumber', label: 'Design Patent Application / Registration No', placeholder: 'Design Patent Application / Registration Number' },
     { name: 'title', label: 'Design Title / Form', placeholder: 'Design Title / Form' },
-    { name: 'dateGranted', label: 'Date Granted', type: 'date' },
+    { name: 'dateGranted', label: 'Date Granted', type: 'date', calendarType: 'academic' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const internationalDesignStudioColumns = [
@@ -5604,7 +5657,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const studentExhibitionsColumns = [
     { name: 'title', label: 'Exhibition / Expo Title', placeholder: 'Exhibition / Expo Title' },
     { name: 'venue', label: 'Venue / Platform', placeholder: 'Venue / Platform Name' },
-    { name: 'date', label: 'Date Conducted', type: 'date' },
+    { name: 'date', label: 'Date Conducted', type: 'date', calendarType: 'academic' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const courseFilesColumns = [
@@ -5756,7 +5809,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'DOI (Digital Object Identifier)' },
     { name: 'publisher', label: 'Publisher', placeholder: 'Publisher Name' },
     { name: 'volumeIssue', label: 'Vol, Issue & Page Nos.', placeholder: 'Vol, Issue & Page Nos.' },
-    { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'year' },
+    { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'academic' },
     {
       name: 'tier',
       label: 'Journal Tier',
@@ -5774,7 +5827,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'DOI (Digital Object Identifier)' },
     { name: 'publisher', label: 'Publisher', placeholder: 'Publisher Name' },
     { name: 'isbnIssn', label: 'ISBN / ISSN No.', placeholder: 'ISBN / ISSN No.' },
-    { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'year' },
+    { name: 'pubDate', label: 'Publication Date', type: 'date', calendarType: 'academic' },
     {
       name: 'type',
       label: 'Publication Type',
@@ -5792,7 +5845,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'proceedingName', label: 'Proceeding Name', placeholder: 'Proceeding Name' },
     { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'DOI (Digital Object Identifier)' },
     { name: 'publisher', label: 'Publisher / Organizer', placeholder: 'Publisher / Organizer Name' },
-    { name: 'pubDate', label: 'Conference Date', type: 'date', calendarType: 'year' },
+    { name: 'pubDate', label: 'Conference Date', type: 'date', calendarType: 'academic' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const researchCollaborationsColumns = [
@@ -5874,7 +5927,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const professionalMembershipColumns = [
     { name: "societyName", label: "Name of Society", type: "text", placeholder: "Name of Professional Society" },
     { name: "membershipType", label: "Membership Type", type: "text", placeholder: "Membership Type" },
-    { name: "status", label: "Status (Active/Inactive)", type: "select", options: ["Active", "Inactive"] },
+    { name: "fromDate", label: "From Date", type: "date", calendarType: "academic", endDateField: "toDate" },
+    { name: "toDate", label: "Till Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "fromDate" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const editorialBoardColumns = [
@@ -5887,11 +5941,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const moocDevelopedColumns = [
     { name: "courseName", label: "Course Code & Name", type: "text", placeholder: "Course Code & Name" },
-    { name: "courseId", label: "Course ID / MOOC Portal ID", type: "text", placeholder: "Course ID / MOOC Portal ID" },
     { name: "weeks", label: "Duration (Weeks / Credits)", type: "number", placeholder: "Duration in Weeks or Credits" },
-    { name: "coFacultyCount", label: "No. of Modules / Co-Faculty", type: "number", placeholder: "No. of Modules / Co-Faculty" },
+    { name: "coFacultyCount", label: "No. of Modules", type: "text", placeholder: "No. of Modules" },
     { name: "internalStudents", label: "No. of Internal Students", type: "number", placeholder: "No. of Internal Students" },
     { name: "externalStudents", label: "No. of External Students", type: "number", placeholder: "No. of External Students" },
+    { name: "totalStudents", label: "Total No. of Students", type: "number", isReadOnly: true, placeholder: "Total Students" },
     { name: "evidenceLink", label: "Proof / Evidence Link (Syllabus, Video or Platform URL)", type: "url", placeholder: "Supporting Document Link" }
   ];
 
@@ -5920,7 +5974,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const employerEngagementColumns = [
     { name: "activityName", label: "Activity Name", type: "text", placeholder: "Activity Name" },
     { name: "involvedParty", label: "Alumni / Employer Involved", type: "text", placeholder: "Alumni / Employer Involved" },
-    { name: "date", label: "Engagement Date", type: "date" },
+    { name: "date", label: "Engagement Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
@@ -5930,7 +5984,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "Journal / Conference Details" },
     { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "DOI (Digital Object Identifier)" },
     { name: "publisher", label: "Publisher", placeholder: "Publisher Name" },
-    { name: "date", label: "Date of Publication", type: "date", calendarType: "year" },
+    { name: "date", label: "Date of Publication", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const hackathonMentoringColumns = [
@@ -5986,7 +6040,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     { name: "title", label: "Title", type: "text", placeholder: "Patent Title" },
     { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Name of Inventors" },
-    { name: "datePublished", label: "Date Published", type: "date", calendarType: "year" },
+    { name: "datePublished", label: "Date Published", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const patentsGrantedColumns = [
@@ -5999,7 +6053,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     },
     { name: "title", label: "Title", type: "text", placeholder: "Patent Title" },
     { name: "inventors", label: "Name of Inventors", type: "text", placeholder: "Name of Inventors" },
-    { name: "dateGranted", label: "Date Granted", type: "date", calendarType: "year" },
+    { name: "dateGranted", label: "Date Granted", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const transferOfTechnologyColumns = [
@@ -6029,6 +6083,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "amount", label: "Sanctioned Amount (Rs.)", type: "number", isLakhs: true, min: 0, placeholder: "Sanctioned amount" },
     { name: "role", label: "Role", type: "select", options: ["PI", "Co-PI"] },
     { name: "status", label: "Project Status", type: "select", options: ["Ongoing", "Completed"] },
+    {
+      name: "completedDate",
+      label: "Completion Date",
+      type: "date",
+      calendarType: "year",
+      condition: (row) => row.status === "Completed",
+      placeholder: "Completion Date",
+    },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const consultancyProjectsColumns = [
@@ -6051,8 +6113,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const visitingPositionsColumns = [
     { name: "institution", label: "Institution", type: "text", placeholder: "Institution Name" },
     { name: "country", label: "Country", type: "text", placeholder: "Country Name" },
-    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Duration in Days" },
-    { name: "period", label: "Period / Date", type: "date", calendarType: "academic" },
+    { name: "fromDate", label: "From Date", type: "date", calendarType: "academic", endDateField: "toDate" },
+    { name: "toDate", label: "To Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "fromDate" },
+    { name: "duration", label: "Duration (Days)", type: "number", min: 0, placeholder: "Duration in Days", isCalculatedDays: true },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const foreignFacultyColumns = [
@@ -6065,23 +6128,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const reputationSurveyColumns = [
     { name: "surveyName", label: "Survey Name", type: "text", placeholder: "Survey Name" },
     { name: "contributionDetails", label: "Contribution Details", type: "text", placeholder: "Contribution Details" },
-    { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
-    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
-    { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
+    { name: "date", label: "Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const nirfSurveyColumns = [
     { name: "nominationDetails", label: "Nomination Details", type: "text", placeholder: "Nomination Details" },
-    { name: "startDate", label: "Start Date", type: "date", calendarType: "academic", endDateField: "endDate" },
-    { name: "endDate", label: "End Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "startDate" },
-    { name: "evidenceSubmitted", label: "Evidence Submitted (Yes/No)", type: "select", options: ["Yes", "No"] },
+    { name: "date", label: "Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
   const phdAwardedColumns = [
     { name: 'scholarName', label: 'Scholar Name', placeholder: 'Scholar Name' },
     { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Research Area / Title' },
-    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'none', placeholder: 'Viva Date' },
+    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'academic', placeholder: 'Viva Date' },
     { name: 'evidenceLink', label: 'Viva Circular Link', type: 'url', placeholder: 'Viva Circular Link' },
   ];
   const timelineApprovalStatus = currentSectionData.appraisalStatus || 'Not Approved';
@@ -6812,16 +6871,32 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       };
 
       const cleanedSection4Data = {
-        researchProjects: cleanSectionArray(formData.researchProjects),
+        researchProjects: cleanSectionArray(formData.researchProjects).map(r => ({
+          ...r,
+          completedDate: r.status === 'Completed' ? (r.completedDate || '') : ''
+        })),
         consultancyProjects: cleanSectionArray(formData.consultancyProjects),
       };
 
       const cleanedSection5Data = {
         internationalEngagement: cleanSectionArray(formData.internationalEngagement),
-        visitingPositions: cleanSectionArray(formData.visitingPositions),
+        visitingPositions: cleanSectionArray(formData.visitingPositions).map(r => ({
+          ...r,
+          duration: (r.fromDate && r.toDate) ? calculateInclusiveDays(r.fromDate, r.toDate) : (r.duration || '')
+        })),
         foreignFaculty: cleanSectionArray(formData.foreignFaculty),
-        reputationSurvey: cleanSectionArray(formData.reputationSurvey),
-        nirfSurvey: cleanSectionArray(formData.nirfSurvey),
+        reputationSurvey: cleanSectionArray(formData.reputationSurvey).map(r => ({
+          ...r,
+          startDate: r.date || r.startDate || '',
+          evidenceSubmitted: r.evidenceSubmitted || 'Yes',
+          submitted: r.submitted || r.evidenceSubmitted || 'Yes'
+        })),
+        nirfSurvey: cleanSectionArray(formData.nirfSurvey).map(r => ({
+          ...r,
+          startDate: r.date || r.startDate || '',
+          evidenceSubmitted: r.evidenceSubmitted || 'Yes',
+          submitted: r.submitted || r.evidenceSubmitted || 'Yes'
+        })),
         internationalDesignStudio: cleanSectionArray(formData.internationalDesignStudio),
       };
 
@@ -6829,7 +6904,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         fdpAttended: cleanSectionArray(formData.fdpAttended),
         programsOrganized: cleanSectionArray(formData.programsOrganized),
         resourcePerson: cleanSectionArray(formData.resourcePerson),
-        professionalMembership: cleanSectionArray(formData.professionalMembership),
+        professionalMembership: cleanSectionArray(formData.professionalMembership).map(r => ({
+          ...r,
+          status: r.status || 'Active'
+        })),
         editorialBoard: cleanSectionArray(formData.editorialBoard).map(r => ({
           ...r,
           isTillDate: Boolean(r.isTillDate),
@@ -6838,12 +6916,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             ? (Boolean(r.isTillDate) ? `${r.fromDate || ''} to Present` : (r.fromDate && r.toDate ? `${r.fromDate} to ${r.toDate}` : (r.fromDate || '')))
             : (r.period || '')
         })),
-        moocDeveloped: cleanSectionArray(formData.moocDeveloped).map(r => ({
-          ...r,
-          takersCount: ((r.internalStudents !== undefined && r.internalStudents !== '') || (r.externalStudents !== undefined && r.externalStudents !== ''))
-            ? `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
-            : (r.takersCount || '')
-        })),
+        moocDeveloped: cleanSectionArray(formData.moocDeveloped).map(r => {
+          const intFilled = r.internalStudents !== undefined && r.internalStudents !== '';
+          const extFilled = r.externalStudents !== undefined && r.externalStudents !== '';
+          return {
+            ...r,
+            totalStudents: (intFilled || extFilled)
+              ? String((Number(r.internalStudents) || 0) + (Number(r.externalStudents) || 0))
+              : (r.totalStudents || ''),
+            takersCount: (intFilled || extFilled)
+              ? `Internal: ${r.internalStudents || 0}, External: ${r.externalStudents || 0}`
+              : (r.takersCount || '')
+          };
+        }),
       };
 
       const cleanedSection7Data = {
@@ -7177,6 +7262,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             if (field === 'dateRange' || field === 'endDate') {
               updated.days = calculateInclusiveDays(updated.dateRange, updated.endDate);
             }
+          } else if (key === 'visitingPositions') {
+            if (field === 'fromDate' || field === 'toDate') {
+              updated.duration = (updated.fromDate && updated.toDate)
+                ? calculateInclusiveDays(updated.fromDate, updated.toDate)
+                : '';
+            }
+          } else if (key === 'researchProjects') {
+            if (field === 'status' && value !== 'Completed') {
+              updated.completedDate = '';
+            }
+          } else if (key === 'moocDeveloped') {
+            if (field === 'internalStudents' || field === 'externalStudents') {
+              const intVal = Number(updated.internalStudents || 0);
+              const extVal = Number(updated.externalStudents || 0);
+              const hasInt = updated.internalStudents !== '' && updated.internalStudents !== undefined;
+              const hasExt = updated.externalStudents !== '' && updated.externalStudents !== undefined;
+              updated.totalStudents = (hasInt || hasExt) ? String(intVal + extVal) : '';
+            }
           }
           const startKey = updated.startDate !== undefined ? 'startDate' : updated.dateRange !== undefined ? 'dateRange' : updated.fromDate !== undefined ? 'fromDate' : null;
           const endKey = updated.endDate !== undefined ? 'endDate' : updated.toDate !== undefined ? 'toDate' : null;
@@ -7189,6 +7292,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 updated.duration = '';
               } else if (key === 'programsOrganized') {
                 updated.days = '';
+              } else if (key === 'visitingPositions') {
+                updated.duration = '';
               }
             }
           }
@@ -9434,7 +9539,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.researchProjects || []}
                 canAdd={canAddResearchProjects(currentSectionData.researchProjects || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("researchProjects", { projectName: "", fundingAgency: "", period: "", amount: "", role: "", status: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("researchProjects", { projectName: "", fundingAgency: "", period: "", amount: "", role: "", status: "", completedDate: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("researchProjects", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("researchProjects", rowId)}
                 columns={researchProjectsColumns}
@@ -9489,7 +9594,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.visitingPositions || []}
                 canAdd={canAddVisitingPositions(currentSectionData.visitingPositions || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("visitingPositions", { institution: "", country: "", duration: "", period: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("visitingPositions", { institution: "", country: "", fromDate: "", toDate: "", duration: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("visitingPositions", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("visitingPositions", rowId)}
                 columns={visitingPositionsColumns}
@@ -9515,7 +9620,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.reputationSurvey || []}
                 canAdd={canAddReputationSurvey(currentSectionData.reputationSurvey || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("reputationSurvey", { surveyName: "", contributionDetails: "", evidenceSubmitted: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("reputationSurvey", { surveyName: "", contributionDetails: "", date: "", evidenceSubmitted: "Yes", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("reputationSurvey", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("reputationSurvey", rowId)}
                 columns={reputationSurveyColumns}
@@ -9528,7 +9633,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.nirfSurvey || []}
                 canAdd={canAddNirfSurvey(currentSectionData.nirfSurvey || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("nirfSurvey", { nominationDetails: "", evidenceSubmitted: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("nirfSurvey", { nominationDetails: "", date: "", evidenceSubmitted: "Yes", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("nirfSurvey", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("nirfSurvey", rowId)}
                 columns={nirfSurveyColumns}
@@ -9621,7 +9726,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.professionalMembership || []}
                 canAdd={canAddProfessionalMembership(currentSectionData.professionalMembership || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("professionalMembership", { societyName: "", membershipType: "", status: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("professionalMembership", { societyName: "", membershipType: "", fromDate: "", toDate: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("professionalMembership", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("professionalMembership", rowId)}
                 columns={professionalMembershipColumns}
@@ -9647,7 +9752,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 rows={currentSectionData.moocDeveloped || []}
                 canAdd={canAddMoocDeveloped(currentSectionData.moocDeveloped || [])}
                 disabled={!isEditable}
-                onAdd={() => addArrayRow("moocDeveloped", { courseName: "", courseId: "", weeks: "", coFacultyCount: "", internalStudents: "", externalStudents: "", evidenceLink: "" })}
+                onAdd={() => addArrayRow("moocDeveloped", { courseName: "", weeks: "", coFacultyCount: "", internalStudents: "", externalStudents: "", totalStudents: "", evidenceLink: "" })}
                 onChange={(rowId, field, value) => updateArrayRow("moocDeveloped", rowId, field, value)}
                 onRemove={(rowId) => removeArrayRow("moocDeveloped", rowId)}
                 columns={moocDevelopedColumns}
