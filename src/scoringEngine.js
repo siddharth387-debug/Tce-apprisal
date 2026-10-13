@@ -228,7 +228,7 @@ export function computeAutomatedScores(sectionData = {}) {
   const s2_5 = Math.min(
     (safeData.conferencePapers || []).filter(
       (r) => isRowFullyFilled(r, ['paperTitle', 'proceedingName', 'evidenceLink'])
-    ).length * 2,
+    ).length * 1,
     4
   );
   // 2.6 Research Collaborations & Projects / Creative Scholarship
@@ -328,14 +328,9 @@ export function computeAutomatedScores(sectionData = {}) {
     2
   );
   const s5_2 = Math.min(
-    (safeData.visitingPositions || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['institution', 'country', ['duration', 'durationDays'], 'evidenceLink'])) return sum;
-      const v = toNum(r.duration || r.durationDays);
-      if (v >= 30) return sum + 4;
-      if (v >= 15) return sum + 3;
-      if (v >= 7) return sum + 2;
-      return sum;
-    }, 0),
+    (safeData.visitingPositions || []).filter(
+      (r) => isRowFullyFilled(r, ['institution', 'country', 'evidenceLink'])
+    ).length * 2,
     4
   );
   const s5_3 = Math.min(
@@ -368,7 +363,7 @@ export function computeAutomatedScores(sectionData = {}) {
   // Section 6
   const s6_1 = Math.min(
     (safeData.fdpAttended || []).filter(
-      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink']) && toNum(r.duration) >= 5
     ).length * 1.5,
     3
   );
@@ -697,7 +692,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   const s2_5 = Math.min(
     (safeData.conferencePapers || []).filter(
       (r) => isRowFullyFilled(r, ['paperTitle', ['proceedingName', 'conferenceName'], 'evidenceLink'])
-    ).length * 2,
+    ).length * 1,
     4
   );
   
@@ -844,7 +839,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
   // Section 6 (FDP & Professional Activities)
   const s6_1 = Math.min(
     (safeData.fdpAttended || []).filter(
-      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink'])
+      (r) => isRowFullyFilled(r, ['programName', 'organizer', 'duration', 'evidenceLink']) && toNum(r.duration) >= 5
     ).length * 1.5,
     3
   );

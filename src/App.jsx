@@ -479,8 +479,29 @@ function handleCountKeyDown(e) {
   }
 }
 
+function handleWholeNumberKeyDown(e) {
+  if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) {
+    e.preventDefault();
+  }
+}
+
+function sanitizeWholeNumberInput(val, max) {
+  if (val === '' || val === null || val === undefined) return '';
+  const trimmed = String(val).trim();
+  if (trimmed === '') return '';
+  const cleaned = trimmed.replace(/[^0-9]/g, '');
+  if (cleaned === '') return '';
+  const num = parseInt(cleaned, 10);
+  if (Number.isNaN(num) || num < 0) return '0';
+  if (max !== undefined && max !== null && num > max) return String(max);
+  return String(num);
+}
+
 export const DOI_REGEX = /^10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+$/i;
-export const isValidDoi = (val) => Boolean(val && typeof val === 'string' && DOI_REGEX.test(val.trim()));
+export const isValidDoi = (val) => {
+  if (!val || typeof val !== 'string') return false;
+  return parseLink(val).valid;
+};
 export const normalizeEventName = (str) => (!str ? '' : String(str).trim().toLowerCase().replace(/\s+/g, ' '));
 
 export function convertToLakhs(raw) {
@@ -1092,8 +1113,8 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
     if (column.name === 'doi') {
       if (!trimmed) {
         errors[column.name] = true;
-      } else if (!isValidDoi(trimmed)) {
-        errors[column.name] = 'invalid_doi';
+      } else if (!parseLink(trimmed).valid) {
+        errors[column.name] = 'invalid_url';
       }
       return;
     }
@@ -1834,14 +1855,7 @@ function unusedComputeSectionScores(sectionData = {}, role) {
   // --- Section V Scoring Engine ---
   const sub5_1 = Math.min((safeData.internationalEngagement || []).filter(r => isNonEmpty(r.institution) && isNonEmpty(r.country)).length * 1, 2);
   const sub5_2 = Math.min(
-    (safeData.visitingPositions || []).reduce((sum, row) => {
-      if (!isNonEmpty(row.institution)) return sum;
-      const val = parseInt(row.duration || 0, 10);
-      if (val >= 30) return sum + 4;
-      if (val >= 15) return sum + 3;
-      if (val >= 7) return sum + 2;
-      return sum;
-    }, 0),
+    (safeData.visitingPositions || []).filter(r => isNonEmpty(r.institution) && (isNonEmpty(r.country) || isNonEmpty(r.period))).length * 2,
     4
   );
   const sub5_3 = Math.min((safeData.foreignFaculty || []).filter(r => isNonEmpty(r.name) && isNonEmpty(r.institution)).length * 1, 2);
@@ -1850,7 +1864,12 @@ function unusedComputeSectionScores(sectionData = {}, role) {
   const section5Total = Math.min(sub5_1 + sub5_2 + sub5_3 + sub5_4 + sub5_5, 10);
 
   // --- Section VI Scoring Engine ---
-  const sub6_1 = Math.min((safeData.fdpAttended || []).filter(r => isNonEmpty(r.programName) && isNonEmpty(r.organizer)).length * 2, 3);
+  const sub6_1 = Math.min(
+    (safeData.fdpAttended || []).filter(
+      r => isNonEmpty(r.programName) && isNonEmpty(r.organizer) && Number(r.duration) >= 5
+    ).length * 1.5,
+    3
+  );
   const sub6_2 = Math.min(
     (safeData.programsOrganized || []).reduce((sum, row) => {
       if (!isNonEmpty(row.programName)) return sum;
@@ -1960,6 +1979,58 @@ function unusedComputeSectionScores(sectionData = {}, role) {
 }
 
 
+const AutoGrowingTextarea = React.memo(function AutoGrowingTextarea({
+  value = '',
+  onChange,
+  onFocus,
+  title,
+  ariaLabel,
+  disabled,
+  placeholder,
+  hasError,
+  className = '',
+  maxHeight = 120,
+}) {
+  const textareaRef = useRef(null);
+
+  const adjustHeight = () => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      const scrollHeight = el.scrollHeight;
+      const minHeight = typeof window !== 'undefined' && window.innerWidth >= 640 ? 28 : 38;
+      const targetHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
+      el.style.height = `${targetHeight}px`;
+      el.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
+    }
+  };
+
+  useEffect(() => {
+    adjustHeight();
+  }, [value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      rows={1}
+      value={value}
+      onChange={(e) => {
+        onChange(e);
+        adjustHeight();
+      }}
+      onFocus={onFocus}
+      title={title}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={`w-full rounded-md border ${
+        hasError ? 'border-red-400' : 'border-slate-200'
+      } bg-white py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed resize-none whitespace-pre-wrap break-words leading-tight ${className}`}
+      style={{ minHeight: '28px', maxHeight: `${maxHeight}px`, overflowY: 'hidden' }}
+    />
+  );
+});
+
 function DynamicArraySection({
   title,
   subtitle,
@@ -1981,6 +2052,9 @@ function DynamicArraySection({
   activeSubsection,
   setActiveSubsection,
   sectionError,
+  calendarType: propCalendarType,
+  calendarLabel: propCalendarLabel,
+  headingNote,
 }) {
   const safeRows = rows || [];
   const safeColumns = columns || [];
@@ -2003,12 +2077,15 @@ function DynamicArraySection({
     const propErr = rowErrors?.[row.id]?.[columnName];
 
     if (columnName === 'doi') {
-      if (propErr === 'invalid_doi') {
-        return 'Enter a valid DOI (example: 10.1109/ACCESS.2023.1234567)';
+      if (propErr === 'invalid_doi' || propErr === 'invalid_url') {
+        return 'Enter a valid link';
       }
       const val = String(row[columnName] || '').trim();
-      if (val && !isValidDoi(val)) {
-        return 'Enter a valid DOI (example: 10.1109/ACCESS.2023.1234567)';
+      if (val) {
+        const parsed = parseLink(val);
+        if (!parsed.valid) {
+          return parsed.error || 'Enter a valid link';
+        }
       }
     }
 
@@ -2133,40 +2210,18 @@ function DynamicArraySection({
     }
   };
 
-  const renderGroups = useMemo(() => {
-    const groups = [];
-    for (let i = 0; i < safeColumns.length; i++) {
-      const col = safeColumns[i];
-      if (col.type === 'date' && col.endDateField && i + 1 < safeColumns.length && safeColumns[i + 1].name === col.endDateField) {
-        const startCol = col;
-        const endCol = safeColumns[i + 1];
-        let daysCol = null;
-        if (i + 2 < safeColumns.length && safeColumns[i + 2].isCalculatedDays) {
-          daysCol = safeColumns[i + 2];
-        }
-
-        const groupCols = daysCol ? [startCol, endCol, daysCol] : [startCol, endCol];
-        const calType = startCol.calendarType || endCol.calendarType;
-        const caption = calType === 'academic' ? 'Academic Calendar' : calType === 'year' ? 'Calendar Year' : null;
-
-        groups.push({
-          type: 'dateGroup',
-          caption,
-          columns: groupCols,
-        });
-        i += (groupCols.length - 1);
-      } else {
-        const calType = col.type === 'date' ? col.calendarType : null;
-        const caption = calType === 'academic' ? 'Academic Calendar' : calType === 'year' ? 'Calendar Year' : null;
-        groups.push({
-          type: 'single',
-          caption,
-          column: col,
-        });
+  const calendarLabel = useMemo(() => {
+    if (propCalendarLabel) return propCalendarLabel;
+    if (propCalendarType === 'academic') return 'Academic Year';
+    if (propCalendarType === 'year') return 'Calendar Year';
+    for (const col of safeColumns) {
+      if (col.calendarType && col.calendarType !== 'none') {
+        if (col.calendarType === 'academic') return 'Academic Year';
+        if (col.calendarType === 'year') return 'Calendar Year';
       }
     }
-    return groups;
-  }, [safeColumns]);
+    return null;
+  }, [propCalendarLabel, propCalendarType, safeColumns]);
 
   const renderColumnField = (column, row) => {
     const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
@@ -2359,65 +2414,107 @@ function DynamicArraySection({
       );
     }
 
-    return (
-      <>
-        <input
-          type={column.type || 'text'}
-          value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
-          onFocus={handleFieldFocus}
-          title={fieldPlaceholder}
-          aria-label={fieldPlaceholder}
-          onBlur={(event) => {
-            if (column.isLakhs) {
-              const converted = convertToLakhs(event.target.value);
-              if (converted !== event.target.value) {
-                onChange(row.id, column.name, converted);
-              }
-            }
-          }}
-          {...(column.type === 'number' ? {
-            min: 0,
-            ...(column.isLakhs ? {} : (getNumericFieldMax(column) !== undefined ? { max: getNumericFieldMax(column) } : {})),
-            ...(column.isLakhs ? { step: 'any' } : (getNumericFieldMax(column) === 100 ? { step: 'any' } : { step: '1' })),
-            onKeyDown: handleCountKeyDown,
-            onPaste: (e) => {
+    if (column.name === 'doi') {
+      return (
+        <>
+          <input
+            type="text"
+            value={row[column.name] ?? ''}
+            onFocus={handleFieldFocus}
+            title={fieldPlaceholder}
+            aria-label={fieldPlaceholder}
+            onChange={(e) => onChange(row.id, column.name, e.target.value)}
+            disabled={disabled}
+            placeholder={fieldPlaceholder}
+            className={`w-full rounded-md border ${
+              hasRowColumnError(row, column)
+                ? 'border-red-400'
+                : 'border-slate-200'
+            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
+          />
+          {getFieldErrorText(row, column.name) ? (
+            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
+              {getFieldErrorText(row, column.name)}
+            </span>
+          ) : null}
+        </>
+      );
+    }
+
+    if (column.type === 'number') {
+      const isWhole = column.isWholeNumber || column.name === 'participants';
+      return (
+        <>
+          <input
+            type="number"
+            min={column.min ?? 0}
+            {...(column.isLakhs ? {} : (getNumericFieldMax(column) !== undefined ? { max: getNumericFieldMax(column) } : {}))}
+            {...(column.isLakhs ? { step: 'any' } : isWhole ? { step: '1' } : (getNumericFieldMax(column) === 100 ? { step: 'any' } : { step: '1' }))}
+            value={row[column.name] ?? ''}
+            onFocus={handleFieldFocus}
+            title={fieldPlaceholder}
+            aria-label={fieldPlaceholder}
+            onKeyDown={isWhole ? handleWholeNumberKeyDown : handleCountKeyDown}
+            onPaste={(e) => {
               e.preventDefault();
               const pasted = e.clipboardData.getData('text');
               if (column.isLakhs) {
                 onChange(row.id, column.name, pasted.trim());
+              } else if (isWhole) {
+                const sanitized = sanitizeWholeNumberInput(pasted, getNumericFieldMax(column));
+                onChange(row.id, column.name, sanitized);
               } else {
                 const sanitized = sanitizeCountInput(pasted, getNumericFieldMax(column));
                 onChange(row.id, column.name, sanitized);
               }
-            },
-            onChange: (e) => {
+            }}
+            onChange={(e) => {
               if (column.isLakhs) {
                 onChange(row.id, column.name, e.target.value);
+              } else if (isWhole) {
+                const sanitized = sanitizeWholeNumberInput(e.target.value, getNumericFieldMax(column));
+                onChange(row.id, column.name, sanitized);
               } else {
                 onChange(row.id, column.name, sanitizeCountInput(e.target.value, getNumericFieldMax(column)));
               }
-            }
-          } : {
-            onChange: (event) => onChange(row.id, column.name, event.target.value)
-          })}
+            }}
+            onBlur={(event) => {
+              if (column.isLakhs) {
+                const converted = convertToLakhs(event.target.value);
+                if (converted !== event.target.value) {
+                  onChange(row.id, column.name, converted);
+                }
+              }
+            }}
+            disabled={disabled}
+            placeholder={fieldPlaceholder}
+            className={`w-full rounded-md border ${
+              hasRowColumnError(row, column)
+                ? 'border-red-400'
+                : 'border-slate-200'
+            } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
+          />
+          {getFieldErrorText(row, column.name) ? (
+            <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
+              {getFieldErrorText(row, column.name)}
+            </span>
+          ) : null}
+        </>
+      );
+    }
+
+    return (
+      <>
+        <AutoGrowingTextarea
+          value={column.name === 'toDate' && Boolean(row.isTillDate) ? '' : (row[column.name] ?? '')}
+          onChange={(event) => onChange(row.id, column.name, event.target.value)}
+          onFocus={handleFieldFocus}
+          title={fieldPlaceholder}
+          ariaLabel={fieldPlaceholder}
           disabled={disabled || (column.name === 'toDate' && Boolean(row.isTillDate))}
           placeholder={fieldPlaceholder}
-          list={
-            column.name === 'courseCode'
-              ? 'autofill-course-codes'
-              : column.name === 'courseName'
-                ? 'autofill-course-names'
-                : ['institution', 'partner', 'industry', 'industryName', 'venue'].includes(column.name)
-                  ? 'autofill-institutions'
-                  : ['journalName', 'bodyName', 'proceedingName', 'societyName'].includes(column.name)
-                    ? 'autofill-journals'
-                    : undefined
-          }
-          className={`w-full rounded-md border ${
-            hasRowColumnError(row, column)
-              ? 'border-red-400'
-              : 'border-slate-200'
-          } bg-white h-[38px] sm:h-7 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 placeholder:text-[11px] placeholder:text-gray-400 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap`}
+          hasError={hasRowColumnError(row, column)}
+          maxHeight={120}
         />
         {getFieldErrorText(row, column.name) ? (
           <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
@@ -2441,6 +2538,16 @@ function DynamicArraySection({
             {maxScore !== undefined && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-extrabold bg-[#4A1519]/10 text-[#4A1519] border border-[#4A1519]/20 shadow-xs whitespace-nowrap">
                 Subtotal: {subScore ?? 0} / {maxScore}
+              </span>
+            )}
+            {headingNote && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200 shadow-xs whitespace-nowrap select-none">
+                {headingNote}
+              </span>
+            )}
+            {calendarLabel && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-xs whitespace-nowrap select-none">
+                {calendarLabel}
               </span>
             )}
           </div>
@@ -2509,43 +2616,11 @@ function DynamicArraySection({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fit,minmax(215px,1fr))] gap-2.5 sm:gap-3 w-full items-start">
-                {renderGroups.map((group) => {
-                  if (group.type === 'dateGroup') {
-                    const colSpanClass = group.columns.length === 3 ? 'col-span-1 sm:col-span-3' : 'col-span-1 sm:col-span-2';
-                    const innerGridClass = group.columns.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2';
-
-                    return (
-                      <div
-                        key={`group-${group.columns.map((c) => c.name).join('-')}`}
-                        className={`w-full min-w-0 flex flex-col ${colSpanClass}`}
-                      >
-                        {group.caption ? (
-                          <span className="text-[11px] sm:text-xs font-medium text-slate-500 mb-1 block select-none whitespace-nowrap">
-                            {group.caption}
-                          </span>
-                        ) : null}
-                        <div className={`grid ${innerGridClass} gap-2.5 sm:gap-3 w-full items-start`}>
-                          {group.columns.map((column) => (
-                            <div key={column.name} className="w-full min-w-0 flex flex-col">
-                              {renderColumnField(column, row)}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={group.column.name} className="w-full min-w-0 flex flex-col">
-                      {group.caption ? (
-                        <span className="text-[11px] sm:text-xs font-medium text-slate-500 mb-1 block select-none whitespace-nowrap">
-                          {group.caption}
-                        </span>
-                      ) : null}
-                      {renderColumnField(group.column, row)}
-                    </div>
-                  );
-                })}
+                {safeColumns.map((column) => (
+                  <div key={column.name} className="w-full min-w-0 flex flex-col">
+                    {renderColumnField(column, row)}
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -5785,7 +5860,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         "Co-Organizer"
       ]
     },
-    { name: "participants", label: "Number of Participants (Internal, External)", type: "text", placeholder: "No. of Participants" },
+    { name: "participants", label: "Number of Participants (Internal, External)", type: "number", min: 0, isWholeNumber: true, placeholder: "No. of Participants" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const resourcePersonColumns = [
@@ -9030,10 +9105,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           aria-label="Total Citations Count"
                           value={currentSectionData.citationsReceived?.totalCount || ''}
                           onFocus={() => setActiveSubsection('2.2')}
-                          onKeyDown={handleCountKeyDown}
+                          onKeyDown={handleWholeNumberKeyDown}
                           onPaste={(e) => {
                             e.preventDefault();
-                            const val = sanitizeCountInput(e.clipboardData.getData('text'));
+                            const val = sanitizeWholeNumberInput(e.clipboardData.getData('text'));
                             updateCurrentTimeline((prev) => ({
                               ...prev,
                               citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
@@ -9042,7 +9117,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             }));
                           }}
                           onChange={(e) => {
-                            const val = sanitizeCountInput(e.target.value);
+                            const val = sanitizeWholeNumberInput(e.target.value);
                             updateCurrentTimeline((prev) => ({
                               ...prev,
                               citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
@@ -9256,6 +9331,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.1 Number of Patents Published"
                 subtitle={isArch ? "(Calculation Rubric: 1 mark per patent | Max 1 mark)" : "(Calculation Rubric: 1 mark per patent | Max 2 marks)"}
+                headingNote="Only Utility Pattern"
                 subScore={scores.sub3_1 || 0}
                 maxScore={isArch ? 1 : 2}
                 rows={currentSectionData.patentsPublished || []}
@@ -9269,6 +9345,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.2 Number of Patents Granted"
                 subtitle={isArch ? "(Calculation Rubric: 3 marks per patent | Max 3 marks)" : "(Calculation Rubric: 3 marks per patent (up to 2 patents) | Max 6 marks)"}
+                headingNote="Only Utility Pattern"
                 subScore={scores.sub3_2 || 0}
                 maxScore={isArch ? 3 : 6}
                 rows={currentSectionData.patentsGranted || []}
@@ -9307,7 +9384,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="3.5 Hackathon Mentoring & Prizes (with Students)"
-                subtitle="(Calculation Rubric: 1 mark per prize | Max 2 marks)"
+                subtitle="(Calculation Rubric: 1 mark per prize | Max 2 marks | Prize Winning Only)"
                 subScore={scores.sub3_5 || 0}
                 maxScore={2}
                 rows={currentSectionData.hackathonPrizes || []}
@@ -9406,7 +9483,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="5.2 Visiting / Adjunct Position Abroad"
-                subtitle={isArch ? "(Calculation Rubric: ≥30 days = 2 marks | 1-29 days = 1 mark | Max 2 marks)" : "(Calculation Rubric: Based on duration threshold | Max 4 marks)"}
+                subtitle={isArch ? "(Calculation Rubric: ≥30 days = 2 marks | 1-29 days = 1 mark | Max 2 marks)" : "(Calculation Rubric: 2 Marks per international keynote/invited talk abroad | Max 4 marks)"}
                 subScore={scores.sub5_2 || 0}
                 maxScore={isArch ? 2 : 4}
                 rows={currentSectionData.visitingPositions || []}
