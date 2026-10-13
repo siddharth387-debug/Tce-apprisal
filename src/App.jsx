@@ -7791,25 +7791,23 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         )}
 
 
-        {/* Live Metric Statistics Cards Row */}
-        {isReviewMode && (
+        {/* Live Metric Statistics Cards Row (HoD & Registrar only; removed for IQAC & Principal) */}
+        {isReviewMode && !isIQAC && !isPrincipal && (
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Submissions</p>
               <p className="text-2xl font-black text-slate-800 mt-1">
-                {isHod ? statusCounts.ALL : isIQAC ? statusCounts.ALL : displayInboxRows.length}
+                {isHod ? statusCounts.ALL : displayInboxRows.length}
               </p>
             </div>
             <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-                {isHod ? 'Approved' : isIQAC ? 'Approved' : 'Approved / Ratified'}
+                {isHod ? 'Approved' : 'Approved / Ratified'}
               </p>
               <p className="text-2xl font-black text-emerald-800 mt-1">
                 {isHod
                   ? statusCounts.APPROVED
-                  : isIQAC
-                    ? statusCounts.APPROVED
-                    : displayInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
+                  : displayInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
               </p>
             </div>
             <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 text-left">
@@ -7817,9 +7815,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <p className="text-2xl font-black text-amber-800 mt-1">
                 {isHod
                   ? statusCounts.PENDING
-                  : isIQAC
-                    ? statusCounts.PENDING
-                    : displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || (r.appraisalStatus || '').toUpperCase() === 'PENDING REVIEW' || !r.appraisalStatus).length}
+                  : displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || (r.appraisalStatus || '').toUpperCase() === 'PENDING REVIEW' || !r.appraisalStatus).length}
               </p>
             </div>
           </div>
@@ -7937,44 +7933,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setIsIqacSelectMode(false);
                     setSelectedIqacRowIds([]);
                   }}
-                  className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between group ${
+                  className={`p-5 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center min-h-[72px] group ${
                     leadershipTopBox === 'HOD_APPROVALS'
                       ? 'border-[#4A1519] bg-[#4A1519]/5 shadow-md ring-2 ring-[#4A1519]/20'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
                   }`}
                 >
-                  <div className="flex items-start gap-3.5">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 transition-colors ${
-                      leadershipTopBox === 'HOD_APPROVALS'
-                        ? 'bg-[#4A1519] text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                    }`}>
-                      🏢
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className={`text-base font-bold tracking-tight ${
-                          leadershipTopBox === 'HOD_APPROVALS' ? 'text-[#4A1519]' : 'text-slate-800'
-                        }`}>
-                          HOD Approvals
-                        </h4>
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200">
-                          View-Only
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1 leading-snug">
-                        Department-level approvals, submissions pending HOD review, and drafts
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0 pl-3">
-                    <span className={`text-2xl font-black ${
-                      leadershipTopBox === 'HOD_APPROVALS' ? 'text-[#4A1519]' : 'text-slate-700'
-                    }`}>
-                      {hodCounts.TOTAL}
-                    </span>
-                    <span className="block text-[10px] font-bold uppercase text-slate-400">Total</span>
-                  </div>
+                  <h4 className={`text-base font-bold tracking-tight ${
+                    leadershipTopBox === 'HOD_APPROVALS' ? 'text-[#4A1519]' : 'text-slate-800'
+                  }`}>
+                    HOD Approvals
+                  </h4>
                 </button>
 
                 {/* Box 2: Your Approvals */}
@@ -7986,59 +7955,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setIsIqacSelectMode(false);
                     setSelectedIqacRowIds([]);
                   }}
-                  className={`p-4 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center justify-between group ${
+                  className={`p-5 rounded-xl border-2 text-left transition-all cursor-pointer flex items-center min-h-[72px] group ${
                     leadershipTopBox === 'YOUR_APPROVALS'
                       ? 'border-blue-700 bg-blue-50/50 shadow-md ring-2 ring-blue-600/20'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/80 shadow-xs'
                   }`}
                 >
-                  <div className="flex items-start gap-3.5">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 transition-colors ${
-                      leadershipTopBox === 'YOUR_APPROVALS'
-                        ? 'bg-blue-700 text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                    }`}>
-                      ✍️
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className={`text-base font-bold tracking-tight ${
-                          leadershipTopBox === 'YOUR_APPROVALS' ? 'text-blue-900' : 'text-slate-800'
-                        }`}>
-                          Your Approvals
-                        </h4>
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider bg-blue-100 text-blue-800 border border-blue-200">
-                          Action Area
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1 leading-snug">
-                        Institutional reviews awaiting or endorsed with your decision
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0 pl-3">
-                    <span className={`text-2xl font-black ${
-                      leadershipTopBox === 'YOUR_APPROVALS' ? 'text-blue-700' : 'text-slate-700'
-                    }`}>
-                      {yourCounts.TOTAL}
-                    </span>
-                    <span className="block text-[10px] font-bold uppercase text-slate-400">Total</span>
-                  </div>
+                  <h4 className={`text-base font-bold tracking-tight ${
+                    leadershipTopBox === 'YOUR_APPROVALS' ? 'text-blue-900' : 'text-slate-800'
+                  }`}>
+                    Your Approvals
+                  </h4>
                 </button>
               </div>
             )}
 
-            {((isIQAC || isPrincipal) && leadershipTopBox === null) ? (
-              <div className="py-14 text-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/70 p-6 animate-in fade-in duration-200">
-                <div className="w-12 h-12 mx-auto rounded-full bg-slate-200/80 flex items-center justify-center text-2xl text-slate-600 mb-3">
-                  📂
-                </div>
-                <h4 className="text-sm font-bold text-slate-700">Select a category above to view appraisals</h4>
-                <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                  Click <strong>HOD Approvals</strong> to audit departmental records, or <strong>Your Approvals</strong> to process institutional reviews.
-                </p>
-              </div>
-            ) : (
+            {(isIQAC || isPrincipal) && leadershipTopBox === null ? null : (
               <>
                 {/* Quick Status Concept Filter Toolbar for Leadership & HoD */}
                 <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 bg-slate-50/90 rounded-lg border border-slate-200 shadow-xs">
