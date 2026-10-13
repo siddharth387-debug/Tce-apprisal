@@ -7716,7 +7716,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
         {/* Live Metric Statistics Cards Row */}
         {isReviewMode && (
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Submissions</p>
               <p className="text-2xl font-black text-slate-800 mt-1">
@@ -7743,18 +7743,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   : isIQAC
                     ? statusCounts.PENDING
                     : displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || (r.appraisalStatus || '').toUpperCase() === 'PENDING REVIEW' || !r.appraisalStatus).length}
-              </p>
-            </div>
-            <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 text-left">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700">
-                {isHod ? 'Not Approved' : isIQAC ? 'Not Approved' : 'Fix Needed'}
-              </p>
-              <p className="text-2xl font-black text-rose-800 mt-1">
-                {isHod
-                  ? statusCounts.NOT_APPROVED_HOD
-                  : isIQAC
-                    ? statusCounts.NOT_APPROVED
-                    : displayInboxRows.filter(r => ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes((r.appraisalStatus || '').toUpperCase())).length}
               </p>
             </div>
           </div>
