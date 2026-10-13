@@ -615,6 +615,7 @@ app.use(
         origin.endsWith('.vercel.app') || 
         origin.endsWith('.netlify.app') || 
         origin.endsWith('.tce.edu') || 
+        origin.endsWith('.tceapps.in') ||
         origin.includes('localhost') || 
         origin.includes('127.0.0.1')
       ) {
@@ -625,6 +626,10 @@ app.use(
     credentials: true,
   })
 );
+app.use((_req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  next();
+});
 app.use(express.json());
 
 // ── Fast In-Memory Session Cache (10s TTL) ──────────────────────────────────
