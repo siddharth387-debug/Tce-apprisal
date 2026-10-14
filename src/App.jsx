@@ -4463,7 +4463,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   }, [isScorePopoverOpen]);
 
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
-  const isSingleYearRole = isHod || isIQAC || isPrincipal;
+  const isFacultyRole = effectiveRole === 'Faculty';
+  const isSingleYearRole = isHod || isIQAC || isPrincipal || isFacultyRole;
   const reviewerAppraisalYear = getReviewerAppraisalYear();
   
   const [selectedTimeline, setSelectedTimeline] = useState(() => isSingleYearRole ? reviewerAppraisalYear : '2025-2026');
