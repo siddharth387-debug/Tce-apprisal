@@ -9049,42 +9049,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               >
                 <span>📊</span> Excel
               </button>
-
-              {isFacultyUser && (
-                <>
-                  <div className="hidden sm:block h-4 w-px bg-slate-300 mx-0.5" aria-hidden="true" />
-                  <a
-                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}${isArch ? 'TSEDA%20Faculty%20Appraisal%20Evaluation%20Guidelines.pdf' : 'Faculty%20Appraisal%20Evaluation%20Guidelines.pdf'}`}
-                    download={isArch ? "TSEDA Faculty Appraisal Evaluation Guidelines.pdf" : "Faculty Appraisal Evaluation Guidelines.pdf"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-1.5 px-2.5 text-xs rounded-lg font-medium border border-rose-200 bg-rose-50/80 text-rose-700 hover:bg-rose-100 transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                    title={`Download ${isArch ? 'TSEDA ' : ''}Faculty Appraisal Evaluation Guidelines (PDF)`}
-                  >
-                    <span>📑</span> Rubrics
-                  </a>
-                  <a
-                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}${isArch ? 'TSEDA%20Faculty%20Appraisal%20Template%20Aug%202026.docx' : 'Faculty%20Appraisal%20Template%20Aug%202026.docx'}`}
-                    download={isArch ? "TSEDA Faculty Appraisal Template Aug 2026.docx" : "Faculty Appraisal Template Aug 2026.docx"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-1.5 px-2.5 text-xs rounded-lg font-medium border border-blue-200 bg-blue-50/80 text-blue-700 hover:bg-blue-100 transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                    title={`Download ${isArch ? 'TSEDA ' : ''}Faculty Appraisal Template (DOCX)`}
-                  >
-                    <span>📝</span> Template
-                  </a>
-                  <a
-                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}Faculty%20Performance%20Appraisal%20Guidelines.pdf`}
-                    download="Faculty Performance Appraisal Guidelines.pdf"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-1.5 px-2.5 text-xs rounded-lg font-medium border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100 transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                    title="Download Evidence Link & Document Upload Guidelines (PDF)"
-                  >
-                    <span>🔗</span> Link Guidelines
-                  </a>
-                </>
-              )}
             </div>
           </div>
         </div>
