@@ -7903,8 +7903,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         })()}
       </div>
 
-      {/* Official Appraisal Evaluation Guidelines & Template (General Engineering only, strictly hidden for TSEDA) */}
-      {!isArch && !isPrincipal && !isRegistrar && (
+      {/* Official Appraisal Evaluation Guidelines & Template - Faculty only (hidden for HOD and other roles) */}
+      {!isArch && effectiveRole === 'Faculty' && (
         <EngineeringAppraisalResources isArch={isArch} variant="full" />
       )}
 
@@ -8966,8 +8966,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
 
-        {/* Compact Appraisal Resources Bar (General Engineering only, strictly hidden for TSEDA) */}
-        {!isArch && (
+        {/* Compact Appraisal Resources Bar - Faculty only (hidden for HOD and other roles) */}
+        {!isArch && effectiveRole === 'Faculty' && (
           <EngineeringAppraisalResources isArch={isArch} variant="compact" />
         )}
 
