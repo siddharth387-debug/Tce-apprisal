@@ -9026,6 +9026,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   >
                     <span>📝</span> Template
                   </a>
+                  <a
+                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}Faculty%20Performance%20Appraisal%20Guidelines.pdf`}
+                    download="Faculty Performance Appraisal Guidelines.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-1.5 px-2.5 text-xs rounded-lg font-medium border border-emerald-200 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100 transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                    title="Download Evidence Link & Document Upload Guidelines (PDF)"
+                  >
+                    <span>🔗</span> Link Guidelines
+                  </a>
                 </>
               )}
             </div>
