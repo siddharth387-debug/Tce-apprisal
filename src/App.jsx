@@ -4395,6 +4395,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isIQAC = isIQACUser;
   const isHod = effectiveRole === 'HOD';
   const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal;
+  const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
+  const isFacultyUser = (effectiveRole === 'Faculty' || user?.role === 'Faculty') && !isHod && !isIQAC && !isPrincipal && !isRegistrar && !isReviewMode;
 
   const [cloudSyncState, setCloudSyncState] = useState('saved'); // 'saving' | 'saved' | 'error'
   const [lastCloudSyncTime, setLastCloudSyncTime] = useState('');
@@ -4416,8 +4418,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const activeDept = isMasterUser
     ? masterAppraisalMode
     : ((selectedDeptFilter && selectedDeptFilter !== 'ALL' ? selectedDeptFilter : user.department) || '');
-
-  const isFacultyUser = (effectiveRole === 'Faculty' || user?.role === 'Faculty') && !isHod && !isIQAC && !isPrincipal && !isRegistrar && !isReviewMode;
 
   const isArchInitial = Boolean(
     isArchDepartment(activeDept) ||
@@ -4464,7 +4464,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     };
   }, [isScorePopoverOpen]);
 
-  const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   const isFacultyRole = effectiveRole === 'Faculty';
   const isSingleYearRole = isHod || isIQAC || isPrincipal || isFacultyRole;
   const reviewerAppraisalYear = getReviewerAppraisalYear();
