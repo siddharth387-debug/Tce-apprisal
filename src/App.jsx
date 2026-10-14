@@ -4417,9 +4417,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     ? masterAppraisalMode
     : ((selectedDeptFilter && selectedDeptFilter !== 'ALL' ? selectedDeptFilter : user.department) || '');
 
+  const isFacultyUser = (effectiveRole === 'Faculty' || user?.role === 'Faculty') && !isHod && !isIQAC && !isPrincipal && !isRegistrar && !isReviewMode;
+
   const isArchInitial = Boolean(
     isArchDepartment(activeDept) ||
-    masterAppraisalMode === 'ARCH' ||
+    (isMasterUser && masterAppraisalMode === 'ARCH') ||
     isArchDepartment(user?.department)
   );
   
@@ -6338,21 +6340,40 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     [currentSectionData, activeTimelineRecord, activeDept]
   );
 
-  const isArch = Boolean(
-    isArchInitial ||
-    isArchDepartment(activeTimelineRecord?.department) ||
-    isArchDepartment(activeTimelineRecord?.departmentName) ||
-    isArchDepartment(currentSectionData?.department) ||
-    isArchDepartment(currentSectionData?.dept) ||
-    scores?.isArch
-  );
+  const isArch = isFacultyUser
+    ? Boolean(
+        isArchDepartment(user?.department) ||
+        isArchDepartment(user?.departmentName) ||
+        isArchDepartment(activeTimelineRecord?.department) ||
+        isArchDepartment(activeTimelineRecord?.departmentName) ||
+        isArchDepartment(currentSectionData?.department) ||
+        isArchDepartment(currentSectionData?.dept)
+      )
+    : Boolean(
+        isArchInitial ||
+        isArchDepartment(activeTimelineRecord?.department) ||
+        isArchDepartment(activeTimelineRecord?.departmentName) ||
+        isArchDepartment(currentSectionData?.department) ||
+        isArchDepartment(currentSectionData?.dept) ||
+        scores?.isArch
+      );
+
+  // Engineering Appraisal Guidelines & Template: Visible ONLY to General Engineering Faculty (never HoD, IQAC, Registrar, Principal, or TSEDA Architecture)
+  const showEngineeringResources = isFacultyUser && !isArch;
 
   useEffect(() => {
-    if (activeTimelineRecord && isArchDepartment(activeTimelineRecord.department || activeTimelineRecord.departmentName)) {
-      setMasterAppraisalMode('ARCH');
-      try {
-        localStorage.setItem('tce_masterAppraisalMode', 'ARCH');
-      } catch (err) {}
+    if (activeTimelineRecord) {
+      if (isArchDepartment(activeTimelineRecord.department || activeTimelineRecord.departmentName)) {
+        setMasterAppraisalMode('ARCH');
+        try {
+          localStorage.setItem('tce_masterAppraisalMode', 'ARCH');
+        } catch (err) {}
+      } else if (activeTimelineRecord.department || activeTimelineRecord.departmentName) {
+        setMasterAppraisalMode('GENERAL');
+        try {
+          localStorage.setItem('tce_masterAppraisalMode', 'GENERAL');
+        } catch (err) {}
+      }
     }
   }, [activeTimelineRecord]);
   const sectionValidation = useMemo(() => {
@@ -7928,9 +7949,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         })()}
       </div>
 
-      {/* Official Appraisal Evaluation Guidelines & Template - Faculty only (hidden for HOD and other roles) */}
-      {!isArch && effectiveRole === 'Faculty' && (
-        <EngineeringAppraisalResources isArch={isArch} variant="full" />
+      {/* Official Appraisal Guidelines & Template: Visible ONLY to General Engineering Faculty (never HoD, IQAC, Registrar, Principal, or TSEDA Architecture) */}
+      {showEngineeringResources && (
+        <EngineeringAppraisalResources isArch={false} variant="full" />
       )}
 
       {isReviewMode ? (
@@ -8991,9 +9012,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           </div>
         </div>
 
-        {/* Compact Appraisal Resources Bar - Faculty only (hidden for HOD and other roles) */}
-        {!isArch && effectiveRole === 'Faculty' && (
-          <EngineeringAppraisalResources isArch={isArch} variant="compact" />
+        {/* Compact Appraisal Resources Bar: Visible ONLY to General Engineering Faculty (never HoD, IQAC, Registrar, Principal, or TSEDA Architecture) */}
+        {showEngineeringResources && (
+          <EngineeringAppraisalResources isArch={false} variant="compact" />
         )}
 
         {/* Cross-Section Dynamic Auto-Suggest Datalists */}
@@ -10663,6 +10684,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <p className="text-2xl font-black text-amber-600 mt-0.5">{Math.max(0, 365 - (user?.serviceDays || 0))}</p>
               </div>
             </div>
+
+            {showEngineeringResources && (
+              <div className="mt-4">
+                <EngineeringAppraisalResources isArch={false} variant="full" />
+              </div>
+            )}
           </div>
         ) : (isPrincipal || isRegistrar) ? (
           renderOverview()
