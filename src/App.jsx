@@ -1006,6 +1006,21 @@ const TCE_DEPARTMENTS = [
   { code: 'AI', name: 'Artificial Intelligence and Data Science' }
 ];
 
+function getUnauthorizedPortalMessage(email) {
+  const userEmail = String(email || '').toLowerCase().trim();
+  if (!userEmail) return null;
+  if (
+    (userEmail.endsWith('@gmail.com') || userEmail.endsWith('@googlemail.com')) &&
+    userEmail !== 'deansiddharth@gmail.com'
+  ) {
+    return 'Personal @gmail.com accounts are not authorized to access the TCE Faculty Appraisal Portal. Please sign in with your official institutional email (@tce.edu).';
+  }
+  if (userEmail.endsWith('@student.tce.edu') && userEmail !== 'siddharthk@student.tce.edu') {
+    return 'Student accounts (@student.tce.edu) are not authorized to access the Faculty Appraisal Portal. Please sign in with your official faculty email (@tce.edu).';
+  }
+  return null;
+}
+
 function getRoleFromEmail(email) {
   const userEmail = (email || '').toLowerCase().trim();
 
@@ -2693,7 +2708,9 @@ const LandingPage = React.memo(function LandingPage({
   sessionTimedOut = false,
   onClearSessionTimedOut = null,
   sessionTerminatedNotice = false,
-  onClearSessionTerminatedNotice = null
+  onClearSessionTerminatedNotice = null,
+  domainBlockedNotice = false,
+  onClearDomainBlockedNotice = null
 }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [isRegModalOpen, setIsRegModalOpen] = useState(false);
@@ -2857,6 +2874,30 @@ const LandingPage = React.memo(function LandingPage({
                 </div>
                 <p className="mt-1 text-amber-800 leading-relaxed text-[11px]">
                   You were automatically signed out after 15 minutes of inactivity for institutional security. Your in-progress appraisal draft was safely auto-saved.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {domainBlockedNotice && (
+            <div className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 sm:p-3.5 text-xs text-rose-950 shadow-sm flex items-start gap-2.5 animate-in fade-in duration-200">
+              <span className="text-base shrink-0">⛔</span>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-rose-950">Signed out: personal Gmail is not allowed</p>
+                  {onClearDomainBlockedNotice && (
+                    <button
+                      type="button"
+                      onClick={onClearDomainBlockedNotice}
+                      className="text-rose-700 hover:text-rose-950 text-xs font-bold ml-2 cursor-pointer"
+                      title="Dismiss notice"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1 text-rose-800 leading-relaxed text-[11px]">
+                  Personal @gmail.com accounts are not authorized to access the TCE Faculty Appraisal Portal. Please sign in with your official institutional email (@tce.edu).
                 </p>
               </div>
             </div>
@@ -5281,6 +5322,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         });
       } catch (err) {
         if (!isDisposed && axios.isAxiosError(err)) {
+          if (err.response?.status === 401 && err.response?.data?.domainBlocked) {
+            console.warn('⚠️ Live session blocked: unauthorized email domain.');
+            onSignOut('domain_blocked');
+            return;
+          }
           if (err.response?.status === 401 && err.response?.data?.sessionTerminated) {
             console.warn("⚠️ Live session invalidated: Logged in from another device. Terminating this window...");
             onSignOut('concurrent_login');
@@ -5289,7 +5335,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
     };
 
-    // Poll heartbeat every 20 seconds
+    checkLiveSession();
     const heartbeatTimer = setInterval(checkLiveSession, 20000);
     return () => {
       isDisposed = true;
@@ -11230,20 +11276,39 @@ const googleClientId =
   (typeof window !== 'undefined' ? window.__GOOGLE_CLIENT_ID__ || '' : '');
 
 export default function App() {
-  const [user, setUser] = useState(() => loadUserFromStorage());
+  const [user, setUser] = useState(() => {
+    const stored = loadUserFromStorage();
+    if (stored && getUnauthorizedPortalMessage(stored.email)) {
+      return null;
+    }
+    return stored;
+  });
   const [sessionTimedOut, setSessionTimedOut] = useState(false);
   const [sessionTerminatedNotice, setSessionTerminatedNotice] = useState(false);
+  const [domainBlockedNotice, setDomainBlockedNotice] = useState(() => {
+    const stored = loadUserFromStorage();
+    return Boolean(stored && getUnauthorizedPortalMessage(stored.email));
+  });
 
   const handleLogin = React.useCallback((userProfile) => {
+    if (getUnauthorizedPortalMessage(userProfile?.email)) {
+      clearUserFromStorage();
+      setUser(null);
+      setDomainBlockedNotice(true);
+      setSessionTimedOut(false);
+      setSessionTerminatedNotice(false);
+      return;
+    }
     setUser(userProfile);
     saveUserToStorage(userProfile);
     setSessionTimedOut(false);
     setSessionTerminatedNotice(false);
+    setDomainBlockedNotice(false);
   }, []);
 
   const handleSignOut = React.useCallback((reason = false) => {
     const storedUser = loadUserFromStorage();
-    if (storedUser?.token && reason !== 'concurrent_login') {
+    if (storedUser?.token && reason !== 'concurrent_login' && reason !== 'domain_blocked') {
       axios.post(
         `${API_BASE_URL}/auth/logout`,
         {},
@@ -11257,15 +11322,22 @@ export default function App() {
     clearUserFromStorage();
     setUser(null);
 
-    if (reason === 'concurrent_login') {
+    if (reason === 'domain_blocked') {
+      setDomainBlockedNotice(true);
+      setSessionTerminatedNotice(false);
+      setSessionTimedOut(false);
+    } else if (reason === 'concurrent_login') {
       setSessionTerminatedNotice(true);
       setSessionTimedOut(false);
+      setDomainBlockedNotice(false);
     } else if (reason === 'inactivity_timeout' || reason === true) {
       setSessionTimedOut(true);
       setSessionTerminatedNotice(false);
+      setDomainBlockedNotice(false);
     } else {
       setSessionTimedOut(false);
       setSessionTerminatedNotice(false);
+      setDomainBlockedNotice(false);
     }
   }, []);
 
@@ -11277,6 +11349,17 @@ export default function App() {
     setSessionTerminatedNotice(false);
   }, []);
 
+  const handleClearDomainBlockedNotice = React.useCallback(() => {
+    setDomainBlockedNotice(false);
+  }, []);
+
+  React.useEffect(() => {
+    const stored = loadUserFromStorage();
+    if (stored && getUnauthorizedPortalMessage(stored.email)) {
+      handleSignOut('domain_blocked');
+    }
+  }, [handleSignOut]);
+
   if (user === null) {
     return (
       <LandingPage 
@@ -11286,6 +11369,8 @@ export default function App() {
         onClearSessionTimedOut={handleClearSessionTimedOut}
         sessionTerminatedNotice={sessionTerminatedNotice}
         onClearSessionTerminatedNotice={handleClearSessionTerminatedNotice}
+        domainBlockedNotice={domainBlockedNotice}
+        onClearDomainBlockedNotice={handleClearDomainBlockedNotice}
       />
     );
   }

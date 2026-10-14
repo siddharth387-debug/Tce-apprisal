@@ -659,6 +659,38 @@ async function isSessionActive(sessionId, email) {
   }
 }
 
+const ALLOWED_GMAIL_EXCEPTION = 'deansiddharth@gmail.com';
+const ALLOWED_STUDENT_EXCEPTION = 'siddharthk@student.tce.edu';
+
+function getUnauthorizedDomainMessage(email) {
+  const em = String(email || '').toLowerCase().trim();
+  if (!em) return null;
+  if ((em.endsWith('@gmail.com') || em.endsWith('@googlemail.com')) && em !== ALLOWED_GMAIL_EXCEPTION) {
+    return 'Personal @gmail.com accounts are not authorized to access the TCE Faculty Appraisal Portal. Please sign in with your official institutional email (@tce.edu).';
+  }
+  if (em.endsWith('@student.tce.edu') && em !== ALLOWED_STUDENT_EXCEPTION) {
+    return 'Student accounts (@student.tce.edu) are not authorized to access the Faculty Appraisal Portal. Please sign in with your official faculty email (@tce.edu).';
+  }
+  return null;
+}
+
+async function revokeUnauthorizedSession(decoded) {
+  const email = String(decoded?.email || '').toLowerCase().trim();
+  if (decoded?.sessionId) {
+    sessionCache.delete(decoded.sessionId);
+    await UserSession.updateOne(
+      { sessionId: decoded.sessionId },
+      { $set: { isActive: false } }
+    ).catch(() => {});
+  }
+  if (email) {
+    await UserSession.updateMany(
+      { email, isActive: true },
+      { $set: { isActive: false } }
+    ).catch(() => {});
+  }
+}
+
 // ── JWT & Live Window Authentication Middleware ─────────────────────────────
 async function authenticateToken(request, response, next) {
   const authHeader = request.headers['authorization'];
@@ -673,6 +705,16 @@ async function authenticateToken(request, response, next) {
   try {
     const decoded = jwt.verify(token, jwtSecret, { issuer: 'tce-auth-server' });
     request.user = decoded;
+
+    const domainMessage = getUnauthorizedDomainMessage(decoded.email);
+    if (domainMessage) {
+      await revokeUnauthorizedSession(decoded);
+      return response.status(401).json({
+        success: false,
+        domainBlocked: true,
+        message: domainMessage,
+      });
+    }
 
     // Single active window enforcement: verify session is still live
     if (decoded.sessionId) {
@@ -902,23 +944,13 @@ app.post('/api/auth/google', async (request, response) => {
     const verifiedEmail = payload.email.toLowerCase().trim();
 
     // ── Email Domain Security Guard ──────────────────────────────────────────
-    // 1. Strictly block all personal @gmail.com / @googlemail.com logins, with the ONLY exception being deansiddharth@gmail.com
-    const isGmailAccount = verifiedEmail.endsWith('@gmail.com') || verifiedEmail.endsWith('@googlemail.com');
-    if (isGmailAccount && verifiedEmail !== 'deansiddharth@gmail.com') {
-      console.warn(`⛔ Unauthorized login blocked for personal Gmail account: ${verifiedEmail}`);
+    const domainMessage = getUnauthorizedDomainMessage(verifiedEmail);
+    if (domainMessage) {
+      console.warn(`⛔ Unauthorized login blocked for: ${verifiedEmail}`);
       return response.status(403).json({
         success: false,
-        message: 'Personal @gmail.com accounts are not authorized to access the TCE Faculty Appraisal Portal. Please sign in with your official institutional email (@tce.edu).',
-      });
-    }
-
-    // 2. Strictly block all student accounts (@student.tce.edu), with the ONLY exception being siddharthk@student.tce.edu (master login)
-    const isStudentAccount = verifiedEmail.endsWith('@student.tce.edu');
-    if (isStudentAccount && verifiedEmail !== 'siddharthk@student.tce.edu') {
-      console.warn(`⛔ Unauthorized login blocked for student account: ${verifiedEmail}`);
-      return response.status(403).json({
-        success: false,
-        message: 'Student accounts (@student.tce.edu) are not authorized to access the Faculty Appraisal Portal. Please sign in with your official faculty email (@tce.edu).',
+        domainBlocked: true,
+        message: domainMessage,
       });
     }
 
