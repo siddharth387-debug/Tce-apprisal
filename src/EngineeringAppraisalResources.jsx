@@ -38,7 +38,7 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
       format: 'DOCX',
       size: '31 KB',
       color: 'blue',
-      description: 'Official editable Word template containing faculty profile details, metric tables for Sections I to IX, self-declaration, and HoD endorsement.',
+      description: 'Official editable appraisal template (.docx) containing faculty profile details, metric tables for Sections I to IX, self-declaration, and HoD endorsement.',
     },
   };
 
@@ -61,7 +61,7 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
                 Official Engineering Appraisal Guidelines &amp; Template
               </p>
               <p className="text-[10px] text-slate-500">
-                Download official scoring rubrics and offline Word template (Engineering, AMCS, CA, S&amp;H)
+                Download official scoring rubrics and offline appraisal template (Engineering, AMCS, CA, S&amp;H)
               </p>
             </div>
           </div>
@@ -86,12 +86,12 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
               download={files.template.filename}
               onClick={() => handleDownloadFeedback('template')}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-blue-50 text-blue-700 border border-blue-200 shadow-xs transition active:scale-95"
-              title="Download Faculty Appraisal Template Aug 2026 (Word DOCX)"
+              title="Download Faculty Appraisal Template Aug 2026 (.docx)"
             >
               <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>Word Template</span>
+              <span>Appraisal Template</span>
               <span className="text-[9px] px-1 py-0.2 bg-blue-100 text-blue-800 rounded font-semibold">DOCX</span>
             </a>
           </div>
@@ -197,7 +197,7 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>Download Template (.docx)</span>
+              <span>Download Appraisal Template (.docx)</span>
             </a>
           </div>
         </div>

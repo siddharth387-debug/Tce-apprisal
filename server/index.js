@@ -2248,6 +2248,61 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
   }
 });
 
+// ── Revert / Convert Appraisal to Draft (preserves all data, unlocks for editing) ──
+app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], async (req, res) => {
+  try {
+    const { id, email, timeline } = req.body;
+    if (!id && (!email || !timeline)) {
+      return res.status(400).json({ success: false, message: 'Appraisal ID or email and timeline required.' });
+    }
+
+    const allAppraisals = await Appraisal.find({}).sort({ updatedAt: -1, createdAt: -1 });
+    const targetRecord = findAppraisalRecordInDb(allAppraisals, id, email, timeline);
+
+    if (!targetRecord) {
+      return res.status(404).json({ success: false, message: 'Appraisal record not found.' });
+    }
+
+    const updateFields = {
+      appraisalStatus: 'Draft',
+      isDraft: true,
+      isLocked: false,
+      principalApprovalStatus: 'Draft',
+      iqacStatus: 'Draft',
+      submittedAt: null,
+      updatedAt: new Date()
+    };
+
+    const updated = await Appraisal.findByIdAndUpdate(
+      targetRecord._id,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
+    const targetTimeline = targetRecord.timeline || timeline;
+    if (targetEmail && targetTimeline) {
+      await Appraisal.updateMany(
+        {
+          $or: [{ email: targetEmail }, { facultyEmail: targetEmail }],
+          timeline: targetTimeline
+        },
+        { $set: updateFields }
+      );
+    }
+
+    console.log(`✓ Reverted appraisal to Draft for ${targetEmail} (${targetTimeline}), preserving all data.`);
+    return res.status(200).json({
+      success: true,
+      message: 'Appraisal successfully converted to Draft. Faculty can now edit and re-submit.',
+      data: updated
+    });
+  } catch (err) {
+    console.error('❌ Error reverting appraisal to Draft:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── IQAC Verification & Quality Audit Endpoint ────────────────────────────
 app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req, res) => {
   try {
