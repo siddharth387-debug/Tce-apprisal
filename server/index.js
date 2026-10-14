@@ -2830,6 +2830,14 @@ async function enforceDomainSecurityPolicy() {
       console.log(`🧹 Enforce Security Policy: Purged ${testAppDel.deletedCount} test appraisal record(s).`);
     }
 
+    // 2c. Purge all 2026-2027 timeline appraisals
+    const timeline2627Del = await Appraisal.deleteMany({
+      timeline: { $regex: /2026.*2027|2026.*27/i }
+    });
+    if (timeline2627Del.deletedCount > 0) {
+      console.log(`🧹 Enforce Security Policy: Purged ${timeline2627Del.deletedCount} appraisal record(s) for 2026-2027 timeline.`);
+    }
+
     // 3. Purge sessions
     const sessDel = await UserSession.deleteMany({
       email: { $regex: /@gmail\.com$/i, $ne: 'deansiddharth@gmail.com' }
