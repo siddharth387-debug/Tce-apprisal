@@ -955,11 +955,16 @@ app.post('/api/auth/google', async (request, response) => {
     let assignedDeptName = facultyRecord?.departmentName || 'Computer Science and Engineering';
     let assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
 
-    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'deansiddharth@gmail.com') {
+    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu') {
       assignedRole = 'Registrar';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
-      assignedDesignation = 'Dean / Registrar';
+      assignedDesignation = 'Registrar / Master Admin';
+    } else if (verifiedEmail === 'deansiddharth@gmail.com') {
+      assignedRole = 'Faculty';
+      assignedDept = facultyRecord?.department || 'CSE';
+      assignedDeptName = facultyRecord?.departmentName || 'Computer Science and Engineering';
+      assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
     } else if (verifiedEmail === 'principal@tce.edu') {
       assignedRole = 'Principal';
       assignedDept = 'ALL';
@@ -993,11 +998,6 @@ app.post('/api/auth/google', async (request, response) => {
     if (!userAliases.includes(verifiedEmail)) userAliases.push(verifiedEmail);
     if (canonicalPersonalEmail && !userAliases.includes(canonicalPersonalEmail)) userAliases.push(canonicalPersonalEmail);
     if (assignedRole === 'HOD' && canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
-    if (verifiedEmail === 'deansiddharth@gmail.com' || verifiedEmail === 'siddharthk@student.tce.edu') {
-      ['siddharthk@student.tce.edu', 'deansiddharth@gmail.com'].forEach(em => {
-        if (!userAliases.includes(em)) userAliases.push(em);
-      });
-    }
     if (verifiedEmail === 'principal@tce.edu') {
       ['principal@tce.edu'].forEach(em => {
         if (!userAliases.includes(em)) userAliases.push(em);
@@ -1539,7 +1539,6 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       masterRecord?.role === 'Admin' ||
       (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) ||
       requestEmail === 'siddharthk@student.tce.edu' || 
-      requestEmail === 'deansiddharth@gmail.com' ||
       requestEmail === 'registrar@tce.edu' ||
       requestEmail === 'principal@tce.edu' ||
       requestEmail === 'iqac@tce.edu' ||
@@ -1560,7 +1559,6 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       const deptQuery = (req.query.department || '').toUpperCase().trim();
       const userDept = (tokenDept || masterRecord?.department || '').toUpperCase().trim();
       const isSuperAdminOrRegistrar = requestEmail === 'siddharthk@student.tce.edu' ||
-                                     requestEmail === 'deansiddharth@gmail.com' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
                                      requestEmail === 'iqac@tce.edu' ||
@@ -1648,13 +1646,17 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
-    // HoD, Leadership and Institutional Reviews must NEVER include student accounts (@student.tce.edu)
+    // HoD, Leadership and Institutional Reviews must NEVER include test accounts (purely for testing) or student accounts
     if (isElevated) {
       queryFilter = {
         $and: [
           queryFilter,
           { email: { $not: /@student\.tce\.edu$/i } },
-          { facultyEmail: { $not: /@student\.tce\.edu$/i } }
+          { facultyEmail: { $not: /@student\.tce\.edu$/i } },
+          { email: { $not: /@gmail\.com$/i } },
+          { facultyEmail: { $not: /@gmail\.com$/i } },
+          { email: { $nin: ['deansiddharth@gmail.com', 'siddharthk@student.tce.edu'] } },
+          { facultyEmail: { $nin: ['deansiddharth@gmail.com', 'siddharthk@student.tce.edu'] } }
         ]
       };
     }
@@ -1665,7 +1667,17 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     for (const doc of rawRecords) {
       normalizeAppraisalLeadershipDecision(doc);
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
-      if (emailKey.endsWith('@student.tce.edu') && isElevated) continue;
+      if (isElevated) {
+        if (
+          emailKey === 'deansiddharth@gmail.com' ||
+          emailKey === 'siddharthk@student.tce.edu' ||
+          emailKey.endsWith('@student.tce.edu') ||
+          emailKey.endsWith('@gmail.com') ||
+          emailKey.endsWith('@googlemail.com')
+        ) {
+          continue; // Purely for testing — never return test accounts to HoD or higher authorities
+        }
+      }
       const tlKey = (doc.timeline || '').trim();
       const deptKey = (doc.department || '').toUpperCase() === 'ARCH' ? '_ARCH' : '';
       const compositeKey = `${emailKey}_${tlKey}${deptKey}`;
@@ -2807,6 +2819,17 @@ async function enforceDomainSecurityPolicy() {
       console.log(`🧹 Enforce Security Policy: Purged ${studentAppDel.deletedCount} student appraisal record(s).`);
     }
 
+    // 2b. Purge appraisal data for testing accounts: deansiddharth@gmail.com and siddharthk@student.tce.edu
+    const testAppDel = await Appraisal.deleteMany({
+      $or: [
+        { email: { $in: ['deansiddharth@gmail.com', 'siddharthk@student.tce.edu'] } },
+        { facultyEmail: { $in: ['deansiddharth@gmail.com', 'siddharthk@student.tce.edu'] } }
+      ]
+    });
+    if (testAppDel.deletedCount > 0) {
+      console.log(`🧹 Enforce Security Policy: Purged ${testAppDel.deletedCount} test appraisal record(s).`);
+    }
+
     // 3. Purge sessions
     const sessDel = await UserSession.deleteMany({
       email: { $regex: /@gmail\.com$/i, $ne: 'deansiddharth@gmail.com' }
@@ -2827,23 +2850,36 @@ async function enforceDomainSecurityPolicy() {
       email: { $regex: /@student\.tce\.edu$/i, $ne: 'siddharthk@student.tce.edu' }
     });
 
-    // 5. Ensure master accounts exist in master directory
+    // 5. Ensure master accounts exist in master directory with exact roles
     const deanExists = await FacultyMember.findOne({ email: 'deansiddharth@gmail.com' });
     if (!deanExists) {
       await FacultyMember.create({
         staffId: 'DEANSIDDHARTH',
-        name: 'Dr. Siddharth',
-        designation: 'Dean / Registrar',
+        name: 'Dr. Siddharth (Testing)',
+        designation: 'Assistant Professor',
         email: 'deansiddharth@gmail.com',
         personalEmail: 'deansiddharth@gmail.com',
         hodEmail: 'hodcse@tce.edu',
-        alternateEmails: ['deansiddharth@gmail.com', 'siddharthk@student.tce.edu'],
-        department: 'ALL',
-        departmentName: 'All Academic Departments',
-        role: 'Registrar',
+        alternateEmails: ['deansiddharth@gmail.com'],
+        department: 'CSE',
+        departmentName: 'Computer Science and Engineering',
+        role: 'Faculty',
         active: true
       });
-      console.log('✓ Ensured Dean Siddharth master directory record.');
+      console.log('✓ Ensured Dean Siddharth test faculty directory record.');
+    } else {
+      await FacultyMember.updateOne(
+        { email: 'deansiddharth@gmail.com' },
+        {
+          $set: {
+            role: 'Faculty',
+            designation: 'Assistant Professor',
+            department: 'CSE',
+            departmentName: 'Computer Science and Engineering',
+            alternateEmails: ['deansiddharth@gmail.com']
+          }
+        }
+      );
     }
 
     const masterStudentExists = await FacultyMember.findOne({ email: 'siddharthk@student.tce.edu' });
@@ -2855,13 +2891,26 @@ async function enforceDomainSecurityPolicy() {
         email: 'siddharthk@student.tce.edu',
         personalEmail: 'siddharthk@student.tce.edu',
         hodEmail: 'hodcse@tce.edu',
-        alternateEmails: ['siddharthk@student.tce.edu', 'deansiddharth@gmail.com'],
+        alternateEmails: ['siddharthk@student.tce.edu'],
         department: 'ALL',
         departmentName: 'All Academic Departments',
         role: 'Registrar',
         active: true
       });
       console.log('✓ Ensured master student faculty record.');
+    } else {
+      await FacultyMember.updateOne(
+        { email: 'siddharthk@student.tce.edu' },
+        {
+          $set: {
+            role: 'Registrar',
+            designation: 'Registrar / Master Admin',
+            department: 'ALL',
+            departmentName: 'All Academic Departments',
+            alternateEmails: ['siddharthk@student.tce.edu']
+          }
+        }
+      );
     }
   } catch (err) {
     console.warn('⚠️ Enforce Security Policy warning:', err.message);

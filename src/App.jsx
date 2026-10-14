@@ -1009,8 +1009,11 @@ const TCE_DEPARTMENTS = [
 function getRoleFromEmail(email) {
   const userEmail = (email || '').toLowerCase().trim();
 
-  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu' || userEmail === 'deansiddharth@gmail.com') {
+  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu') {
     return 'Registrar';
+  }
+  if (userEmail === 'deansiddharth@gmail.com') {
+    return 'Faculty';
   }
   if (userEmail === 'principal@tce.edu') {
     return 'Principal';
@@ -4366,8 +4369,7 @@ const INACTIVITY_WARNING_MS = 2 * 60 * 1000;
 const ACTIVITY_STORAGE_KEY = 'tce_appraisal_last_activity';
 
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
-  const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || 
-                       (user?.email || '').toLowerCase().trim() === 'deansiddharth@gmail.com';
+  const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu';
   const isSuperAdmin = isMasterUser;
 
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
@@ -4642,12 +4644,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       ...(userObj.alternateEmails || [])
     ].filter(Boolean).map(e => String(e).toLowerCase().trim());
 
-    // Master user alias linking
-    if (userObj.email === 'siddharthk@student.tce.edu' || userObj.email === 'deansiddharth@gmail.com') {
-      ['siddharthk@student.tce.edu', 'deansiddharth@gmail.com'].forEach(em => {
-        if (!aliases.includes(em)) aliases.push(em);
-      });
-    }
+
 
     if (target && aliases.some(alias => alias === target || target.includes(alias) || alias.includes(target))) {
       return true;
@@ -6273,11 +6270,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
     }
 
-    // HoD, Leadership & Institutional queues must NEVER include student accounts (@student.tce.edu)
+    // HoD, Leadership & Institutional queues must NEVER include test accounts (purely for testing) or student accounts
     if (effectiveRole === 'HOD' || isReviewMode) {
       rows = rows.filter(r => {
         const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
-        return !em.endsWith('@student.tce.edu');
+        if (em === 'deansiddharth@gmail.com' || em === 'siddharthk@student.tce.edu') return false;
+        if (em.endsWith('@student.tce.edu') || em.endsWith('@gmail.com') || em.endsWith('@googlemail.com')) return false;
+        return true;
       });
     }
 
@@ -7152,7 +7151,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         section9Data: cleanedSection9Data,
         sectionData: cleanedSection1Data,
       };
-      pushRecordToInboxStorage(selectedTimeline, inboxRecord);
+      const isTestAccount = submissionEmail === 'deansiddharth@gmail.com' || submissionEmail === 'siddharthk@student.tce.edu';
+      if (!isTestAccount) {
+        pushRecordToInboxStorage(selectedTimeline, inboxRecord);
+      }
       if (transaction) {
         setAppraisals((prev) => {
           const idx = prev.findIndex((rec) => rec.timeline === selectedTimeline && isSameUser(rec.email || rec.facultyEmail, user));
@@ -7162,18 +7164,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return next;
         });
       }
-      // Also reflect in HOD inbox state (if HOD is somehow already logged in same session).
-      setHodInboxByTimeline((prev) => {
-        const rows = prev[selectedTimeline] || [];
-        const existingIdx = rows.findIndex((r) => isSameUser(r.facultyEmail || r.email, user));
-        const updated = [...rows];
-        if (existingIdx !== -1) {
-          updated[existingIdx] = inboxRecord;
-        } else {
-          updated.push(inboxRecord);
-        }
-        return { ...prev, [selectedTimeline]: updated };
-      });
+      // Also reflect in HOD inbox state only if not a test account
+      if (!isTestAccount) {
+        setHodInboxByTimeline((prev) => {
+          const rows = prev[selectedTimeline] || [];
+          const existingIdx = rows.findIndex((r) => isSameUser(r.facultyEmail || r.email, user));
+          const updated = [...rows];
+          if (existingIdx !== -1) {
+            updated[existingIdx] = inboxRecord;
+          } else {
+            updated.push(inboxRecord);
+          }
+          return { ...prev, [selectedTimeline]: updated };
+        });
+      }
 
       await syncHistoryFromCloud(user, effectiveRole, isRegistrar ? selectedDeptFilter : user.department);
       setSubmitSuccess('Appraisal saved and submitted successfully.');
@@ -11176,7 +11180,20 @@ function loadInboxFromStorage() {
   if (typeof window === 'undefined') return {};
   try {
     const stored = window.localStorage.getItem(STORAGE_INBOX_KEY);
-    return stored ? JSON.parse(stored) : {};
+    if (!stored) return {};
+    const parsed = JSON.parse(stored);
+    const sanitized = {};
+    for (const [tl, rows] of Object.entries(parsed)) {
+      if (Array.isArray(rows)) {
+        sanitized[tl] = rows.filter(r => {
+          const em = String(r.facultyEmail || r.email || '').toLowerCase().trim();
+          return em !== 'deansiddharth@gmail.com' && em !== 'siddharthk@student.tce.edu' && !em.endsWith('@student.tce.edu') && !em.endsWith('@gmail.com');
+        });
+      } else {
+        sanitized[tl] = rows;
+      }
+    }
+    return sanitized;
   } catch {
     return {};
   }
@@ -11185,6 +11202,10 @@ function loadInboxFromStorage() {
 // Merge a new faculty submission record into the shared inbox and persist it.
 function pushRecordToInboxStorage(timeline, record) {
   if (typeof window === 'undefined') return;
+  const em = String(record?.facultyEmail || record?.email || '').toLowerCase().trim();
+  if (em === 'deansiddharth@gmail.com' || em === 'siddharthk@student.tce.edu' || em.endsWith('@student.tce.edu') || em.endsWith('@gmail.com')) {
+    return; // Purely for testing: Do not push test accounts to shared HOD inbox
+  }
   try {
     const current = loadInboxFromStorage();
     const timelineRows = current[timeline] || [];
