@@ -12,6 +12,7 @@ import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
 import AnalyticsDashboard from './AnalyticsDashboard.jsx';
 import AcademicTimelinePicker, { FIRST_ACADEMIC_YEAR, isAcademicYearStarted } from './AcademicTimelinePicker.jsx';
+import EngineeringAppraisalResources from './EngineeringAppraisalResources.jsx';
 import AppDateInput, {
   parseDateStringToIso,
   formatIsoToDisplay,
@@ -7902,6 +7903,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         })()}
       </div>
 
+      {/* Official Appraisal Evaluation Guidelines & Template (General Engineering only, strictly hidden for TSEDA) */}
+      {!isArch && !isPrincipal && !isRegistrar && (
+        <EngineeringAppraisalResources isArch={isArch} variant="full" />
+      )}
+
       {isReviewMode ? (
         <div className={(isIQAC || isPrincipal) ? "space-y-3" : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5"}>
           {!isIQAC && !isPrincipal && (
@@ -8959,6 +8965,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
           </div>
         </div>
+
+        {/* Compact Appraisal Resources Bar (General Engineering only, strictly hidden for TSEDA) */}
+        {!isArch && (
+          <EngineeringAppraisalResources isArch={isArch} variant="compact" />
+        )}
 
         {/* Cross-Section Dynamic Auto-Suggest Datalists */}
         <datalist id="autofill-course-codes">

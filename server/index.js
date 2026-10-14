@@ -1825,6 +1825,33 @@ app.post('/api/directory/transfer', async (req, res) => {
   }
 });
 
+// 5. Official Appraisal Document Downloads (General Engineering)
+app.get('/api/documents/guidelines', (req, res) => {
+  const candidates = [
+    path.join(__dirname, '..', 'public', 'Faculty Appraisal Evaluation Guidelines.pdf'),
+    path.join(__dirname, '..', 'dist', 'Faculty Appraisal Evaluation Guidelines.pdf'),
+  ];
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath, 'Faculty Appraisal Evaluation Guidelines.pdf');
+    }
+  }
+  return res.status(404).json({ success: false, message: 'Evaluation Guidelines PDF not found' });
+});
+
+app.get('/api/documents/template', (req, res) => {
+  const candidates = [
+    path.join(__dirname, '..', 'public', 'Faculty Appraisal Template Aug 2026.docx'),
+    path.join(__dirname, '..', 'dist', 'Faculty Appraisal Template Aug 2026.docx'),
+  ];
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath, 'Faculty Appraisal Template Aug 2026.docx');
+    }
+  }
+  return res.status(404).json({ success: false, message: 'Appraisal Template Word document not found' });
+});
+
 // Helper to export up-to-date directory to JSON, XLSX, and CSV
 async function refreshDirectoryFiles() {
   try {
@@ -2711,6 +2738,12 @@ async function migrateGmailLoginsToMca() {
   } catch (err) {
     console.warn('⚠️ Gmail to MCA migration warning:', err.message);
   }
+}
+
+// Serve static assets from public/ directory
+const publicPath = path.join(__dirname, '..', 'public');
+if (fs.existsSync(publicPath)) {
+  app.use(express.static(publicPath));
 }
 
 // Express 5 rejects app.get('*'). Serve the Vite build when dist/ exists
