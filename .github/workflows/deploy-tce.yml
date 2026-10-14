@@ -77,18 +77,25 @@ jobs:
             bash -s << 'REMOTE'
           set -euo pipefail
           cd /root/Tce_new
-          if [ -f .env ]; then
-            set -a
-            # shellcheck disable=SC1091
-            . ./.env
-            set +a
+          env_val() {
+            grep -E "^$1=" .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r\n'
+          }
+          API_URL="${GH_VITE_API_BASE_URL:-$(env_val VITE_API_BASE_URL)}"
+          API_URL="${API_URL:-/api}"
+          CLIENT_ID="$(printf '%s' "${GH_VITE_GOOGLE_CLIENT_ID:-}" | tr -d '\r\n')"
+          if [ -z "$CLIENT_ID" ]; then
+            CLIENT_ID="$(env_val VITE_GOOGLE_CLIENT_ID)"
           fi
-          API_URL="${VITE_API_BASE_URL:-/api}"
-          CLIENT_ID="${GH_VITE_GOOGLE_CLIENT_ID:-${VITE_GOOGLE_CLIENT_ID:-}}"
+          if [ -z "$CLIENT_ID" ]; then
+            CLIENT_ID="$(env_val GOOGLE_CLIENT_ID)"
+          fi
+          ORIGIN="$(env_val FRONTEND_ORIGIN)"
+          ORIGIN="${ORIGIN:-https://tfpep.tceapps.in}"
           if [ -z "$CLIENT_ID" ]; then
             echo "VITE_GOOGLE_CLIENT_ID is empty (set GitHub secret or server .env)."
             exit 1
           fi
+          echo "Building with client id length=${#CLIENT_ID} origin=$ORIGIN api=$API_URL"
 
           docker build \
             --build-arg VITE_API_BASE_URL="$API_URL" \
@@ -100,7 +107,7 @@ jobs:
           docker rm tce-app || true
           docker run -d --name tce-app --restart unless-stopped \
             --env-file .env \
-            -e FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-https://tfpep.tceapps.in}" \
+            -e FRONTEND_ORIGIN="$ORIGIN" \
             -p 30050:30050 \
             tce_new-tce-app
 
