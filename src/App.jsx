@@ -12,7 +12,6 @@ import DepartmentManagementModal from './DepartmentManagementModal.jsx';
 import FacultyRegistrationModal from './FacultyRegistrationModal.jsx';
 import AnalyticsDashboard from './AnalyticsDashboard.jsx';
 import AcademicTimelinePicker, { FIRST_ACADEMIC_YEAR, isAcademicYearStarted } from './AcademicTimelinePicker.jsx';
-import EngineeringAppraisalResources from './EngineeringAppraisalResources.jsx';
 import AppDateInput, {
   parseDateStringToIso,
   formatIsoToDisplay,
@@ -6361,9 +6360,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         scores?.isArch
       );
 
-  // Engineering Appraisal Guidelines & Template: Visible ONLY to General Engineering Faculty (never HoD, IQAC, Registrar, Principal, or TSEDA Architecture)
-  const showEngineeringResources = isFacultyUser && !isArch;
-
   useEffect(() => {
     if (activeTimelineRecord) {
       if (isArchDepartment(activeTimelineRecord.department || activeTimelineRecord.departmentName)) {
@@ -7952,11 +7948,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         })()}
       </div>
 
-      {/* Official Appraisal Guidelines & Template: Visible ONLY to General Engineering Faculty (never HoD, IQAC, Registrar, Principal, or TSEDA Architecture) */}
-      {showEngineeringResources && (
-        <EngineeringAppraisalResources isArch={false} variant="full" />
-      )}
-
       {isReviewMode ? (
         <div className={(isIQAC || isPrincipal) ? "space-y-3" : "rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-black/5"}>
           {!isIQAC && !isPrincipal && (
@@ -9012,26 +9003,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <span>📊</span> Excel
               </button>
 
-              {isArch && (
+              {isFacultyUser && (
                 <>
                   <div className="hidden sm:block h-4 w-px bg-slate-300 mx-0.5" aria-hidden="true" />
                   <a
-                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}TSEDA%20Faculty%20Appraisal%20Evaluation%20Guidelines.pdf`}
-                    download="TSEDA Faculty Appraisal Evaluation Guidelines.pdf"
+                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}${isArch ? 'TSEDA%20Faculty%20Appraisal%20Evaluation%20Guidelines.pdf' : 'Faculty%20Appraisal%20Evaluation%20Guidelines.pdf'}`}
+                    download={isArch ? "TSEDA Faculty Appraisal Evaluation Guidelines.pdf" : "Faculty Appraisal Evaluation Guidelines.pdf"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="py-1.5 px-2.5 text-xs rounded-lg font-medium border border-rose-200 bg-rose-50/80 text-rose-700 hover:bg-rose-100 transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                    title="Download TSEDA Faculty Appraisal Evaluation Guidelines (PDF)"
+                    title={`Download ${isArch ? 'TSEDA ' : ''}Faculty Appraisal Evaluation Guidelines (PDF)`}
                   >
                     <span>📑</span> Rubrics
                   </a>
                   <a
-                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}TSEDA%20Faculty%20Appraisal%20Template%20Aug%202026.docx`}
-                    download="TSEDA Faculty Appraisal Template Aug 2026.docx"
+                    href={`${(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/')}${isArch ? 'TSEDA%20Faculty%20Appraisal%20Template%20Aug%202026.docx' : 'Faculty%20Appraisal%20Template%20Aug%202026.docx'}`}
+                    download={isArch ? "TSEDA Faculty Appraisal Template Aug 2026.docx" : "Faculty Appraisal Template Aug 2026.docx"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="py-1.5 px-2.5 text-xs rounded-lg font-medium border border-blue-200 bg-blue-50/80 text-blue-700 hover:bg-blue-100 transition flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                    title="Download TSEDA Faculty Appraisal Template (DOCX)"
+                    title={`Download ${isArch ? 'TSEDA ' : ''}Faculty Appraisal Template (DOCX)`}
                   >
                     <span>📝</span> Template
                   </a>
@@ -9040,11 +9031,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
           </div>
         </div>
-
-        {/* Compact Appraisal Resources Bar: Visible ONLY to General Engineering Faculty (never HoD, IQAC, Registrar, Principal, or TSEDA Architecture) */}
-        {showEngineeringResources && (
-          <EngineeringAppraisalResources isArch={false} variant="compact" />
-        )}
 
         {/* Cross-Section Dynamic Auto-Suggest Datalists */}
         <datalist id="autofill-course-codes">
@@ -10713,12 +10699,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <p className="text-2xl font-black text-amber-600 mt-0.5">{Math.max(0, 365 - (user?.serviceDays || 0))}</p>
               </div>
             </div>
-
-            {showEngineeringResources && (
-              <div className="mt-4">
-                <EngineeringAppraisalResources isArch={false} variant="full" />
-              </div>
-            )}
           </div>
         ) : (isPrincipal || isRegistrar) ? (
           renderOverview()
