@@ -2227,16 +2227,40 @@ function DynamicArraySection({
 
   const calendarLabel = useMemo(() => {
     if (propCalendarLabel) return propCalendarLabel;
-    if (propCalendarType === 'academic') return 'Academic Year';
-    if (propCalendarType === 'year') return 'Calendar Year';
+    if (propCalendarType === 'academic') {
+      if (!effectiveBatch) return 'Academic Year';
+      const { startYear, endYear } = getCalendarRangeForBatch(effectiveBatch, 'academic');
+      return startYear && endYear
+        ? `Academic Year (1 July ${startYear} - 30 June ${endYear})`
+        : 'Academic Year';
+    }
+    if (propCalendarType === 'year') {
+      if (!effectiveBatch) return 'Calendar Year';
+      const { startYear } = getCalendarRangeForBatch(effectiveBatch, 'year');
+      return startYear
+        ? `Calendar Year (1 Jan ${startYear} - 31 Dec ${startYear})`
+        : 'Calendar Year';
+    }
     for (const col of safeColumns) {
       if (col.calendarType && col.calendarType !== 'none') {
-        if (col.calendarType === 'academic') return 'Academic Year';
-        if (col.calendarType === 'year') return 'Calendar Year';
+        if (col.calendarType === 'academic') {
+          if (!effectiveBatch) return 'Academic Year';
+          const { startYear, endYear } = getCalendarRangeForBatch(effectiveBatch, 'academic');
+          return startYear && endYear
+            ? `Academic Year (1 July ${startYear} - 30 June ${endYear})`
+            : 'Academic Year';
+        }
+        if (col.calendarType === 'year') {
+          if (!effectiveBatch) return 'Calendar Year';
+          const { startYear } = getCalendarRangeForBatch(effectiveBatch, 'year');
+          return startYear
+            ? `Calendar Year (1 Jan ${startYear} - 31 Dec ${startYear})`
+            : 'Calendar Year';
+        }
       }
     }
     return null;
-  }, [propCalendarLabel, propCalendarType, safeColumns]);
+  }, [propCalendarLabel, propCalendarType, safeColumns, effectiveBatch]);
 
   const renderColumnField = (column, row) => {
     const isTimelineCol = column.type === 'timeline' || (column.name === 'period' && column.type !== 'date');
