@@ -67,13 +67,66 @@ export function calculateInclusiveDays(startDateStr, endDateStr) {
 }
 
 /**
+ * Calendar bounds named constants (Issue 38)
+ * - YEAR CALENDAR: 1 January Y to 31 December Y
+ * - ACADEMIC CALENDAR: 1 June Y to 31 May Y+1
+ */
+export const YEAR_CALENDAR_BOUNDS = Object.freeze({
+  startMonth: 1,  // January
+  startDay: 1,
+  endMonth: 12,   // December
+  endDay: 31,
+});
+
+export const ACADEMIC_CALENDAR_BOUNDS = Object.freeze({
+  startMonth: 6,  // June
+  startDay: 1,
+  endMonth: 5,    // May (following year)
+  endDay: 31,
+});
+
+/**
+ * OWNER'S LIST (Single Source of Truth)
+ * - YEAR CALENDAR: 2.1, 2.4, 3.1, 3.2, 8.1
+ * - ACADEMIC CALENDAR: 3.4, 3.5, 4.1, 4.2, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.5, 7.1, 7.2, 8.2
+ * Any subsection not in this config has NO range restriction (default: 'none').
+ */
+export const CALENDAR_BY_SUBSECTION = Object.freeze({
+  // YEAR CALENDAR (1 Jan Y to 31 Dec Y)
+  '2.1': 'year',
+  '2.4': 'year',
+  '3.1': 'year',
+  '3.2': 'year',
+  '8.1': 'year',
+
+  // ACADEMIC CALENDAR (1 June Y to 31 May Y+1)
+  '3.4': 'academic',
+  '3.5': 'academic',
+  '4.1': 'academic',
+  '4.2': 'academic',
+  '5.1': 'academic',
+  '5.2': 'academic',
+  '5.3': 'academic',
+  '5.4': 'academic',
+  '5.5': 'academic',
+  '6.1': 'academic',
+  '6.2': 'academic',
+  '6.3': 'academic',
+  '6.5': 'academic',
+  '7.1': 'academic',
+  '7.2': 'academic',
+  '8.2': 'academic',
+});
+
+/**
  * Computes calendar range boundaries based on the selected batch (e.g. '2025 - 2026')
  * - 'year': 01 Jan {startYear} to 31 Dec {startYear}
  * - 'academic': 01 Jun {startYear} to 31 May {endYear}
+ * - 'none' (or unlisted): no range restriction
  */
-export function getCalendarRangeForBatch(batch, calendarType = 'academic') {
-  const cType = calendarType || 'academic';
-  if (!batch || cType === 'none') {
+export function getCalendarRangeForBatch(batch, calendarType = 'none') {
+  const cType = (calendarType || 'none').toLowerCase();
+  if (!batch || cType === 'none' || (cType !== 'year' && cType !== 'academic')) {
     return { minDate: undefined, maxDate: undefined, label: '', calendarName: '' };
   }
   const match = String(batch).match(/(\d{4})/g);
@@ -81,19 +134,27 @@ export function getCalendarRangeForBatch(batch, calendarType = 'academic') {
   const endYear = match && match[1] ? parseInt(match[1], 10) : startYear + 1;
 
   if (cType === 'year') {
+    const sm = String(YEAR_CALENDAR_BOUNDS.startMonth).padStart(2, '0');
+    const sd = String(YEAR_CALENDAR_BOUNDS.startDay).padStart(2, '0');
+    const em = String(YEAR_CALENDAR_BOUNDS.endMonth).padStart(2, '0');
+    const ed = String(YEAR_CALENDAR_BOUNDS.endDay).padStart(2, '0');
     return {
-      minDate: `${startYear}-01-01`,
-      maxDate: `${startYear}-12-31`,
+      minDate: `${startYear}-${sm}-${sd}`,
+      maxDate: `${startYear}-${em}-${ed}`,
       label: `01 Jan ${startYear} to 31 Dec ${startYear}`,
       calendarName: 'Calendar Year',
       startYear,
-      endYear,
+      endYear: startYear,
     };
   }
   if (cType === 'academic') {
+    const sm = String(ACADEMIC_CALENDAR_BOUNDS.startMonth).padStart(2, '0');
+    const sd = String(ACADEMIC_CALENDAR_BOUNDS.startDay).padStart(2, '0');
+    const em = String(ACADEMIC_CALENDAR_BOUNDS.endMonth).padStart(2, '0');
+    const ed = String(ACADEMIC_CALENDAR_BOUNDS.endDay).padStart(2, '0');
     return {
-      minDate: `${startYear}-06-01`,
-      maxDate: `${endYear}-05-31`,
+      minDate: `${startYear}-${sm}-${sd}`,
+      maxDate: `${endYear}-${em}-${ed}`,
       label: `01 Jun ${startYear} to 31 May ${endYear}`,
       calendarName: 'Academic Calendar',
       startYear,
@@ -124,11 +185,13 @@ export function computeExpectedEndDate(startDateStr, durationDays) {
  * Shared Date Input Component
  * Supports both typing (auto-formatting / validation) and native/browser calendar picking.
  * Enforces calendar bounds (Year Calendar vs Academic Calendar) and custom date constraints.
+ * Default calendarType is 'none' (unrestricted).
  */
 export default function AppDateInput({
   value = '',
   onChange,
-  calendarType = 'academic',
+  calendarType = 'none',
+  subsectionId,
   batch = '2025 - 2026',
   minDate: customMinDate,
   maxDate: customMaxDate,
@@ -143,7 +206,15 @@ export default function AppDateInput({
   onBlur,
   errorText = '',
 }) {
-  const range = getCalendarRangeForBatch(batch, calendarType);
+  let resolvedType = calendarType || 'none';
+  if (subsectionId) {
+    if (subsectionId === '2.5') {
+      resolvedType = calendarType || 'academic';
+    } else {
+      resolvedType = CALENDAR_BY_SUBSECTION[subsectionId] || 'none';
+    }
+  }
+  const range = getCalendarRangeForBatch(batch, resolvedType);
 
   // Effective min & max bounds for the date input
   let effectiveMin = exactDate || customMinDate || range.minDate;
