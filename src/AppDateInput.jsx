@@ -69,7 +69,7 @@ export function calculateInclusiveDays(startDateStr, endDateStr) {
 /**
  * Computes calendar range boundaries based on the selected batch (e.g. '2025 - 2026')
  * - 'year': 01 Jan {startYear} to 31 Dec {startYear}
- * - 'academic': 01 Jul {startYear} to 30 Jun {endYear}
+ * - 'academic': 01 Jun {startYear} to 31 May {endYear}
  */
 export function getCalendarRangeForBatch(batch, calendarType = 'academic') {
   const cType = calendarType || 'academic';
@@ -92,9 +92,9 @@ export function getCalendarRangeForBatch(batch, calendarType = 'academic') {
   }
   if (cType === 'academic') {
     return {
-      minDate: `${startYear}-07-01`,
-      maxDate: `${endYear}-06-30`,
-      label: `01 Jul ${startYear} to 30 Jun ${endYear}`,
+      minDate: `${startYear}-06-01`,
+      maxDate: `${endYear}-05-31`,
+      label: `01 Jun ${startYear} to 31 May ${endYear}`,
       calendarName: 'Academic Calendar',
       startYear,
       endYear,

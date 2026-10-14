@@ -2228,7 +2228,7 @@ function DynamicArraySection({
       if (!effectiveBatch) return 'Academic Year';
       const { startYear, endYear } = getCalendarRangeForBatch(effectiveBatch, 'academic');
       return startYear && endYear
-        ? `Academic Year (1 July ${startYear} - 30 June ${endYear})`
+        ? `Academic Year (1 June ${startYear} - 31 May ${endYear})`
         : 'Academic Year';
     }
     if (propCalendarType === 'year') {
@@ -2244,7 +2244,7 @@ function DynamicArraySection({
           if (!effectiveBatch) return 'Academic Year';
           const { startYear, endYear } = getCalendarRangeForBatch(effectiveBatch, 'academic');
           return startYear && endYear
-            ? `Academic Year (1 July ${startYear} - 30 June ${endYear})`
+            ? `Academic Year (1 June ${startYear} - 31 May ${endYear})`
             : 'Academic Year';
         }
         if (col.calendarType === 'year') {

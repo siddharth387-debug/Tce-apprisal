@@ -13,7 +13,7 @@ export const FIRST_ACADEMIC_YEAR = 2025;
 
 export const isAcademicYearStarted = (startYear) => {
   const now = new Date();
-  const startDate = new Date(startYear, 6, 1); // 1 July of year startYear
+  const startDate = new Date(startYear, 5, 1); // 1 June of year startYear
   return now >= startDate;
 };
 
@@ -210,7 +210,7 @@ export default function AcademicTimelinePicker({
       return;
     }
     if (!isAcademicYearStarted(s)) {
-      setCustomError(`Cannot create appraisal for an academic year that has not started yet (starts 1 July ${s})`);
+      setCustomError(`Cannot create appraisal for an academic year that has not started yet (starts 1 June ${s})`);
       return;
     }
     const rangeTimeline = `${s}-${end}`;
