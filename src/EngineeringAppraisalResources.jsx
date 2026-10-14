@@ -114,18 +114,8 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
           <div>
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               Official Appraisal Guidelines &amp; Template
-              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                Engineering &amp; S&amp;H
-              </span>
             </h3>
-            <p className="text-[11px] text-slate-500">
-              Download approved evaluation scoring rubrics and the official metrics template for offline preparation.
-            </p>
           </div>
-        </div>
-
-        <div className="text-[11px] font-semibold text-slate-400 hidden md:block">
-          Thiagarajar College of Engineering
         </div>
       </div>
 
@@ -142,35 +132,11 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
                   </svg>
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
-                      PDF Document
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-400">
-                      {files.guidelines.size}
-                    </span>
-                  </div>
                   <h4 className="text-sm font-bold text-slate-900 mt-0.5">
                     {files.guidelines.title}
                   </h4>
                 </div>
               </div>
-            </div>
-
-            <p className="mt-2.5 text-xs text-slate-600 leading-relaxed">
-              {files.guidelines.description}
-            </p>
-
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10.5px] font-medium text-slate-500">
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                ✓ 3 Pages
-              </span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                ✓ Sections I–IX Rubrics
-              </span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                ✓ Total 200 Marks
-              </span>
             </div>
           </div>
 
@@ -213,35 +179,11 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
                   </svg>
                 </div>
                 <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                      Word Document
-                    </span>
-                    <span className="text-[10px] font-semibold text-slate-400">
-                      {files.template.size}
-                    </span>
-                  </div>
                   <h4 className="text-sm font-bold text-slate-900 mt-0.5">
                     {files.template.title}
                   </h4>
                 </div>
               </div>
-            </div>
-
-            <p className="mt-2.5 text-xs text-slate-600 leading-relaxed">
-              {files.template.description}
-            </p>
-
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10.5px] font-medium text-slate-500">
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                ✓ Editable .docx
-              </span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                ✓ Full Metric Tables
-              </span>
-              <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
-                ✓ HoD Endorsement
-              </span>
             </div>
           </div>
 
@@ -262,19 +204,13 @@ export default function EngineeringAppraisalResources({ isArch = false, variant 
       </div>
 
       {/* Footer Helper Note */}
-      <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-        <div className="flex items-center gap-1.5">
-          <span className="text-amber-600 font-bold">💡 Tip:</span>
-          <span>
-            Use the Word template to gather your metrics and evidence links offline, then refer to the guidelines when entering scores.
-          </span>
-        </div>
-        {downloading && (
+      {downloading && (
+        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
           <span className="text-emerald-600 font-bold animate-pulse text-[10.5px]">
             ✓ Download started
           </span>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
