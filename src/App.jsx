@@ -1009,13 +1009,13 @@ const TCE_DEPARTMENTS = [
 function getRoleFromEmail(email) {
   const userEmail = (email || '').toLowerCase().trim();
 
-  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu' || userEmail === 'siddharth@student.tce.edu' || userEmail === 'deansiddharth@gmail.com') {
+  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu' || userEmail === 'deansiddharth@gmail.com') {
     return 'Registrar';
   }
   if (userEmail === 'principal@tce.edu') {
     return 'Principal';
   }
-  if (userEmail === 'karthikesavan@student.tce.edu' || userEmail === 'iqac@tce.edu' || userEmail.includes('iqac')) {
+  if (userEmail === 'iqac@tce.edu' || userEmail.includes('iqac')) {
     return 'IQAC';
   }
   if (
@@ -4371,7 +4371,6 @@ const ACTIVITY_STORAGE_KEY = 'tce_appraisal_last_activity';
 
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || 
-                       (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu' ||
                        (user?.email || '').toLowerCase().trim() === 'deansiddharth@gmail.com';
   const isSuperAdmin = isMasterUser;
 
@@ -4648,8 +4647,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     ].filter(Boolean).map(e => String(e).toLowerCase().trim());
 
     // Master user alias linking
-    if (userObj.email === 'siddharthk@student.tce.edu' || userObj.email === 'siddharth@student.tce.edu' || userObj.email === 'deansiddharth@gmail.com') {
-      ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'deansiddharth@gmail.com'].forEach(em => {
+    if (userObj.email === 'siddharthk@student.tce.edu' || userObj.email === 'deansiddharth@gmail.com') {
+      ['siddharthk@student.tce.edu', 'deansiddharth@gmail.com'].forEach(em => {
         if (!aliases.includes(em)) aliases.push(em);
       });
     }
@@ -6276,6 +6275,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return !rowDept || rowDept === hodDept;
         });
       }
+    }
+
+    // HoD, Leadership & Institutional queues must NEVER include student accounts (@student.tce.edu)
+    if (effectiveRole === 'HOD' || isReviewMode) {
+      rows = rows.filter(r => {
+        const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+        return !em.endsWith('@student.tce.edu');
+      });
     }
 
     // Timeline filtering:
