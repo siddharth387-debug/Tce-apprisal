@@ -1,0 +1,109 @@
+# Deploy this repo to the TCE Linux host over SSH, then rebuild tce-app.
+#
+# GitHub secret (Settings → Secrets and variables → Actions):
+#   TCE_SSH_KEY  = full contents of tce.pem
+#                  including -----BEGIN RSA PRIVATE KEY----- and END line
+#
+# Optional secrets:
+#   VITE_GOOGLE_CLIENT_ID  (used at docker build; falls back to the server .env)
+
+name: Deploy to TCE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tce-production
+  cancel-in-progress: false
+
+env:
+  TCE_HOST: 103.14.120.197
+  TCE_PORT: "2244"
+  TCE_USER: root
+  TCE_PATH: /root/Tce_new
+
+jobs:
+  deploy:
+    name: rsync and rebuild tce-app
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write SSH key
+        env:
+          TCE_SSH_KEY: ${{ secrets.TCE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TCE_SSH_KEY:-}" ]; then
+            echo "Missing GitHub secret TCE_SSH_KEY (paste the full tce.pem contents)."
+            exit 1
+          fi
+          mkdir -p "$HOME/.ssh"
+          # Keep PEM newlines; strip Windows CR if the secret was pasted from Windows.
+          printf '%s\n' "$TCE_SSH_KEY" | tr -d '\r' > "$HOME/.ssh/tce.pem"
+          chmod 600 "$HOME/.ssh/tce.pem"
+          ssh-keyscan -p "$TCE_PORT" -H "$TCE_HOST" >> "$HOME/.ssh/known_hosts"
+          SSH_OPTS="-i $HOME/.ssh/tce.pem -p $TCE_PORT -o IdentitiesOnly=yes -o BatchMode=yes"
+          ssh $SSH_OPTS "${TCE_USER}@${TCE_HOST}" 'command -v rsync >/dev/null || (apt-get update -qq && apt-get install -y rsync)'
+
+      - name: Sync repo to /root/Tce_new
+        run: |
+          set -euo pipefail
+          rsync -az --delete \
+            -e "ssh -i $HOME/.ssh/tce.pem -p $TCE_PORT -o IdentitiesOnly=yes" \
+            --exclude '.git/' \
+            --exclude 'node_modules/' \
+            --exclude 'dist/' \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude '*.pem' \
+            --exclude 'docker/tce.pem' \
+            --exclude 'server/data/backups/' \
+            ./ "${TCE_USER}@${TCE_HOST}:${TCE_PATH}/"
+
+      - name: Rebuild and restart tce-app
+        env:
+          GH_VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/tce.pem" -p "$TCE_PORT" -o IdentitiesOnly=yes \
+            "${TCE_USER}@${TCE_HOST}" \
+            GH_VITE_GOOGLE_CLIENT_ID="$GH_VITE_GOOGLE_CLIENT_ID" \
+            bash -s << 'REMOTE'
+          set -euo pipefail
+          cd /root/Tce_new
+          if [ -f .env ]; then
+            set -a
+            # shellcheck disable=SC1091
+            . ./.env
+            set +a
+          fi
+          API_URL="${VITE_API_BASE_URL:-/api}"
+          CLIENT_ID="${GH_VITE_GOOGLE_CLIENT_ID:-${VITE_GOOGLE_CLIENT_ID:-}}"
+          if [ -z "$CLIENT_ID" ]; then
+            echo "VITE_GOOGLE_CLIENT_ID is empty (set GitHub secret or server .env)."
+            exit 1
+          fi
+
+          docker build \
+            --build-arg VITE_API_BASE_URL="$API_URL" \
+            --build-arg VITE_GOOGLE_CLIENT_ID="$CLIENT_ID" \
+            -t tce_new-tce-app \
+            .
+
+          docker stop tce-app || true
+          docker rm tce-app || true
+          docker run -d --name tce-app --restart unless-stopped \
+            --env-file .env \
+            -e FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-https://tfpep.tceapps.in}" \
+            -p 30050:30050 \
+            tce_new-tce-app
+
+          docker ps --filter name=tce-app --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          docker logs tce-app --tail 20
+          REMOTE
