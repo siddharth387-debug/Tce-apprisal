@@ -901,6 +901,17 @@ app.post('/api/auth/google', async (request, response) => {
 
     const verifiedEmail = payload.email.toLowerCase().trim();
 
+    // ── Email Domain Security Guard ──────────────────────────────────────────
+    // Strictly block all personal @gmail.com / @googlemail.com logins, with the ONLY exception being deansiddharth@gmail.com
+    const isGmailAccount = verifiedEmail.endsWith('@gmail.com') || verifiedEmail.endsWith('@googlemail.com');
+    if (isGmailAccount && verifiedEmail !== 'deansiddharth@gmail.com') {
+      console.warn(`⛔ Unauthorized login blocked for personal Gmail account: ${verifiedEmail}`);
+      return response.status(403).json({
+        success: false,
+        message: 'Personal @gmail.com accounts are not authorized to access the TCE Faculty Appraisal Portal. Please sign in with your official institutional email (@tce.edu).',
+      });
+    }
+
     // Look up in master faculty directory (prioritize exact personal/institutional email match)
     let facultyRecord = await FacultyMember.findOne({ email: verifiedEmail });
     if (!facultyRecord) {
@@ -913,24 +924,6 @@ app.post('/api/auth/google', async (request, response) => {
           { alternateEmails: verifiedEmail }
         ]
       });
-    }
-
-    // Fuzzy-match: If not found and user logged in with personal Gmail, match username prefix with staffId or email
-    if (!facultyRecord && verifiedEmail.endsWith('@gmail.com')) {
-      const emailUser = verifiedEmail.split('@')[0].replace(/[0-9]+$/, '').toLowerCase().trim();
-      if (emailUser.length >= 4) {
-        facultyRecord = await FacultyMember.findOne({
-          $or: [
-            { staffId: new RegExp(`^${emailUser}$`, 'i') },
-            { email: new RegExp(`^${emailUser}@`, 'i') },
-            { personalEmail: new RegExp(`^${emailUser}@`, 'i') }
-          ]
-        });
-      }
-    }
-
-    if (!facultyRecord && verifiedEmail === 'yuvar6535@gmail.com') {
-      facultyRecord = (await FacultyMember.findOne({ staffId: 'PRINCIPAL' })) || (await FacultyMember.findOne({ email: 'principal@tce.edu' }));
     }
 
     // Auto-link alternate email in directory so cross-device logins share identical identity
@@ -947,18 +940,17 @@ app.post('/api/auth/google', async (request, response) => {
     }
 
     // Determine Role, Department & Designation (Dynamic lookup by email entry)
-    const isGmailLogin = verifiedEmail.endsWith('@gmail.com');
     let assignedRole = 'Faculty';
-    let assignedDept = isGmailLogin ? (facultyRecord?.department || 'MCA') : (facultyRecord?.department || 'CSE');
-    let assignedDeptName = isGmailLogin ? (facultyRecord?.departmentName || 'Computer Applications') : (facultyRecord?.departmentName || 'Computer Science and Engineering');
+    let assignedDept = facultyRecord?.department || 'CSE';
+    let assignedDeptName = facultyRecord?.departmentName || 'Computer Science and Engineering';
     let assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
 
-    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu' || verifiedEmail === 'personalsiddharth387@gmail.com') {
+    if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu' || verifiedEmail === 'deansiddharth@gmail.com') {
       assignedRole = 'Registrar';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
-      assignedDesignation = 'Registrar';
-    } else if (verifiedEmail === 'principal@tce.edu' || verifiedEmail === 'yuvar6535@gmail.com') {
+      assignedDesignation = 'Dean / Registrar';
+    } else if (verifiedEmail === 'principal@tce.edu') {
       assignedRole = 'Principal';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
@@ -968,12 +960,6 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'IQAC Quality Coordinator';
-    } else if (verifiedEmail === 'yuvarajoffl2005@gmail.com') {
-      assignedRole = 'HOD';
-      assignedDesignation = facultyRecord?.designation || 'Professor & Head (HOD)';
-      let rawDept = facultyRecord?.department || 'MCA';
-      assignedDept = normalizeDepartmentCode(rawDept);
-      assignedDeptName = facultyRecord?.departmentName || 'Computer Applications';
     } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
       // Official departmental HOD account (e.g. hodca@tce.edu, hodcse@tce.edu)
       assignedRole = 'HOD';
@@ -985,9 +971,9 @@ app.post('/api/auth/google', async (request, response) => {
     } else if (facultyRecord) {
       // Individual personal faculty account (e.g. pccse@tce.edu, shalinie@tce.edu, etc.)
       assignedRole = facultyRecord.role || 'Faculty';
-      let rawDept = facultyRecord.department || (isGmailLogin ? 'MCA' : 'CSE');
+      let rawDept = facultyRecord.department || 'CSE';
       assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : normalizeDepartmentCode(rawDept);
-      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (facultyRecord.departmentName || (isGmailLogin ? 'Computer Applications' : ''));
+      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (facultyRecord.departmentName || '');
       assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
     }
 
@@ -997,18 +983,13 @@ app.post('/api/auth/google', async (request, response) => {
     if (!userAliases.includes(verifiedEmail)) userAliases.push(verifiedEmail);
     if (canonicalPersonalEmail && !userAliases.includes(canonicalPersonalEmail)) userAliases.push(canonicalPersonalEmail);
     if (assignedRole === 'HOD' && canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
-    if (verifiedEmail === 'personalsiddharth387@gmail.com' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu') {
-      ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'personalsiddharth387@gmail.com'].forEach(em => {
+    if (verifiedEmail === 'deansiddharth@gmail.com' || verifiedEmail === 'siddharthk@student.tce.edu' || verifiedEmail === 'siddharth@student.tce.edu') {
+      ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'deansiddharth@gmail.com'].forEach(em => {
         if (!userAliases.includes(em)) userAliases.push(em);
       });
     }
-    if (verifiedEmail === 'yuvarajoffl2005@gmail.com') {
-      ['yuvarajoffl2005@gmail.com', 'hodca@tce.edu', 'hodmca@tce.edu'].forEach(em => {
-        if (!userAliases.includes(em)) userAliases.push(em);
-      });
-    }
-    if (verifiedEmail === 'principal@tce.edu' || verifiedEmail === 'yuvar6535@gmail.com') {
-      ['principal@tce.edu', 'yuvar6535@gmail.com'].forEach(em => {
+    if (verifiedEmail === 'principal@tce.edu') {
+      ['principal@tce.edu'].forEach(em => {
         if (!userAliases.includes(em)) userAliases.push(em);
       });
     }
@@ -1141,7 +1122,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const userRole = (req.user?.role || '').toUpperCase().trim();
 
     // Institutional Governance Guard: Principal is an apex executive role and never submits self-appraisals
-    if (userRole === 'PRINCIPAL' || verifiedEmail === 'principal@tce.edu' || verifiedEmail === 'yuvar6535@gmail.com') {
+    if (userRole === 'PRINCIPAL' || verifiedEmail === 'principal@tce.edu') {
       console.log('⛔ Principal account is an apex administrative role and does not submit self-appraisals.');
       return res.status(403).json({ success: false, message: 'Principal account is for institutional review and governance only. Self-appraisal submission is disabled.' });
     }
@@ -1549,15 +1530,13 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) ||
       requestEmail === 'siddharthk@student.tce.edu' || 
       requestEmail === 'siddharth@student.tce.edu' ||
-      requestEmail === 'personalsiddharth387@gmail.com' ||
+      requestEmail === 'deansiddharth@gmail.com' ||
       requestEmail === 'registrar@tce.edu' ||
       requestEmail === 'principal@tce.edu' ||
-      requestEmail === 'yuvar6535@gmail.com' ||
       requestEmail === 'iqac@tce.edu' ||
       requestEmail.includes('iqac') ||
       requestEmail === 'karthikesavan@student.tce.edu' ||
-      requestEmail.startsWith('hod') ||
-      requestEmail === 'yuvarajoffl2005@gmail.com'
+      requestEmail.startsWith('hod')
     );
 
     // Faculty mode check: If caller explicitly requests individual faculty mode (e.g. self-appraisal), or lacks elevated privileges
@@ -1574,10 +1553,9 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       const userDept = (tokenDept || masterRecord?.department || '').toUpperCase().trim();
       const isSuperAdminOrRegistrar = requestEmail === 'siddharthk@student.tce.edu' ||
                                      requestEmail === 'siddharth@student.tce.edu' ||
-                                     requestEmail === 'personalsiddharth387@gmail.com' ||
+                                     requestEmail === 'deansiddharth@gmail.com' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
-                                     requestEmail === 'yuvar6535@gmail.com' ||
                                      requestEmail === 'iqac@tce.edu' ||
                                      requestEmail.includes('iqac') ||
                                      requestEmail === 'karthikesavan@student.tce.edu' ||
@@ -1637,7 +1615,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     }
 
     const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu' || requestEmail.includes('iqac');
-    const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu' || requestEmail === 'yuvar6535@gmail.com';
+    const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu';
 
     if (isIQACUser || isPrincipalUser) {
       const allowedStatuses = [
@@ -2779,50 +2757,53 @@ app.post(['/api/ai/suggest-feedback', '/ai/suggest-feedback'], authenticateToken
   }
 });
 
-// One-time database migration helper to update existing gmail.com logins to MCA department
-async function migrateGmailLoginsToMca() {
+// Database policy enforcement: Purge all unauthorized @gmail.com data, preserving only deansiddharth@gmail.com
+async function enforceGmailDomainPolicy() {
   try {
-    const gmailFilter = {
-      $or: [
-        { email: /@gmail\.com$/i },
-        { personalEmail: /@gmail\.com$/i },
-        { alternateEmails: /@gmail\.com$/i }
-      ]
-    };
-
-    const facultyResult = await FacultyMember.updateMany(
-      gmailFilter,
-      {
-        $set: {
-          department: 'MCA',
-          departmentName: 'Computer Applications',
-          hodEmail: 'hodmca@tce.edu'
-        }
-      }
-    );
-
     const appraisalFilter = {
-      $or: [
-        { email: /@gmail\.com$/i },
-        { facultyEmail: /@gmail\.com$/i }
+      $and: [
+        {
+          $or: [
+            { email: /@gmail\.com$/i },
+            { facultyEmail: /@gmail\.com$/i }
+          ]
+        },
+        { email: { $ne: 'deansiddharth@gmail.com' } },
+        { facultyEmail: { $ne: 'deansiddharth@gmail.com' } }
       ]
     };
+    const appDel = await Appraisal.deleteMany(appraisalFilter);
+    if (appDel.deletedCount > 0) {
+      console.log(`🧹 Enforce Gmail Policy: Purged ${appDel.deletedCount} unauthorized @gmail.com appraisal record(s).`);
+    }
 
-    const appraisalResult = await Appraisal.updateMany(
-      appraisalFilter,
-      {
-        $set: {
-          department: 'MCA',
-          departmentName: 'Computer Applications'
-        }
-      }
-    );
+    const sessDel = await UserSession.deleteMany({
+      email: { $regex: /@gmail\.com$/i, $ne: 'deansiddharth@gmail.com' }
+    });
+    if (sessDel.deletedCount > 0) {
+      console.log(`🧹 Enforce Gmail Policy: Purged ${sessDel.deletedCount} unauthorized @gmail.com session(s).`);
+    }
 
-    if (facultyResult.modifiedCount > 0 || appraisalResult.modifiedCount > 0) {
-      console.log(`✅ Gmail Migration Complete: Updated ${facultyResult.modifiedCount} faculty record(s) and ${appraisalResult.modifiedCount} appraisal record(s) to MCA department.`);
+    // Ensure deansiddharth@gmail.com has Dean/Registrar authority in master directory
+    const deanExists = await FacultyMember.findOne({ email: 'deansiddharth@gmail.com' });
+    if (!deanExists) {
+      await FacultyMember.create({
+        staffId: 'DEANSIDDHARTH',
+        name: 'Dr. Siddharth',
+        designation: 'Dean / Registrar',
+        email: 'deansiddharth@gmail.com',
+        personalEmail: 'deansiddharth@gmail.com',
+        hodEmail: 'hodcse@tce.edu',
+        alternateEmails: ['deansiddharth@gmail.com', 'siddharthk@student.tce.edu'],
+        department: 'ALL',
+        departmentName: 'All Academic Departments',
+        role: 'Registrar',
+        active: true
+      });
+      console.log('✓ Ensured Dean Siddharth master directory record.');
     }
   } catch (err) {
-    console.warn('⚠️ Gmail to MCA migration warning:', err.message);
+    console.warn('⚠️ Enforce Gmail Policy warning:', err.message);
   }
 }
 
@@ -2866,8 +2847,8 @@ async function startServer() {
     // Auto-seed/verify faculty master directory
     await seedFacultyDirectory(false);
 
-    // Auto-migrate existing gmail.com logins to MCA department
-    await migrateGmailLoginsToMca();
+    // Enforce Gmail Domain Policy (purge non-whitelisted gmail data)
+    await enforceGmailDomainPolicy();
 
     // Start automated daily database backup background schedule
     scheduleDailyAutoBackup();

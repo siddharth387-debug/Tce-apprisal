@@ -1009,17 +1009,14 @@ const TCE_DEPARTMENTS = [
 function getRoleFromEmail(email) {
   const userEmail = (email || '').toLowerCase().trim();
 
-  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu' || userEmail === 'siddharth@student.tce.edu') {
+  if (userEmail === 'registrar@tce.edu' || userEmail === 'siddharthk@student.tce.edu' || userEmail === 'siddharth@student.tce.edu' || userEmail === 'deansiddharth@gmail.com') {
     return 'Registrar';
   }
-  if (userEmail === 'principal@tce.edu' || userEmail === 'yuvar6535@gmail.com') {
+  if (userEmail === 'principal@tce.edu') {
     return 'Principal';
   }
   if (userEmail === 'karthikesavan@student.tce.edu' || userEmail === 'iqac@tce.edu' || userEmail.includes('iqac')) {
     return 'IQAC';
-  }
-  if (userEmail === 'yuvarajoffl2005@gmail.com') {
-    return 'HOD';
   }
   if (
     userEmail.startsWith('hod') ||
@@ -2780,7 +2777,7 @@ const LandingPage = React.memo(function LandingPage({
           const apiMessage = error.response.data?.detail || error.response.data?.message;
           setErrorMessage(
             apiMessage
-              ? `${error.response.status}: ${apiMessage}`
+              ? apiMessage
               : `Google authentication failed (${error.response.status}) at ${API_BASE_URL}/auth/google.`
           );
           return;
@@ -4375,7 +4372,7 @@ const ACTIVITY_STORAGE_KEY = 'tce_appraisal_last_activity';
 function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu' || 
                        (user?.email || '').toLowerCase().trim() === 'siddharth@student.tce.edu' ||
-                       (user?.email || '').toLowerCase().trim() === 'personalsiddharth387@gmail.com';
+                       (user?.email || '').toLowerCase().trim() === 'deansiddharth@gmail.com';
   const isSuperAdmin = isMasterUser;
 
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
@@ -4651,8 +4648,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     ].filter(Boolean).map(e => String(e).toLowerCase().trim());
 
     // Master user alias linking
-    if (userObj.email === 'siddharthk@student.tce.edu' || userObj.email === 'siddharth@student.tce.edu' || userObj.email === 'personalsiddharth387@gmail.com') {
-      ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'personalsiddharth387@gmail.com'].forEach(em => {
+    if (userObj.email === 'siddharthk@student.tce.edu' || userObj.email === 'siddharth@student.tce.edu' || userObj.email === 'deansiddharth@gmail.com') {
+      ['siddharthk@student.tce.edu', 'siddharth@student.tce.edu', 'deansiddharth@gmail.com'].forEach(em => {
         if (!aliases.includes(em)) aliases.push(em);
       });
     }
