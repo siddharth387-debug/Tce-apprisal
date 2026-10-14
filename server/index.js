@@ -1852,6 +1852,37 @@ app.get('/api/documents/template', (req, res) => {
   return res.status(404).json({ success: false, message: 'Appraisal Template Word document not found' });
 });
 
+// Official Appraisal Document Downloads (TSEDA - Architecture)
+app.get('/api/documents/tseda-guidelines', (req, res) => {
+  const candidates = [
+    path.join(__dirname, '..', 'public', 'TSEDA Faculty Appraisal Evaluation Guidelines.pdf'),
+    path.join(__dirname, '..', 'dist', 'TSEDA Faculty Appraisal Evaluation Guidelines.pdf'),
+    path.join(__dirname, '..', 'public', 'tseda_faculty_appraisal_evaluation_guidelines.pdf'),
+    path.join(__dirname, '..', 'dist', 'tseda_faculty_appraisal_evaluation_guidelines.pdf'),
+  ];
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath, 'TSEDA Faculty Appraisal Evaluation Guidelines.pdf');
+    }
+  }
+  return res.status(404).json({ success: false, message: 'TSEDA Evaluation Guidelines PDF not found' });
+});
+
+app.get('/api/documents/tseda-template', (req, res) => {
+  const candidates = [
+    path.join(__dirname, '..', 'public', 'TSEDA Faculty Appraisal Template Aug 2026.docx'),
+    path.join(__dirname, '..', 'dist', 'TSEDA Faculty Appraisal Template Aug 2026.docx'),
+    path.join(__dirname, '..', 'public', 'tseda_faculty_appraisal_template.docx'),
+    path.join(__dirname, '..', 'dist', 'tseda_faculty_appraisal_template.docx'),
+  ];
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) {
+      return res.download(filePath, 'TSEDA Faculty Appraisal Template Aug 2026.docx');
+    }
+  }
+  return res.status(404).json({ success: false, message: 'TSEDA Appraisal Template Word document not found' });
+});
+
 // Helper to export up-to-date directory to JSON, XLSX, and CSV
 async function refreshDirectoryFiles() {
   try {
