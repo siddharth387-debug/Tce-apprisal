@@ -321,7 +321,7 @@ export function computeAutomatedScores(sectionData = {}) {
   // Section 4 (Sponsored Research & Consultancy in Lakhs)
   const s4_1 = Math.min(
     (safeData.researchProjects || []).reduce((sum, r) => {
-      if (!isRowFullyFilled(r, ['projectName', 'fundingAgency', 'amount', 'role', 'status', 'evidenceLink'])) return sum;
+      if (!isRowFullyFilled(r, [['projectName', 'title'], ['fundingAgency', 'agency'], 'amount', 'role', 'status', 'evidenceLink'])) return sum;
       let v = toNum(r.amount);
       if (v >= 1000) v = v / 100000;
       if (v >= 20) return sum + 8;
@@ -483,7 +483,7 @@ export function computeAutomatedScores(sectionData = {}) {
   const s8_1 = Math.min(
     (safeData.projectPublications || []).filter(
       (r) => isRowFullyFilled(r, ['title', ['students', 'studentNames'], 'evidenceLink'])
-    ).length * 1,
+    ).length * 2,
     2
   );
   const s8_2 = Math.min(

@@ -10177,7 +10177,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VIII" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)"
-                subtitle={isArch ? "(Calculation Rubric: Per publication = 1 mark | Max 1 mark)" : "(Calculation Rubric: Per publication = 1 mark | Max 2 marks)"}
+                subtitle={isArch ? "(Calculation Rubric: Per publication = 1 mark | Max 1 mark)" : "(Calculation Rubric: Per publication = 2 marks | Max 2 marks)"}
                 subScore={scores.sub8_1 || 0}
                 maxScore={isArch ? 1 : 2}
                 rows={currentSectionData.projectPublications || []}
