@@ -1220,6 +1220,24 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
           ? { email: canonicalEmail, timeline: timeline.trim(), department: 'ARCH' }
           : { email: canonicalEmail, timeline: timeline.trim() });
 
+    // ── GUARD: Protect submitted appraisals from background auto-save draft overwrites ──
+    const existingStatus = String(existingDoc?.appraisalStatus || '').toUpperCase().trim();
+    const isAlreadySubmitted = existingDoc && (
+      existingDoc.isSubmitted === true ||
+      ['PENDING', 'SUBMITTED', 'PENDING REVIEW', 'APPROVED', 'HOD APPROVED', 'IQAC APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(existingStatus)
+    );
+
+    const isIncomingDraft = (req.body?.appraisalStatus === 'Draft' || !req.body?.appraisalStatus) && !req.body?.isSubmitted;
+
+    if (isAlreadySubmitted && isIncomingDraft) {
+      console.log(`🛡️ Blocked draft overwrite: Appraisal for ${canonicalEmail} [${timeline}] is already submitted (${existingDoc.appraisalStatus}). Preserving submitted state.`);
+      return res.status(200).json({
+        success: true,
+        message: 'Appraisal is already submitted and locked. Draft overwrite ignored.',
+        data: existingDoc,
+      });
+    }
+
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
     const replacementPayload = {
       timeline: timeline.trim(),
@@ -1228,6 +1246,10 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       email: canonicalEmail,
       department: targetDept,
       departmentName: targetDeptName,
+      isSubmitted: Boolean(req.body?.isSubmitted || existingDoc?.isSubmitted),
+      submittedAt: req.body?.isSubmitted
+        ? (existingDoc?.submittedAt || new Date())
+        : (existingDoc?.submittedAt || null),
       convertedScore: (() => {
         const fullSectionData = {
           ...(section1Data || {}),
@@ -1260,15 +1282,15 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       })(),
       hodSubsectionScores: req.body?.hodSubsectionScores || {},
       subsectionRemarks: req.body?.subsectionRemarks || {},
-      section1Data: section1Data,
-      section2Data: section2Data || {},
-      section3Data: section3Data || {},
-      section4Data: section4Data || {},
-      section5Data: section5Data || {},
-      section6Data: section6Data || {},
-      section7Data: section7Data || {},
-      section8Data: section8Data || {},
-      section9Data: section9Data || {},
+      section1Data: section1Data || existingDoc?.section1Data || {},
+      section2Data: section2Data || existingDoc?.section2Data || {},
+      section3Data: section3Data || existingDoc?.section3Data || {},
+      section4Data: section4Data || existingDoc?.section4Data || {},
+      section5Data: section5Data || existingDoc?.section5Data || {},
+      section6Data: section6Data || existingDoc?.section6Data || {},
+      section7Data: section7Data || existingDoc?.section7Data || {},
+      section8Data: section8Data || existingDoc?.section8Data || {},
+      section9Data: section9Data || existingDoc?.section9Data || {},
       iqacStatus: existingDoc?.iqacStatus || 'Pending',
       iqacAuditRemarks: existingDoc?.iqacAuditRemarks || '',
       iqacExcluded: Boolean(existingDoc?.iqacExcluded),

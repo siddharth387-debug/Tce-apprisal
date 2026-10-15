@@ -841,6 +841,7 @@ function flattenAppraisalRecord(record) {
     ...(normalizeSection6Data(record.section6Data || rawSec.section6Data || {})),
     ...(record.section7Data || {}),
     ...(record.section8Data || {}),
+    ...(record.section9Data || {}),
   };
   if (res.mentoring && !Array.isArray(res.mentoring)) {
     const m = res.mentoring;
@@ -4827,7 +4828,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   // Helper to save in-progress draft directly to MongoDB Atlas cloud database (enabling cross-device sync from college PC to home laptop)
   const saveDraftToCloud = useCallback(async (isAuto = false, isUnloading = false) => {
-    if (!user || !selectedTimeline || isPrincipal || isRegistrar || !isEditable) return;
+    const recordStatus = (activeTimelineRecord?.appraisalStatus || '').toUpperCase().trim();
+    const isLockedOrSubmitted = ['PENDING', 'SUBMITTED', 'PENDING REVIEW', 'APPROVED', 'HOD APPROVED', 'IQAC APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(recordStatus);
+    if (!user || !selectedTimeline || isPrincipal || isRegistrar || !isEditable || isLockedOrSubmitted) return;
     const activeToken = getAuthToken() || user?.token;
     if (!activeToken) return;
 
@@ -4964,7 +4967,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         email: submissionEmail,
         department: targetDeptToSubmit,
         convertedScore: effScores.grandTotal || 0,
-        appraisalStatus: (activeTimelineRecord?.appraisalStatus && !['DRAFT', 'PENDING', 'PENDING REVIEW'].includes((activeTimelineRecord.appraisalStatus || '').toUpperCase())) ? activeTimelineRecord.appraisalStatus : 'Draft',
+        appraisalStatus: 'Draft',
         hodSubsectionScores: activeTimelineRecord?.hodSubsectionScores || {},
         subsectionRemarks: activeTimelineRecord?.subsectionRemarks || {},
         section1Data: cleanedSection1Data,
@@ -5097,9 +5100,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     // If already hydrated and no newer cloud record has arrived, skip
     if (hydratedTimelinesRef.current.has(selectedTimeline) && !hasCloud) return;
 
+    const isCloudSubmitted = activeTimelineRecord && !['DRAFT', ''].includes(String(activeTimelineRecord.appraisalStatus || '').toUpperCase().trim());
     let finalData = null;
-    if (hasCloud) {
-      // Cloud is authoritative across devices! (e.g. laptop saves draft, mobile opens and loads exact cloud data)
+    if (isCloudSubmitted && hasCloud) {
+      // Cloud is authoritative for submitted/locked appraisals
+      finalData = cloudData;
+    } else if (hasLocal && hasCloud) {
+      // For in-progress drafts, respect the most recent edits so local work is never clobbered by a stale draft
+      const cloudTime = activeTimelineRecord?.updatedAt ? new Date(activeTimelineRecord.updatedAt).getTime() : 0;
+      const localTime = Number(localData?._savedAt) || 0;
+      if (localTime > cloudTime) {
+        finalData = localData;
+      } else {
+        finalData = cloudData;
+      }
+      if (draftUserKey && selectedTimeline && finalData === cloudData) {
+        try {
+          localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify({ ...cloudData, _savedAt: cloudTime }));
+        } catch (e) {}
+      }
+    } else if (hasCloud) {
       finalData = cloudData;
       if (draftUserKey && selectedTimeline) {
         try {
@@ -5136,7 +5156,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   // Fully automated background cloud draft sync with retry on network disruption (4s debounce so typing is uninterrupted)
   useEffect(() => {
-    if (!user || !selectedTimeline || isReviewMode || isPrincipal || isRegistrar || !isEditable) return;
+    const recordStatus = (activeTimelineRecord?.appraisalStatus || '').toUpperCase().trim();
+    const isLockedOrSubmitted = ['PENDING', 'SUBMITTED', 'PENDING REVIEW', 'APPROVED', 'HOD APPROVED', 'IQAC APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(recordStatus);
+    if (!user || !selectedTimeline || isReviewMode || isPrincipal || isRegistrar || !isEditable || isLockedOrSubmitted) return;
     const currentData = workspaceByTimeline[selectedTimeline];
     if (!currentData) return;
     if (!hasSectionEntries(currentData) && !activeTimelineRecord) return;
@@ -5161,6 +5183,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }, 4000);
 
     const handleUnload = () => {
+      if (isLockedOrSubmitted) return;
       saveDraftToCloud(true, true);
     };
 
@@ -7180,7 +7203,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       const transaction = response.data?.data;
       const submittedSection = {
+        ...formData,
         ...cleanedSection1Data,
+        ...cleanedSection2Data,
+        ...cleanedSection3Data,
+        ...cleanedSection4Data,
+        ...cleanedSection5Data,
+        ...cleanedSection6Data,
+        ...cleanedSection7Data,
+        ...cleanedSection8Data,
+        ...cleanedSection9Data,
         submittedAt: transaction?.submittedAt || new Date().toISOString(),
         appraisalStatus: transaction?.appraisalStatus || 'Pending',
         hodRemarks: transaction?.hodRemarks || '',
@@ -7204,7 +7236,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         section7Data: cleanedSection7Data,
         section8Data: cleanedSection8Data,
         section9Data: cleanedSection9Data,
-        sectionData: cleanedSection1Data,
+        sectionData: submittedSection,
       };
       const isTestAccount = submissionEmail === 'deansiddharth@gmail.com' || submissionEmail === 'siddharthk@student.tce.edu';
       if (!isTestAccount) {
