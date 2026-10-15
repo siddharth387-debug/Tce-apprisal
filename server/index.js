@@ -1228,8 +1228,36 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       email: canonicalEmail,
       department: targetDept,
       departmentName: targetDeptName,
-      convertedScore: Number(convertedScore) || 0,
-      systemScore: Number(convertedScore) || 0,
+      convertedScore: (() => {
+        const fullSectionData = {
+          ...(section1Data || {}),
+          ...(section2Data || {}),
+          ...(section3Data || {}),
+          ...(section4Data || {}),
+          ...(section5Data || {}),
+          ...(section6Data || {}),
+          ...(section7Data || {}),
+          ...(section8Data || {}),
+          ...(section9Data || {}),
+        };
+        const computed = computeEffectiveScores(fullSectionData, req.body?.hodSubsectionScores || {}, targetDept);
+        return typeof computed.grandTotal === 'number' ? computed.grandTotal : (Number(convertedScore) || 0);
+      })(),
+      systemScore: (() => {
+        const fullSectionData = {
+          ...(section1Data || {}),
+          ...(section2Data || {}),
+          ...(section3Data || {}),
+          ...(section4Data || {}),
+          ...(section5Data || {}),
+          ...(section6Data || {}),
+          ...(section7Data || {}),
+          ...(section8Data || {}),
+          ...(section9Data || {}),
+        };
+        const computed = computeEffectiveScores(fullSectionData, req.body?.hodSubsectionScores || {}, targetDept);
+        return typeof computed.grandTotal === 'number' ? computed.grandTotal : (Number(convertedScore) || 0);
+      })(),
       hodSubsectionScores: req.body?.hodSubsectionScores || {},
       subsectionRemarks: req.body?.subsectionRemarks || {},
       section1Data: section1Data,
@@ -2868,6 +2896,39 @@ async function enforceDomainSecurityPolicy() {
     });
     if (timeline2627Del.deletedCount > 0) {
       console.log(`🧹 Enforce Security Policy: Purged ${timeline2627Del.deletedCount} appraisal record(s) for 2026-2027 timeline.`);
+    }
+
+    // 2d. Re-synchronize convertedScore and systemScore across all appraisals with computeEffectiveScores
+    try {
+      const allAppraisals = await Appraisal.find({}).lean();
+      let resyncedCount = 0;
+      for (const rec of allAppraisals) {
+        const fullSec = {
+          ...(rec.section1Data || {}),
+          ...(rec.section2Data || {}),
+          ...(rec.section3Data || {}),
+          ...(rec.section4Data || {}),
+          ...(rec.section5Data || {}),
+          ...(rec.section6Data || {}),
+          ...(rec.section7Data || {}),
+          ...(rec.section8Data || {}),
+          ...(rec.section9Data || {}),
+        };
+        const computed = computeEffectiveScores(fullSec, rec.hodSubsectionScores || {}, rec.department);
+        const correctScore = computed.grandTotal;
+        if (rec.convertedScore !== correctScore || rec.systemScore !== correctScore) {
+          await Appraisal.updateOne(
+            { _id: rec._id },
+            { $set: { convertedScore: correctScore, systemScore: correctScore } }
+          );
+          resyncedCount++;
+        }
+      }
+      if (resyncedCount > 0) {
+        console.log(`📊 Synchronized scores: Updated ${resyncedCount} appraisal record(s) to match the official scoring engine.`);
+      }
+    } catch (syncErr) {
+      console.warn('Score synchronization warning:', syncErr.message);
     }
 
     // 3. Purge sessions

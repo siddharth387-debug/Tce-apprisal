@@ -19,7 +19,9 @@ export default function AnalyticsDashboard({ data, computeScores }) {
     const processed = data.map(row => {
       const fullScores = computeScores(row.sectionData || row, 'Faculty');
       // Replicate the table's total score logic
-      const totalScore = row.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
+      const totalScore = typeof fullScores.grandTotal === 'number'
+        ? fullScores.grandTotal
+        : (row.totalScore || row.convertedScore || (fullScores.total || 0) + (fullScores.section2Total || 0));
       const dept = (row.department || row.dept || 'CSE').toUpperCase().trim();
 
       // Extract breakdown (approximate mapping based on typical academic sections)

@@ -210,7 +210,7 @@ export function computeAutomatedScores(sectionData = {}) {
       const t = String(r.tier || r.quartile || '').toUpperCase().trim();
       if (t.includes('Q1')) return sum + 6;
       if (t.includes('Q2')) return sum + 4;
-      if (t.includes('Q3')) return sum + 2;
+      if (t.includes('Q3') || t.includes('Q4')) return sum + 2;
       return sum;
     }, 0),
     15
@@ -684,7 +684,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
       const t = String(r.tier || r.quartile || '').toUpperCase().trim();
       if (t.includes('Q1')) return sum + 6;
       if (t.includes('Q2')) return sum + 4;
-      if (t.includes('Q3')) return sum + 2;
+      if (t.includes('Q3') || t.includes('Q4')) return sum + 2;
       return sum;
     }, 0),
     15

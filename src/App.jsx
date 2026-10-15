@@ -6336,7 +6336,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     return rows.map((record) => {
       const flattenedData = flattenAppraisalRecord(record);
       const fullScores = computeSectionScores(flattenedData, 'Faculty');
-      const calculatedTotalScore = record.convertedScore || fullScores.grandTotal || (fullScores.total || 0) + (fullScores.section2Total || 0);
+      const calculatedTotalScore = typeof fullScores.grandTotal === 'number'
+        ? fullScores.grandTotal
+        : (record.convertedScore || (fullScores.total || 0) + (fullScores.section2Total || 0));
 
       return {
         ...record,
@@ -6359,7 +6361,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         subsectionRemarks: record.subsectionRemarks || {},
         hodSubsectionScores: record.hodSubsectionScores || {},
         submittedAt: record.submittedAt || record.createdAt || record.updatedAt,
-        convertedScore: record.convertedScore || 0,
+        convertedScore: calculatedTotalScore,
         totalScore: calculatedTotalScore,
         section1Data: record.section1Data || {},
         section2Data: record.section2Data || {},
@@ -6523,10 +6525,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         filtered = filtered.filter((row) => (row.department || '').toUpperCase() !== 'ARCH');
       }
     }
-    if (!isReviewMode) {
-      return filtered.length > 0 ? filtered : (isMasterUser ? [] : appraisals);
-    }
-    return filtered;
+    const rawList = !isReviewMode ? (filtered.length > 0 ? filtered : (isMasterUser ? [] : appraisals)) : filtered;
+    return rawList.map((rec) => {
+      const flat = flattenAppraisalRecord(rec);
+      const eff = computeSectionScores(flat, 'Faculty');
+      const score = typeof eff.grandTotal === 'number' ? eff.grandTotal : (rec.convertedScore || 0);
+      return {
+        ...rec,
+        convertedScore: score,
+        totalScore: score,
+      };
+    });
   }, [appraisals, user, isSameUser, isReviewMode, isMasterUser, masterAppraisalMode]);
 
   const facultyHistoryRows = useMemo(() => {
@@ -6567,7 +6576,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           dbRecord?.appraisalStatus ||
           localSection.appraisalStatus ||
           'Pending',
-        convertedScore: dbRecord ? (dbRecord.convertedScore || 0) : totalScore,
+        convertedScore: typeof totalScore === 'number' ? totalScore : (dbRecord ? (dbRecord.convertedScore || 0) : totalScore),
         sectionData,
       };
     }).filter(
