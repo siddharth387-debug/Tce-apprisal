@@ -9760,7 +9760,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.1 Number of Patents Published"
                 subtitle={isArch ? "(Calculation Rubric: 1 mark per patent | Max 1 mark)" : "(Calculation Rubric: 1 mark per patent | Max 2 marks)"}
-                headingNote="Only Utility Pattern"
+                headingNote="Only Utility Patent"
                 subScore={scores.sub3_1 || 0}
                 maxScore={isArch ? 1 : 2}
                 rows={currentSectionData.patentsPublished || []}
@@ -9774,7 +9774,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <DynamicArraySection
                 title="3.2 Number of Patents Granted"
                 subtitle={isArch ? "(Calculation Rubric: 3 marks per patent | Max 3 marks)" : "(Calculation Rubric: 3 marks per patent (up to 2 patents) | Max 6 marks)"}
-                headingNote="Only Utility Pattern"
+                headingNote="Only Utility Patent"
                 subScore={scores.sub3_2 || 0}
                 maxScore={isArch ? 3 : 6}
                 rows={currentSectionData.patentsGranted || []}
