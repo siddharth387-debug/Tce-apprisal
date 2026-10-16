@@ -67,9 +67,10 @@ export function calculateInclusiveDays(startDateStr, endDateStr) {
 }
 
 /**
- * Calendar bounds named constants (Issue 38)
- * - YEAR CALENDAR: 1 January Y to 31 December Y
- * - ACADEMIC CALENDAR: 1 June Y to 31 May Y+1
+/**
+ * Calendar bounds named constants
+ * - CALENDAR YEAR: 1 January Y to 31 December Y
+ * - ACADEMIC YEAR: 1 July Y to 30 June Y+1
  */
 export const YEAR_CALENDAR_BOUNDS = Object.freeze({
   startMonth: 1,  // January
@@ -79,55 +80,96 @@ export const YEAR_CALENDAR_BOUNDS = Object.freeze({
 });
 
 export const ACADEMIC_CALENDAR_BOUNDS = Object.freeze({
-  startMonth: 6,  // June
+  startMonth: 7,  // July
   startDay: 1,
-  endMonth: 5,    // May (following year)
-  endDay: 31,
+  endMonth: 6,    // June (following year)
+  endDay: 30,
 });
 
 /**
- * OWNER'S LIST (Single Source of Truth)
- * - YEAR CALENDAR: 2.1, 2.4, 3.1, 3.2, 8.1
- * - ACADEMIC CALENDAR: 3.4, 3.5, 4.1, 4.2, 5.1, 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.5, 7.1, 7.2, 8.2
- * Any subsection not in this config has NO range restriction (default: 'none').
+ * SINGLE SOURCE OF TRUTH (Faculty Performance Appraisal Guidelines)
+ * - CALENDAR YEAR (Jan to Dec): Section II: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6; Section III: 3.1, 3.2
+ * - LEAVE UNTOUCHED: Section III: 3.3, 3.4, 3.5 (no change at all)
+ * - ACADEMIC YEAR (Jul to Jun): Section II: 2.7, 2.8; Section I: all; Section IV: all;
+ *   Section V: all; Section VI: all; Section VII, VIII, IX: all; and any unlisted section (e.g. 3.6).
  */
 export const CALENDAR_BY_SUBSECTION = Object.freeze({
-  // YEAR CALENDAR (1 Jan Y to 31 Dec Y)
+  // CALENDAR YEAR (1 Jan Y to 31 Dec Y)
   '2.1': 'year',
+  '2.2': 'year',
+  '2.3': 'year',
   '2.4': 'year',
+  '2.5': 'year',
+  '2.6': 'year',
   '3.1': 'year',
   '3.2': 'year',
-  '8.1': 'year',
 
-  // ACADEMIC CALENDAR (1 June Y to 31 May Y+1)
-  '3.4': 'academic',
-  '3.5': 'academic',
+  // UNTOUCHED (Section III: 3.3, 3.4, 3.5 stay as today)
+  '3.3': 'none',
+  '3.4': 'none',
+  '3.5': 'none',
+
+  // ACADEMIC YEAR (1 Jul Y to 30 Jun Y+1)
+  '1.1': 'academic',
+  '1.2': 'academic',
+  '1.3': 'academic',
+  '1.4': 'academic',
+  '1.5': 'academic',
+  '1.5.1': 'academic',
+  '1.5.2': 'academic',
+  '1.6': 'academic',
+  '1.7': 'academic',
+  '1.8': 'academic',
+  '1.9': 'academic',
+  '1.10': 'academic',
+  '1.11': 'academic',
+
+  '2.7': 'academic',
+  '2.8': 'academic',
+
+  '3.6': 'academic',
+
   '4.1': 'academic',
   '4.2': 'academic',
+
   '5.1': 'academic',
   '5.2': 'academic',
   '5.3': 'academic',
   '5.4': 'academic',
   '5.5': 'academic',
+
   '6.1': 'academic',
   '6.2': 'academic',
   '6.3': 'academic',
+  '6.4': 'academic',
   '6.5': 'academic',
+  '6.6': 'academic',
+
   '7.1': 'academic',
   '7.2': 'academic',
+  '7.3': 'academic',
+  '7.4': 'academic',
+
+  '8.1': 'academic',
   '8.2': 'academic',
+  '8.3': 'academic',
+  '8.4': 'academic',
+
+  '9.1': 'academic',
+  '9.2': 'academic',
+  '9.3': 'academic',
 });
 
 /**
  * Computes calendar range boundaries based on the selected batch (e.g. '2025 - 2026')
  * - 'year': 01 Jan {startYear} to 31 Dec {startYear}
- * - 'academic': 01 Jun {startYear} to 31 May {endYear}
+ * - 'academic': 01 Jul {startYear} to 30 Jun {endYear}
  * - 'none' (or unlisted): no range restriction
  */
 export function getCalendarRangeForBatch(batch, calendarType = 'none') {
   const cType = (calendarType || 'none').toLowerCase();
   if (!batch || cType === 'none' || (cType !== 'year' && cType !== 'academic')) {
-    return { minDate: undefined, maxDate: undefined, label: '', calendarName: '' };
+    return { minDate: undefined, maxDate: undefined, label: '', calendarName: '', hint: '' };
   }
   const match = String(batch).match(/(\d{4})/g);
   const startYear = match && match[0] ? parseInt(match[0], 10) : 2025;
@@ -141,8 +183,9 @@ export function getCalendarRangeForBatch(batch, calendarType = 'none') {
     return {
       minDate: `${startYear}-${sm}-${sd}`,
       maxDate: `${startYear}-${em}-${ed}`,
-      label: `01 Jan ${startYear} to 31 Dec ${startYear}`,
+      label: `01 Jan ${startYear} - 31 Dec ${startYear}`,
       calendarName: 'Calendar Year',
+      hint: `Calendar Year ${startYear}: 01 Jan ${startYear} - 31 Dec ${startYear}`,
       startYear,
       endYear: startYear,
     };
@@ -155,13 +198,14 @@ export function getCalendarRangeForBatch(batch, calendarType = 'none') {
     return {
       minDate: `${startYear}-${sm}-${sd}`,
       maxDate: `${endYear}-${em}-${ed}`,
-      label: `01 Jun ${startYear} to 31 May ${endYear}`,
-      calendarName: 'Academic Calendar',
+      label: `01 Jul ${startYear} - 30 Jun ${endYear}`,
+      calendarName: 'Academic Year',
+      hint: `Academic Year ${startYear}-${endYear}: 01 Jul ${startYear} - 30 Jun ${endYear}`,
       startYear,
       endYear,
     };
   }
-  return { minDate: undefined, maxDate: undefined, label: '', calendarName: '' };
+  return { minDate: undefined, maxDate: undefined, label: '', calendarName: '', hint: '' };
 }
 
 /**
@@ -206,12 +250,20 @@ export default function AppDateInput({
   onBlur,
   errorText = '',
 }) {
-  let resolvedType = calendarType || 'none';
-  if (subsectionId) {
-    if (subsectionId === '2.5') {
-      resolvedType = calendarType || 'academic';
+  const [userInteracted, setUserInteracted] = useState(false);
+
+  const isUntouchedSubsection = Boolean(
+    subsectionId && ['3.3', '3.4', '3.5'].includes(String(subsectionId).trim())
+  );
+
+  let resolvedType = 'none';
+  if (!isUntouchedSubsection) {
+    if (subsectionId && CALENDAR_BY_SUBSECTION[subsectionId]) {
+      resolvedType = CALENDAR_BY_SUBSECTION[subsectionId];
+    } else if (calendarType && calendarType !== 'none') {
+      resolvedType = calendarType;
     } else {
-      resolvedType = CALENDAR_BY_SUBSECTION[subsectionId] || 'none';
+      resolvedType = 'academic';
     }
   }
   const range = getCalendarRangeForBatch(batch, resolvedType);
@@ -232,6 +284,7 @@ export default function AppDateInput({
 
   // Handle typing or pasting in the date field
   const handleNativeChange = (e) => {
+    setUserInteracted(true);
     const raw = e.target.value;
     if (!raw) {
       onChange('');
@@ -247,6 +300,7 @@ export default function AppDateInput({
   };
 
   const handlePaste = (e) => {
+    setUserInteracted(true);
     const pasted = e.clipboardData.getData('text');
     const iso = parseDateStringToIso(pasted);
     if (iso && iso !== 'invalid') {
@@ -271,7 +325,7 @@ export default function AppDateInput({
         return 'End date cannot be earlier than start date';
       }
     }
-    if (range.minDate && range.maxDate) {
+    if (userInteracted && range.minDate && range.maxDate) {
       if (iso < range.minDate || iso > range.maxDate) {
         return `Date must be within ${range.calendarName} (${range.label})`;
       }
@@ -307,6 +361,11 @@ export default function AppDateInput({
       {validationError ? (
         <span className="mt-1 block text-[11px] sm:text-[10px] text-rose-600 font-medium break-words leading-tight">
           {validationError}
+        </span>
+      ) : null}
+      {!isUntouchedSubsection && range.hint ? (
+        <span className="mt-0.5 block text-[10px] sm:text-[9.5px] text-slate-500 font-normal leading-tight select-none">
+          {range.hint}
         </span>
       ) : null}
     </div>

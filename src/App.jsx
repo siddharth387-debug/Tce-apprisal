@@ -2091,14 +2091,11 @@ function DynamicArraySection({
   const subKey = title ? title.match(/^(\d+\.\d+(\.\d+)?)/)?.[1] : null;
 
   const effectiveCalendarType = useMemo(() => {
-    if (subKey === '2.5') {
-      // Subsection 2.5 is not on the list. Keep whatever it has now (Issue 33).
-      const colWithCal = safeColumns.find((c) => c.calendarType && c.calendarType !== 'none');
-      return colWithCal?.calendarType || propCalendarType || 'academic';
+    if (subKey && ['3.3', '3.4', '3.5'].includes(subKey)) {
+      return 'none';
     }
-    if (subKey) {
-      // Owner's list is the single source of truth. Unlisted subsections get 'none'.
-      return CALENDAR_BY_SUBSECTION[subKey] || 'none';
+    if (subKey && CALENDAR_BY_SUBSECTION[subKey]) {
+      return CALENDAR_BY_SUBSECTION[subKey];
     }
     if (propCalendarType && propCalendarType !== 'none') {
       return propCalendarType;
@@ -2108,7 +2105,7 @@ function DynamicArraySection({
         return col.calendarType;
       }
     }
-    return 'none';
+    return 'academic';
   }, [propCalendarType, subKey, safeColumns]);
 
   const isDuplicateCourseCode = (code, rowId) => {
@@ -2172,13 +2169,6 @@ function DynamicArraySection({
           const startIso = parseDateStringToIso(startVal);
           if (startIso && startIso !== 'invalid' && iso < startIso) {
             return 'End date cannot be earlier than start date';
-          }
-        }
-        const cType = effectiveCalendarType !== 'none' ? effectiveCalendarType : (colDef.calendarType || 'none');
-        if (cType !== 'none') {
-          const range = getCalendarRangeForBatch(effectiveBatch, cType);
-          if (range.minDate && range.maxDate && (iso < range.minDate || iso > range.maxDate)) {
-            return `Date must be within ${range.calendarName} (${range.label})`;
           }
         }
       }
@@ -5817,7 +5807,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const designPatentsColumns = [
     { name: 'refNumber', label: 'Design Patent Application / Registration No', placeholder: 'Design Patent Application / Registration Number' },
     { name: 'title', label: 'Design Title / Form', placeholder: 'Design Title / Form' },
-    { name: 'dateGranted', label: 'Date Granted', type: 'date', calendarType: 'none' },
+    { name: 'dateGranted', label: 'Date Granted', type: 'date', calendarType: 'academic' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const internationalDesignStudioColumns = [
@@ -5830,7 +5820,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const studentExhibitionsColumns = [
     { name: 'title', label: 'Exhibition / Expo Title', placeholder: 'Exhibition / Expo Title' },
     { name: 'venue', label: 'Venue / Platform', placeholder: 'Venue / Platform Name' },
-    { name: 'date', label: 'Date Conducted', type: 'date', calendarType: 'none' },
+    { name: 'date', label: 'Date Conducted', type: 'date', calendarType: 'academic' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const courseFilesColumns = [
@@ -6018,7 +6008,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'proceedingName', label: 'Proceeding Name', placeholder: 'Proceeding Name' },
     { name: 'doi', label: 'DOI (Digital Object Identifier)', placeholder: 'DOI (Digital Object Identifier)' },
     { name: 'publisher', label: 'Publisher / Organizer', placeholder: 'Publisher / Organizer Name' },
-    { name: 'pubDate', label: 'Conference Date', type: 'date', calendarType: 'academic' },
+    { name: 'pubDate', label: 'Conference Date', type: 'date', calendarType: 'year' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const researchCollaborationsColumns = [
@@ -6100,8 +6090,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const professionalMembershipColumns = [
     { name: "societyName", label: "Name of Society", type: "text", placeholder: "Name of Professional Society" },
     { name: "membershipType", label: "Membership Type", type: "text", placeholder: "Membership Type" },
-    { name: "fromDate", label: "From Date", type: "date", calendarType: "none", endDateField: "toDate" },
-    { name: "toDate", label: "Till Date", type: "date", calendarType: "none", isEndDate: true, startDateField: "fromDate" },
+    { name: "fromDate", label: "From Date", type: "date", calendarType: "academic", endDateField: "toDate" },
+    { name: "toDate", label: "Till Date", type: "date", calendarType: "academic", isEndDate: true, startDateField: "fromDate" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const editorialBoardColumns = [
@@ -6147,7 +6137,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const employerEngagementColumns = [
     { name: "activityName", label: "Activity Name", type: "text", placeholder: "Activity Name" },
     { name: "involvedParty", label: "Alumni / Employer Involved", type: "text", placeholder: "Alumni / Employer Involved" },
-    { name: "date", label: "Engagement Date", type: "date", calendarType: "none" },
+    { name: "date", label: "Engagement Date", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
@@ -6157,7 +6147,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "journalDetails", label: "Journal / Conference details", type: "text", placeholder: "Journal / Conference Details" },
     { name: "doi", label: "DOI (Digital Object Identifier)", placeholder: "DOI (Digital Object Identifier)" },
     { name: "publisher", label: "Publisher", placeholder: "Publisher Name" },
-    { name: "date", label: "Date of Publication", type: "date", calendarType: "year" },
+    { name: "date", label: "Date of Publication", type: "date", calendarType: "academic" },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const hackathonMentoringColumns = [
@@ -6313,7 +6303,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const phdAwardedColumns = [
     { name: 'scholarName', label: 'Scholar Name', placeholder: 'Scholar Name' },
     { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Research Area / Title' },
-    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'none', placeholder: 'Viva Date' },
+    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'academic', placeholder: 'Viva Date' },
     { name: 'evidenceLink', label: 'Viva Circular Link', type: 'url', placeholder: 'Viva Circular Link' },
   ];
   const timelineApprovalStatus = currentSectionData.appraisalStatus || 'Not Approved';
