@@ -4491,16 +4491,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   }, [isScorePopoverOpen]);
 
   const isFacultyRole = effectiveRole === 'Faculty';
-  const isSingleYearRole = isHod || isIQAC || isPrincipal || isFacultyRole;
   const reviewerAppraisalYear = getReviewerAppraisalYear();
   
-  const [selectedTimeline, setSelectedTimeline] = useState(() => isSingleYearRole ? reviewerAppraisalYear : '2025-2026');
+  const [selectedTimeline, setSelectedTimeline] = useState(() => '2025-2026');
 
+  // Reset to default active academic year when user role switches
   useEffect(() => {
-    if (isSingleYearRole && selectedTimeline !== reviewerAppraisalYear) {
-      setSelectedTimeline(reviewerAppraisalYear);
-    }
-  }, [isSingleYearRole, reviewerAppraisalYear, selectedTimeline]);
+    setSelectedTimeline('2025-2026');
+  }, [effectiveRole]);
   const [activeReviewTab, setActiveReviewTab] = useState('inbox');
 
   // IQAC Bulk Selection State
@@ -7800,11 +7798,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
                 }
               }}
-              isReviewMode={!isSingleYearRole && isReviewMode}
-              currentAcademicYear={isSingleYearRole ? reviewerAppraisalYear : getCurrentAcademicYear()}
+              isReviewMode={isReviewMode}
+              currentAcademicYear={getCurrentAcademicYear()}
               minYear={FIRST_ACADEMIC_YEAR}
               maxYear={2100}
-              createdTimelines={isSingleYearRole ? [reviewerAppraisalYear] : (!isReviewMode ? createdTimelines : undefined)}
+              createdTimelines={!isReviewMode ? createdTimelines : undefined}
             />
 
             {isReviewMode && (

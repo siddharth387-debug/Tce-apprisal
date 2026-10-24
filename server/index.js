@@ -2255,10 +2255,42 @@ function findAppraisalRecordInDb(allDocs, targetId, email = '', timeline = '') {
 }
 
 
-app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
+app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, async (req, res) => {
   try {
     const { id, appraisalStatus, hodRemarks, subsectionRemarks, hodSubsectionScores, finalScore, email, timeline } = req.body;
     
+    // Verify caller has reviewer / leadership authority
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    
+    let hasLeadershipPrivilege = ['HOD', 'PRINCIPAL', 'REGISTRAR', 'IQAC', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'registrar@tce.edu' ||
+      callerEmail === 'siddharthk@student.tce.edu' ||
+      callerEmail === 'principal@tce.edu' ||
+      callerEmail === 'iqac@tce.edu' ||
+      callerEmail.startsWith('hod') ||
+      callerEmail.includes('iqac');
+
+    if (!hasLeadershipPrivilege) {
+      const fac = await FacultyMember.findOne({
+        $or: [
+          { email: callerEmail },
+          { personalEmail: callerEmail },
+          { alternateEmails: callerEmail }
+        ]
+      });
+      if (fac && ['HOD', 'PRINCIPAL', 'REGISTRAR', 'IQAC', 'ADMIN'].includes(String(fac.role).toUpperCase())) {
+        hasLeadershipPrivilege = true;
+      }
+    }
+
+    if (!hasLeadershipPrivilege) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Only departmental leadership (HOD, IQAC, Principal) can review and evaluate appraisals."
+      });
+    }
+
     if (!id || !appraisalStatus) {
       return res.status(400).json({ success: false, message: "Missing required identifier or status parameters." });
     }
@@ -2370,7 +2402,7 @@ app.post(['/api/appraisals/review', '/appraisals/review'], async (req, res) => {
 });
 
 // ── Revert / Convert Appraisal to Draft (preserves all data, unlocks for editing) ──
-app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], async (req, res) => {
+app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], authenticateToken, async (req, res) => {
   try {
     const { id, email, timeline } = req.body;
     if (!id && (!email || !timeline)) {
@@ -2425,7 +2457,7 @@ app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], asy
 });
 
 // ── IQAC Verification & Quality Audit Endpoint ────────────────────────────
-app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req, res) => {
+app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticateToken, async (req, res) => {
   try {
     const { id, iqacStatus, iqacAuditRemarks, iqacExcluded, email, timeline } = req.body;
     if (!id) {
@@ -2479,7 +2511,7 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], async (req,
 });
 
 // ── IQAC Soft Curation Toggle Endpoint ──────────────────────────────────
-app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], async (req, res) => {
+app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { iqacExcluded, iqacAuditRemarks, email, timeline } = req.body;
@@ -2526,7 +2558,7 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], as
 });
 
 // ── Principal Institutional Endorsement Endpoint ────────────────────────────
-app.post(['/api/appraisals/endorse', '/appraisals/endorse'], async (req, res) => {
+app.post(['/api/appraisals/endorse', '/appraisals/endorse'], authenticateToken, async (req, res) => {
   try {
     const { id, remarks, email, timeline } = req.body;
     if (!id && !email) {
@@ -2596,7 +2628,7 @@ app.post(['/api/appraisals/endorse', '/appraisals/endorse'], async (req, res) =>
   }
 });
 
-app.post(['/api/appraisals/delete', '/delete'], async (req, res) => {
+app.post(['/api/appraisals/delete', '/delete'], authenticateToken, async (req, res) => {
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ success: false, message: "Missing row identification criteria." });

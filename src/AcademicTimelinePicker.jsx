@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
  * Usable both as a top-level appraisal timeline picker and inline within dynamic table rows.
  * Renders via React Portal with position:fixed and z-[99999] so it is NEVER submerged under other cards or sections.
  */
-export const FIRST_ACADEMIC_YEAR = 2025;
+export const FIRST_ACADEMIC_YEAR = 2020;
 
 export const isAcademicYearStarted = (startYear) => {
   const now = new Date();
@@ -197,8 +197,8 @@ export default function AcademicTimelinePicker({
       setCustomError('Please enter valid 4-digit years.');
       return;
     }
-    if (s < FIRST_ACADEMIC_YEAR) {
-      setCustomError(`Academic period cannot start before ${FIRST_ACADEMIC_YEAR}.`);
+    if (s < minYear) {
+      setCustomError(`Academic period cannot start before ${minYear}.`);
       return;
     }
     if (end <= s) {
@@ -387,7 +387,7 @@ export default function AcademicTimelinePicker({
             </div>
 
             {/* Custom Range Drawer (for Multi-Year CAS / Promotion Reviews / Projects) */}
-            {!restrictToBatch && !createdTimelines && (
+            {!restrictToBatch && (
               <div className="mt-3 pt-2.5 border-t border-slate-100">
                 {!showCustomRange ? (
                   <button
