@@ -1966,11 +1966,13 @@ function unusedComputeSectionScores(sectionData = {}, role) {
   const sub9_2 = Math.min(
     (safeData.collegeActivities || []).reduce((sum, row) => {
       if (!isNonEmpty(row.description)) return sum;
-      if (row.category === "Committee Member") return sum + 3;
-      if (row.category === "Internal Review Committee") return sum + 5;
-      if (row.category === "CLC / Deputy Warden") return sum + 7;
-      if (row.category === "Associate Dean / Deputy Registrar / Deputy CoE / Warden") return sum + 10;
-      return sum;
+      const cat = String(row.category || '').trim();
+      const catLower = cat.toLowerCase();
+      if (catLower.includes('associate dean') || catLower.includes('deputy registrar') || catLower.includes('deputy coe') || catLower === 'associate dean / deputy registrar / deputy coe / warden') return sum + 10;
+      if (catLower.includes('clc') || catLower.includes('deputy warden')) return sum + 7;
+      if (catLower.includes('internal review') || catLower.includes('iqac') || catLower.includes('alumni') || catLower === '5s' || catLower.includes('5s')) return sum + 5;
+      if (catLower.includes('committee member') || catLower.includes('others') || catLower === 'other') return sum + 3;
+      return sum + 3;
     }, 0),
     10
   );
@@ -6179,7 +6181,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         "Committee Member", 
         "Internal Review Committee", 
         "CLC / Deputy Warden", 
-        "Associate Dean / Deputy Registrar / Deputy CoE / Warden"
+        "Associate Dean / Deputy Registrar / Deputy CoE",
+        "5S",
+        "Alumni Coordinator",
+        "IQAC Coordinator",
+        "Others"
       ] 
     },
     { name: "role", label: "Role (Major/Supporting)", type: "select", options: ["Major", "Supporting"] },
@@ -6187,7 +6193,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
   const adminResponsibilitiesColumns = [
-    { name: "role", label: "Administrative Position Held", type: "select", options: ["Registrar", "Dean", "CoE", "Head IQAC", "HoD", "Warden", "Deputy Warden"] },
+    { name: "role", label: "Administrative Position Held", type: "select", options: ["Registrar", "Dean", "CoE", "Head IQAC", "HoD", "Warden"] },
     { name: "evidenceLink", label: "Supporting Document Link", type: "url", placeholder: "Supporting Document Link" }
   ];
 
@@ -10248,7 +10254,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="9.2 College Level Activities"
-                subtitle="(Calculation Rubric: Committee Member = 3; Internal Review Committee = 5; CLCs/Warden = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
+                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / 5S / Alumni Coordinator / IQAC Coordinator = 5; CLCs/Deputy Warden = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
                 subScore={scores.sub9_2 || 0}
                 maxScore={10}
                 rows={currentSectionData.collegeActivities || []}
@@ -10261,7 +10267,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="9.3 Administrative Responsibilities"
-                subtitle="(Calculation Rubric: Registrar / Deans / CoE / Head IQAC / HoDs / Warden / Deputy Warden = 20 | Max 20 marks)"
+                subtitle="(Calculation Rubric: Registrar / Deans / CoE / Head IQAC / HoDs / Warden = 20 | Max 20 marks)"
                 subScore={scores.sub9_3 || 0}
                 maxScore={20}
                 rows={currentSectionData.adminResponsibilities || []}

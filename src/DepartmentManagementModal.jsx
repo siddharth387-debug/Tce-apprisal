@@ -15,12 +15,23 @@ export default function DepartmentManagementModal({ isOpen, onClose, currentUser
   const [isSubmittingHandover, setIsSubmittingHandover] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  const getAuthHeader = () => {
+    let token = currentUser?.token || window.localStorage.getItem('token') || window.localStorage.getItem('userToken');
+    if (!token) {
+      try {
+        const raw = window.localStorage.getItem('tce_appraisal_user');
+        if (raw) token = JSON.parse(raw)?.token;
+      } catch {}
+    }
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   // Fetch departments
   const fetchDepartments = async () => {
     try {
       setLoading(true);
       setError('');
-      const res = await axios.get(`${API_BASE_URL}/directory/departments`);
+      const res = await axios.get(`${API_BASE_URL}/directory/departments`, { headers: getAuthHeader() });
       if (res.data?.success) {
         setDepartments(res.data.data);
       }
@@ -43,7 +54,7 @@ export default function DepartmentManagementModal({ isOpen, onClose, currentUser
     setHandoverDept(dept);
     setSelectedFacultyEmail('');
     try {
-      const res = await axios.get(`${API_BASE_URL}/directory/faculty?department=${dept.code}`);
+      const res = await axios.get(`${API_BASE_URL}/directory/faculty?department=${dept.code}`, { headers: getAuthHeader() });
       if (res.data?.success) {
         // Filter to list eligible faculty
         setDeptFaculty(res.data.data);
@@ -63,7 +74,7 @@ export default function DepartmentManagementModal({ isOpen, onClose, currentUser
       const res = await axios.post(`${API_BASE_URL}/directory/change-hod`, {
         department: handoverDept.code,
         newHodEmail: selectedFacultyEmail
-      });
+      }, { headers: getAuthHeader() });
 
       if (res.data?.success) {
         setSuccessMessage(res.data.message);

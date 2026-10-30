@@ -664,13 +664,23 @@ const ALLOWED_STUDENT_EXCEPTION = 'siddharthk@student.tce.edu';
 
 function getUnauthorizedDomainMessage(email) {
   const em = String(email || '').toLowerCase().trim();
-  if (!em) return null;
-  if ((em.endsWith('@gmail.com') || em.endsWith('@googlemail.com')) && em !== ALLOWED_GMAIL_EXCEPTION) {
-    return 'Personal @gmail.com accounts are not authorized to access the TCE Faculty Appraisal Portal. Please sign in with your official institutional email (@tce.edu).';
+  if (!em) return 'Email address is required.';
+
+  // Whitelisted exceptions for developer / master admin accounts
+  if (em === ALLOWED_GMAIL_EXCEPTION || em === ALLOWED_STUDENT_EXCEPTION) {
+    return null;
   }
-  if (em.endsWith('@student.tce.edu') && em !== ALLOWED_STUDENT_EXCEPTION) {
+
+  // Strictly block student accounts
+  if (em.endsWith('@student.tce.edu')) {
     return 'Student accounts (@student.tce.edu) are not authorized to access the Faculty Appraisal Portal. Please sign in with your official faculty email (@tce.edu).';
   }
+
+  // Strictly enforce institutional @tce.edu domain
+  if (!em.endsWith('@tce.edu')) {
+    return 'Unauthorized email domain. Only official institutional @tce.edu accounts are permitted to access the TCE Faculty Appraisal Portal.';
+  }
+
   return null;
 }
 
@@ -1002,16 +1012,16 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'Principal';
-    } else if (verifiedEmail === 'iqac@tce.edu' || verifiedEmail.includes('iqac')) {
+    } else if (verifiedEmail === 'iqac@tce.edu') {
       assignedRole = 'IQAC';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'IQAC Quality Coordinator';
-    } else if (verifiedEmail.startsWith('hod') || verifiedEmail.includes('hod')) {
-      // Official departmental HOD account (e.g. hodca@tce.edu, hodcse@tce.edu)
+    } else if (/^hod[a-z]{2,6}@tce\.edu$/i.test(verifiedEmail)) {
+      // Official generic departmental HOD account (e.g. hodca@tce.edu, hodcse@tce.edu, hodece@tce.edu)
       assignedRole = 'HOD';
       assignedDesignation = facultyRecord?.designation || 'Professor & Head (HOD)';
-      const hodMatch = verifiedEmail.match(/hod([a-z]+)/i);
+      const hodMatch = verifiedEmail.match(/^hod([a-z]+)@/i);
       let rawDept = facultyRecord?.department || (hodMatch ? hodMatch[1].toUpperCase() : 'CSE');
       assignedDept = normalizeDepartmentCode(rawDept);
       assignedDeptName = facultyRecord?.departmentName || '';
@@ -1624,8 +1634,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       requestEmail === 'registrar@tce.edu' ||
       requestEmail === 'principal@tce.edu' ||
       requestEmail === 'iqac@tce.edu' ||
-      requestEmail.includes('iqac') ||
-      requestEmail.startsWith('hod')
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(requestEmail)
     );
 
     // Faculty mode check: If caller explicitly requests individual faculty mode (e.g. self-appraisal), or lacks elevated privileges
@@ -1644,7 +1653,6 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
                                      requestEmail === 'iqac@tce.edu' ||
-                                     requestEmail.includes('iqac') ||
                                      requestRole === 'REGISTRAR' ||
                                      requestRole === 'PRINCIPAL' ||
                                      requestRole === 'IQAC' ||
@@ -1700,7 +1708,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
-    const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu' || requestEmail.includes('iqac');
+    const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu';
     const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu';
 
     if (isIQACUser || isPrincipalUser) {
@@ -1780,7 +1788,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
 // ── Master Directory Endpoints ───────────────────────────────────────────────
 
 // 1. Get all departments with HOD & counts
-app.get('/api/directory/departments', async (req, res) => {
+app.get('/api/directory/departments', authenticateToken, async (req, res) => {
   try {
     const departments = await FacultyMember.aggregate([
       { $match: { active: true } },
@@ -1819,7 +1827,7 @@ app.get('/api/directory/departments', async (req, res) => {
 });
 
 // 2. Query faculty members by department or search term
-app.get('/api/directory/faculty', async (req, res) => {
+app.get('/api/directory/faculty', authenticateToken, async (req, res) => {
   try {
     const { department, role, q } = req.query;
     const filter = { active: true };
@@ -1849,7 +1857,7 @@ app.get('/api/directory/faculty', async (req, res) => {
 });
 
 // 3. Faculty Lookup by Email
-app.get('/api/directory/lookup', async (req, res) => {
+app.get('/api/directory/lookup', authenticateToken, async (req, res) => {
   try {
     const email = (req.query.email || '').toLowerCase().trim();
     if (!email) {
@@ -1875,8 +1883,19 @@ app.get('/api/directory/lookup', async (req, res) => {
 });
 
 // 4. Department Transfer API (Reassigns faculty department e.g. Anderson from CSE to ECE)
-app.post('/api/directory/transfer', async (req, res) => {
+app.post('/api/directory/transfer', authenticateToken, async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAuthorized = ['REGISTRAR', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+    if (!isAuthorized) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only the Registrar or Administrator can reassign faculty departments.'
+      });
+    }
+
     const { email, newDepartment, newDepartmentName, newRole } = req.body;
     if (!email || !newDepartment) {
       return res.status(400).json({ success: false, message: 'email and newDepartment are required.' });
@@ -2029,8 +2048,19 @@ async function refreshDirectoryFiles() {
 }
 
 // 5. Change HoD / Leadership Handover API
-app.post('/api/directory/change-hod', async (req, res) => {
+app.post('/api/directory/change-hod', authenticateToken, async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAuthorized = ['REGISTRAR', 'ADMIN', 'PRINCIPAL'].includes(callerRole) ||
+      callerEmail === 'registrar@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+    if (!isAuthorized) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only the Registrar, Principal, or Administrator can reassign departmental leadership.'
+      });
+    }
+
     const { department, newHodEmail } = req.body;
     if (!department || !newHodEmail) {
       return res.status(400).json({ success: false, message: 'department and newHodEmail are required.' });
@@ -2123,8 +2153,19 @@ app.post('/api/directory/change-hod', async (req, res) => {
 });
 
 // 6. Force Re-seed Master Directory
-app.post('/api/directory/seed', async (req, res) => {
+app.post('/api/directory/seed', authenticateToken, async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAuthorized = ['REGISTRAR', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+    if (!isAuthorized) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only the Registrar or Administrator can re-seed the master directory.'
+      });
+    }
+
     const count = await seedFacultyDirectory(true);
     return res.status(200).json({ success: true, message: `Master directory synced (${count} faculty records).` });
   } catch (err) {
@@ -2133,8 +2174,20 @@ app.post('/api/directory/seed', async (req, res) => {
 });
 
 // 7. Register / Onboard New Faculty Member
-app.post('/api/directory/register', async (req, res) => {
+app.post('/api/directory/register', authenticateToken, async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const canRegister = ['REGISTRAR', 'ADMIN', 'PRINCIPAL', 'HOD'].includes(callerRole) ||
+      callerEmail === 'registrar@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'siddharthk@student.tce.edu' ||
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(callerEmail);
+    if (!canRegister) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Only institutional leadership (Registrar, Principal, HOD) can register new faculty profiles.'
+      });
+    }
+
     const { name, email, department, designation, staffId } = req.body;
     if (!name || !email || !department) {
       return res.status(400).json({ success: false, message: 'Name, email, and department are required.' });
@@ -2268,8 +2321,7 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
       callerEmail === 'siddharthk@student.tce.edu' ||
       callerEmail === 'principal@tce.edu' ||
       callerEmail === 'iqac@tce.edu' ||
-      callerEmail.startsWith('hod') ||
-      callerEmail.includes('iqac');
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(callerEmail);
 
     if (!hasLeadershipPrivilege) {
       const fac = await FacultyMember.findOne({
@@ -2416,6 +2468,21 @@ app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], aut
       return res.status(404).json({ success: false, message: 'Appraisal record not found.' });
     }
 
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isLeadership = ['HOD', 'PRINCIPAL', 'REGISTRAR', 'IQAC', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu' ||
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(callerEmail);
+    const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
+    const isOwner = targetEmail === callerEmail;
+
+    if (!isLeadership && !isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: You do not have permission to revert this appraisal to Draft."
+      });
+    }
+
     const updateFields = {
       appraisalStatus: 'Draft',
       isDraft: true,
@@ -2432,7 +2499,6 @@ app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], aut
       { new: true }
     );
 
-    const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
     const targetTimeline = targetRecord.timeline || timeline;
     if (targetEmail && targetTimeline) {
       await Appraisal.updateMany(
@@ -2459,6 +2525,18 @@ app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], aut
 // ── IQAC Verification & Quality Audit Endpoint ────────────────────────────
 app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticateToken, async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAuthorizedIqac = ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'iqac@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+
+    if (!isAuthorizedIqac) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Only IQAC, Principal, or Administrator can perform quality audit verification."
+      });
+    }
+
     const { id, iqacStatus, iqacAuditRemarks, iqacExcluded, email, timeline } = req.body;
     if (!id) {
       return res.status(400).json({ success: false, message: "Appraisal ID is required." });
@@ -2513,6 +2591,18 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticat
 // ── IQAC Soft Curation Toggle Endpoint ──────────────────────────────────
 app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], authenticateToken, async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isAuthorizedIqac = ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'iqac@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+
+    if (!isAuthorizedIqac) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Only IQAC, Principal, or Administrator can update curation status."
+      });
+    }
+
     const { id } = req.params;
     const { iqacExcluded, iqacAuditRemarks, email, timeline } = req.body;
     
@@ -2560,6 +2650,18 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], au
 // ── Principal Institutional Endorsement Endpoint ────────────────────────────
 app.post(['/api/appraisals/endorse', '/appraisals/endorse'], authenticateToken, async (req, res) => {
   try {
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isPrincipalOrAdmin = ['PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+
+    if (!isPrincipalOrAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Only the Principal or Master Administrator can institutionally endorse and ratify appraisals."
+      });
+    }
+
     const { id, remarks, email, timeline } = req.body;
     if (!id && !email) {
       return res.status(400).json({ success: false, message: "Missing appraisal identifier (id or email)." });
@@ -2632,6 +2734,25 @@ app.post(['/api/appraisals/delete', '/delete'], authenticateToken, async (req, r
   try {
     const { id } = req.body;
     if (!id) return res.status(400).json({ success: false, message: "Missing row identification criteria." });
+
+    const callerRole = (req.user?.role || '').toUpperCase().trim();
+    const callerEmail = (req.user?.email || '').toLowerCase().trim();
+    const isRegistrarOrAdmin = ['REGISTRAR', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+
+    // If not admin/registrar, verify that caller is the owner of this appraisal
+    if (!isRegistrarOrAdmin) {
+      const allAppraisals = await Appraisal.find({});
+      const targetRecord = findAppraisalRecordInDb(allAppraisals, id);
+      const isOwner = targetRecord && ((targetRecord.email && targetRecord.email.toLowerCase() === callerEmail) ||
+        (targetRecord.facultyEmail && targetRecord.facultyEmail.toLowerCase() === callerEmail));
+      if (!isOwner) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden: Only the Registrar, Administrator, or the appraisal owner can delete this record."
+        });
+      }
+    }
 
     let result;
     if (typeof id === 'string' && id.includes('-')) {

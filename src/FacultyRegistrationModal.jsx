@@ -54,6 +54,17 @@ export default function FacultyRegistrationModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
+  const getAuthHeader = () => {
+    let token = window.localStorage.getItem('token') || window.localStorage.getItem('userToken');
+    if (!token) {
+      try {
+        const raw = window.localStorage.getItem('tce_appraisal_user');
+        if (raw) token = JSON.parse(raw)?.token;
+      } catch {}
+    }
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   // Handle Directory Lookup
   const handleLookup = async (e) => {
     e?.preventDefault();
@@ -64,7 +75,7 @@ export default function FacultyRegistrationModal({ isOpen, onClose }) {
       setLookupError('');
       setLookupResult(null);
 
-      const res = await axios.get(`${API_BASE_URL}/directory/lookup?email=${encodeURIComponent(lookupEmail.trim())}`);
+      const res = await axios.get(`${API_BASE_URL}/directory/lookup?email=${encodeURIComponent(lookupEmail.trim())}`, { headers: getAuthHeader() });
       if (res.data?.success) {
         setLookupResult(res.data.data);
       }
@@ -88,7 +99,7 @@ export default function FacultyRegistrationModal({ isOpen, onClose }) {
       setRegError('');
       setRegSuccess('');
 
-      const res = await axios.post(`${API_BASE_URL}/directory/register`, regForm);
+      const res = await axios.post(`${API_BASE_URL}/directory/register`, regForm, { headers: getAuthHeader() });
       if (res.data?.success) {
         setRegSuccess(res.data.message);
         setLookupResult(res.data.data);
