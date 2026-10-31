@@ -6182,7 +6182,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         "Internal Review Committee", 
         "CLC / Deputy Warden", 
         "Associate Dean / Deputy Registrar / Deputy CoE",
-        "5S",
+        "5S Coordinator",
         "Alumni Coordinator",
         "IQAC Coordinator",
         "Others"
@@ -10254,7 +10254,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="9.2 College Level Activities"
-                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / 5S / Alumni Coordinator / IQAC Coordinator = 5; CLCs/Deputy Warden = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
+                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / 5S Coordinator / Alumni Coordinator / IQAC Coordinator = 5; CLCs/Deputy Warden = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
                 subScore={scores.sub9_2 || 0}
                 maxScore={10}
                 rows={currentSectionData.collegeActivities || []}

@@ -147,7 +147,7 @@ const replacement = `  const rawSection2Sum = sub2_1 + sub2_2 + sub2_3 + sub2_4 
       if (row.category === "Internal Review Committee") return sum + 5;
       if (row.category === "CLC / Deputy Warden") return sum + 7;
       if (row.category === "Associate Dean / Deputy Registrar / Deputy CoE" || row.category === "Associate Dean / Deputy Registrar / Deputy CoE / Warden") return sum + 10;
-      if (["Internal Review Committee", "IQAC Coordinator", "Alumni Coordinator", "5S"].includes(row.category)) return sum + 5;
+      if (["Internal Review Committee", "IQAC Coordinator", "Alumni Coordinator", "5S", "5S Coordinator", "5S Co-ordinator"].includes(row.category)) return sum + 5;
       if (["Committee Member", "Others"].includes(row.category)) return sum + 3;
       return sum;
     }, 0),

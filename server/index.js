@@ -2951,8 +2951,6 @@ app.post(['/api/ai/suggest-feedback', '/ai/suggest-feedback'], authenticateToken
 
     if (apiKey) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         let systemInstruction = 'You are an academic Head of Department (HoD) at Thiagarajar College of Engineering, an autonomous institution. Write concise, constructive, professional, and encouraging feedback adhering to AICTE and NBA standards. Do not use markdown headers or special markdown formatting (use plain text and clean bullet points if needed). Do not invent facts not in the data.';
 
@@ -2963,34 +2961,66 @@ app.post(['/api/ai/suggest-feedback', '/ai/suggest-feedback'], authenticateToken
           promptText = `Provide an overall performance appraisal review summary for ${facultyName}.\nScores:\n- Teaching & Learning (Sec I): ${sectionScores.section1Total || 0}/50\n- Research Publications (Sec II): ${sectionScores.section2Total || 0}/55\n- Patents & Innovation (Sec III): ${sectionScores.section3Total || 0}/15\n- Sponsored Research & Consultancy (Sec IV): ${sectionScores.section4Total || 0}/15\n- Total Evaluated Score: ${sectionScores.grandTotal || 0}/200\n\nGenerate exactly 3 clean bullet points:\n• Key Strengths: ...\n• Growth Focus: ...\n• Next Cycle Recommendation: ...`;
         }
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: promptText }] }],
-              systemInstruction: { parts: [{ text: systemInstruction }] },
-              generationConfig: {
-                temperature: 0.3,
-                maxOutputTokens: mode === 'subsection' ? 120 : 300,
-              },
-            }),
-            signal: controller.signal,
-          }
-        );
-        clearTimeout(timeoutId);
+        const requestedModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+        const candidateModels = [
+          requestedModel,
+          'gemini-flash-latest',
+          'gemini-3.8-flash',
+          'gemini-2.5-flash',
+        ].filter((val, idx, self) => val && self.indexOf(val) === idx);
 
-        if (response.ok) {
-          const data = await response.json();
-          const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-          if (candidateText) {
-            return res.status(200).json({
-              success: true,
-              suggestion: candidateText.replace(/\*\*/g, '').replace(/###/g, ''),
-              source: 'gemini-1.5-flash',
-            });
+        let aiResult = null;
+        let usedModel = null;
+
+        for (const model of candidateModels) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+            const response = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-goog-api-key': apiKey,
+                },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: promptText }] }],
+                  systemInstruction: { parts: [{ text: systemInstruction }] },
+                  generationConfig: {
+                    temperature: 0.3,
+                    maxOutputTokens: mode === 'subsection' ? 120 : 300,
+                  },
+                }),
+                signal: controller.signal,
+              }
+            );
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+              const data = await response.json();
+              const candidateText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+              if (candidateText) {
+                aiResult = candidateText.replace(/\*\*/g, '').replace(/###/g, '');
+                usedModel = model;
+                break;
+              }
+            } else {
+              const errBody = await response.text().catch(() => '');
+              console.warn(`⚠️ Gemini API model ${model} returned HTTP ${response.status}:`, errBody.slice(0, 150));
+            }
+          } catch (modelErr) {
+            console.warn(`⚠️ Gemini model ${model} attempt failed:`, modelErr.message);
           }
+        }
+
+        if (aiResult) {
+          return res.status(200).json({
+            success: true,
+            suggestion: aiResult,
+            source: usedModel,
+          });
         }
       } catch (geminiErr) {
         console.warn('⚠️ Gemini API call failed or timed out, using heuristic fallback:', geminiErr.message);
