@@ -629,7 +629,11 @@ app.use((_req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   next();
 });
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 // ── Fast In-Memory Session Cache (10s TTL) ──────────────────────────────────
 const sessionCache = new Map(); // sessionId -> { isActive: boolean, lastChecked: number, email: string }
@@ -788,16 +792,79 @@ const DEPARTMENT_NAME_MAP = {
   ALL: 'All Academic Departments'
 };
 
-// ── Secure Enterprise ERP Webhook Endpoint ──────────────────────────────────
-async function handleFacultyWebhook(req, res) {
-  const secretHeader = req.headers['x-webhook-secret'] || req.headers['x-api-key'] || req.query.secret;
-  const expectedSecret = process.env.WEBHOOK_SECRET || 'tce-appraisal-webhook-secret-2026';
+// ── Protected Apex Leadership Accounts (Cannot be altered via Webhook) ──────
+const PROTECTED_LEADERSHIP_EMAILS = new Set([
+  'principal@tce.edu',
+  'registrar@tce.edu',
+  'iqac@tce.edu',
+  'siddharthk@student.tce.edu',
+  'deansiddharth@gmail.com'
+]);
 
-  if (!secretHeader || secretHeader !== expectedSecret) {
+// ── Secure Enterprise ERP Webhook Endpoint (Zero-Trust Hardened) ─────────────
+async function handleFacultyWebhook(req, res) {
+  // Shield 1: Secret & Cryptographic Verification (No Hardcoded Fallback)
+  const expectedSecret = process.env.WEBHOOK_SECRET;
+  if (!expectedSecret || typeof expectedSecret !== 'string' || expectedSecret.trim().length < 16) {
+    console.error('⛔ Webhook Error: WEBHOOK_SECRET is not configured in server environment.');
+    return res.status(503).json({
+      success: false,
+      message: 'Service Unavailable: ERP Webhook endpoint is currently unconfigured or disabled.'
+    });
+  }
+
+  const signatureHeader = req.headers['x-tce-signature'] || req.headers['x-hub-signature-256'];
+  const tokenHeader = req.headers['x-webhook-secret'] || req.headers['x-api-key'] || 
+    (req.headers['authorization']?.startsWith('Bearer ') ? req.headers['authorization'].slice(7) : null);
+
+  let isAuthenticated = false;
+
+  // Option A: HMAC SHA-256 Signature verification
+  if (signatureHeader) {
+    try {
+      const rawPayload = req.rawBody || Buffer.from(JSON.stringify(req.body ?? {}));
+      const computedHash = crypto.createHmac('sha256', expectedSecret).update(rawPayload).digest('hex');
+      const expectedSig = signatureHeader.replace(/^sha256=/i, '').trim();
+      if (computedHash.length === expectedSig.length && crypto.timingSafeEqual(Buffer.from(computedHash), Buffer.from(expectedSig))) {
+        isAuthenticated = true;
+      }
+    } catch (sigErr) {
+      console.warn('⚠️ Webhook HMAC signature verification error:', sigErr.message);
+    }
+  }
+
+  // Option B: Timing-safe token comparison
+  if (!isAuthenticated && tokenHeader) {
+    try {
+      const providedToken = String(tokenHeader).trim();
+      const expectedBuf = Buffer.from(expectedSecret);
+      const providedBuf = Buffer.from(providedToken);
+      if (expectedBuf.length === providedBuf.length && crypto.timingSafeEqual(expectedBuf, providedBuf)) {
+        isAuthenticated = true;
+      }
+    } catch (tokErr) {
+      console.warn('⚠️ Webhook token comparison error:', tokErr.message);
+    }
+  }
+
+  if (!isAuthenticated) {
     return res.status(401).json({
       success: false,
-      message: 'Unauthorized: Invalid or missing webhook security token.'
+      message: 'Unauthorized: Invalid or missing webhook security token / signature.'
     });
+  }
+
+  // Shield 5: IP Whitelisting Guard (Activated if ERP_ALLOWED_IPS is configured)
+  if (process.env.ERP_ALLOWED_IPS) {
+    const allowedIps = process.env.ERP_ALLOWED_IPS.split(',').map(ip => ip.trim()).filter(Boolean);
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+    if (allowedIps.length > 0 && !allowedIps.includes(clientIp)) {
+      console.warn(`⛔ Webhook blocked unauthorized IP: ${clientIp}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Webhook requests are restricted to authorized ERP gateway IP addresses.'
+      });
+    }
   }
 
   try {
@@ -811,7 +878,7 @@ async function handleFacultyWebhook(req, res) {
       department,
       departmentName,
       role = 'Faculty',
-      designation = 'Faculty',
+      designation = 'Assistant Professor',
       joiningDate,
       active = true
     } = req.body ?? {};
@@ -823,40 +890,80 @@ async function handleFacultyWebhook(req, res) {
       });
     }
 
-    const cleanEmail = email.toLowerCase().trim();
+    const cleanEmail = String(email).toLowerCase().trim();
+
+    // Shield 2: Strict Institutional Domain Validation
+    if (!cleanEmail.endsWith('@tce.edu') || cleanEmail.endsWith('@student.tce.edu')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejected: Only institutional faculty accounts (@tce.edu) can be provisioned via ERP webhook. Personal and student accounts are prohibited.'
+      });
+    }
+
+    // Shield 3: Apex Role Lockout (Never allow setting Principal, Registrar, Admin, or IQAC via webhook)
+    const attemptedRole = String(role || '').toUpperCase().trim();
+    if (['PRINCIPAL', 'REGISTRAR', 'ADMIN', 'IQAC'].includes(attemptedRole) || attemptedRole.includes('HOD')) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Apex institutional leadership roles (Principal, Registrar, IQAC, HOD) cannot be provisioned or modified via automated webhook.'
+      });
+    }
+
+    // Shield 4: Protected Account Guard (Prevent modifying or hijacking existing leadership entities)
+    if (PROTECTED_LEADERSHIP_EMAILS.has(cleanEmail) || /^hod[a-z]{2,6}@tce\.edu$/i.test(cleanEmail)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Forbidden: Protected institutional leadership account cannot be modified via automated webhook.'
+      });
+    }
+
+    // Sanitize aliases: Ensure aliases are valid @tce.edu and do not contain leadership accounts
+    let userAliases = Array.isArray(alternateEmails) ? alternateEmails.map(e => String(e).toLowerCase().trim()) : [];
+    userAliases = userAliases.filter(e => e && e.endsWith('@tce.edu') && !e.endsWith('@student.tce.edu') && !PROTECTED_LEADERSHIP_EMAILS.has(e) && !/^hod[a-z]{2,6}@tce\.edu$/i.test(e));
+    if (!userAliases.includes(cleanEmail)) userAliases.push(cleanEmail);
+
+    let cleanPersonal = personalEmail ? String(personalEmail).toLowerCase().trim() : '';
+    if (cleanPersonal && (!cleanPersonal.endsWith('@tce.edu') || cleanPersonal.endsWith('@student.tce.edu') || PROTECTED_LEADERSHIP_EMAILS.has(cleanPersonal))) {
+      cleanPersonal = cleanEmail;
+    }
+
     const cleanDept = department.toUpperCase().trim();
     const cleanDeptName = departmentName || DEPARTMENT_NAME_MAP[cleanDept] || `${cleanDept} Department`;
-    const cleanRole = ['Faculty', 'HOD', 'Registrar', 'Principal', 'Admin'].includes(role) ? role : 'Faculty';
+    const cleanRole = 'Faculty'; // Strictly clamped to Faculty
+    const cleanDesignation = designation && designation !== 'Principal' && designation !== 'Registrar' ? designation.trim() : 'Assistant Professor';
 
-    let userAliases = Array.isArray(alternateEmails) ? alternateEmails.map(e => e.toLowerCase().trim()) : [];
-    if (!userAliases.includes(cleanEmail)) userAliases.push(cleanEmail);
-    if (personalEmail && !userAliases.includes(personalEmail.toLowerCase().trim())) userAliases.push(personalEmail.toLowerCase().trim());
-    if (hodEmail && !userAliases.includes(hodEmail.toLowerCase().trim())) userAliases.push(hodEmail.toLowerCase().trim());
-
-    // Find existing faculty member by any email alias or staffId
+    // Find existing faculty member
     let facultyRecord = await FacultyMember.findOne({
       $or: [
         { email: cleanEmail },
         { personalEmail: cleanEmail },
-        { hodEmail: cleanEmail },
         { alternateEmails: cleanEmail },
-        ...(staffId ? [{ staffId }] : [])
+        ...(staffId ? [{ staffId: String(staffId).trim() }] : [])
       ]
     });
 
+    if (facultyRecord) {
+      if (['Principal', 'Registrar', 'IQAC', 'Admin'].includes(facultyRecord.role) || PROTECTED_LEADERSHIP_EMAILS.has(facultyRecord.email)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Forbidden: Cannot overwrite existing leadership profile via ERP webhook.'
+        });
+      }
+    }
+
     const updateFields = {
-      name: name || facultyRecord?.name || 'Faculty Member',
+      name: name ? String(name).trim() : (facultyRecord?.name || 'Faculty Member'),
       department: cleanDept,
       departmentName: cleanDeptName,
       role: cleanRole,
-      designation,
+      designation: cleanDesignation,
       active: Boolean(active),
       alternateEmails: userAliases
     };
 
-    if (staffId) updateFields.staffId = staffId;
-    if (personalEmail) updateFields.personalEmail = personalEmail.toLowerCase().trim();
-    if (hodEmail) updateFields.hodEmail = hodEmail.toLowerCase().trim();
+    if (staffId) updateFields.staffId = String(staffId).trim();
+    if (cleanPersonal) updateFields.personalEmail = cleanPersonal;
+    if (hodEmail && /^hod[a-z]{2,6}@tce\.edu$/i.test(hodEmail)) updateFields.hodEmail = hodEmail.toLowerCase().trim();
     if (joiningDate) updateFields.joiningDate = new Date(joiningDate);
 
     if (facultyRecord) {
@@ -886,6 +993,8 @@ async function handleFacultyWebhook(req, res) {
       }
     );
 
+    console.log(`✅ ERP Webhook: Synchronized faculty profile for ${facultyRecord.name} (${cleanEmail}) in ${cleanDept}`);
+
     return res.status(200).json({
       success: true,
       message: `Faculty record for ${facultyRecord.name} (${cleanEmail}) aligned to department ${cleanDept} successfully.`,
@@ -901,16 +1010,6 @@ async function handleFacultyWebhook(req, res) {
     });
   }
 }
-
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-app.get('/', (req, res) => {
-  if (fs.existsSync(spaIndex)) {
-    return res.sendFile(spaIndex);
-  }
-  res.status(200).json({ status: 'ok', message: 'TCE Appraisal API is live' });
-});
 
 app.post('/api/v1/faculty/webhook', handleFacultyWebhook);
 app.post('/api/directory/webhook', handleFacultyWebhook);
