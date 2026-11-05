@@ -1969,8 +1969,8 @@ function unusedComputeSectionScores(sectionData = {}, role) {
       const cat = String(row.category || '').trim();
       const catLower = cat.toLowerCase();
       if (catLower.includes('associate dean') || catLower.includes('deputy registrar') || catLower.includes('deputy coe') || catLower === 'associate dean / deputy registrar / deputy coe / warden') return sum + 10;
-      if (catLower.includes('clc') || catLower.includes('deputy warden')) return sum + 7;
-      if (catLower.includes('internal review') || catLower.includes('iqac') || catLower.includes('alumni') || catLower === '5s' || catLower.includes('5s')) return sum + 5;
+      if (catLower.includes('clc') || catLower.includes('deputy warden') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
+      if (catLower.includes('internal review') || catLower.includes('iqac')) return sum + 5;
       if (catLower.includes('committee member') || catLower.includes('others') || catLower === 'other') return sum + 3;
       return sum + 3;
     }, 0),
@@ -10254,7 +10254,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="9.2 College Level Activities"
-                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / 5S Coordinator / Alumni Coordinator / IQAC Coordinator = 5; CLCs/Deputy Warden = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
+                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / IQAC Coordinator = 5; CLCs/Deputy Warden / Alumni Coordinator / 5S Coordinator = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
                 subScore={scores.sub9_2 || 0}
                 maxScore={10}
                 rows={currentSectionData.collegeActivities || []}
