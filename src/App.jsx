@@ -1076,7 +1076,7 @@ function toNumber(value) {
 }
 
 function isValidCourseCode(value) {
-  return COURSE_CODE_REGEX.test((value || '').trim());
+  return COURSE_CODE_REGEX.test(String(value ?? '').trim());
 }
 
 function isValidEvidenceLink(value) {
@@ -1085,7 +1085,8 @@ function isValidEvidenceLink(value) {
 }
 
 function isNonEmpty(value) {
-  return Boolean((value || '').trim());
+  if (value === undefined || value === null) return false;
+  return Boolean(String(value).trim());
 }
 
 function getRowValidationErrors(row, columns, allRows = [], options = {}) {
@@ -2058,6 +2059,47 @@ const AutoGrowingTextarea = React.memo(function AutoGrowingTextarea({
     />
   );
 });
+
+class SectionErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Section Error caught by boundary:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 bg-rose-50 border border-rose-200 rounded-xl space-y-4 max-w-2xl mx-auto my-8">
+          <div className="flex items-center gap-3 text-rose-800">
+            <span className="text-2xl">⚠️</span>
+            <h3 className="text-base font-bold">An unexpected display issue occurred in this section.</h3>
+          </div>
+          <p className="text-xs text-rose-700">
+            {this.state.error?.message || 'Please return to overview or reload to continue.'}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                this.setState({ hasError: false, error: null });
+                if (this.props.onReset) this.props.onReset();
+              }}
+              className="px-3 py-1.5 text-xs font-bold bg-[#4A1519] text-white rounded-md shadow-xs hover:bg-[#5a1c22]"
+            >
+              Back to Overview
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function DynamicArraySection({
   title,
@@ -10763,7 +10805,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         ) : (
           <>
             {activeView === 'overview' && renderOverview()}
-            {activeView === 'section1' && renderSectionOne()}
+            {activeView === 'section1' && (
+              <SectionErrorBoundary onReset={() => setActiveView('overview')}>
+                {renderSectionOne()}
+              </SectionErrorBoundary>
+            )}
           </>
         )}
       </main>
