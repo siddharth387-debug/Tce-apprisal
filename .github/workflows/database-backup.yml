@@ -37,8 +37,7 @@ jobs:
       - name: Export Database & Upload to Google Drive
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
-          GDRIVE_SERVICE_ACCOUNT_KEY: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY }}
-          GDRIVE_BACKUP_FOLDER_ID: 1rZ5YqoN5bqcBryd5B8SXOglMNJlMbU1g
+          GDRIVE_WEBHOOK_URL: ${{ secrets.GDRIVE_WEBHOOK_URL || 'https://script.google.com/macros/s/AKfycbz4Xx1qZKkXiR03Ok8RazqYgVGImQce5WUJlQPWSUuSM7obVZOe2DxEBcdLm-Y7VgZrgA/exec' }}
         run: |
           if [ -z "${MONGO_URI:-}" ]; then
             echo "❌ Missing GitHub secret MONGO_URI! Please add it under Repository Settings -> Secrets and variables -> Actions."
