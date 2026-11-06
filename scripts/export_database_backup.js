@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { uploadBackupToGoogleDrive } from './googleDriveBackup.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,7 +17,7 @@ if (!mongoUri) {
   process.exit(1);
 }
 
-async function exportFullDatabaseBackup() {
+export async function exportFullDatabaseBackup(customBackupDir = null) {
   try {
     console.log('🔄 Connecting to MongoDB to create full database backup...');
     await mongoose.connect(mongoUri);
@@ -26,11 +27,16 @@ async function exportFullDatabaseBackup() {
     const collections = await db.listCollections().toArray();
 
     const backupData = {};
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backupDir = path.join(__dirname, '..', 'server', 'data', 'backups');
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-');
+    const year = now.getFullYear().toString();
+    const month = `${String(now.getMonth() + 1).padStart(2, '0')}-${now.toLocaleString('en-US', { month: 'long' })}`;
 
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
+    const baseBackupDir = customBackupDir || path.join(__dirname, '..', 'server', 'data', 'backups');
+    const monthBackupDir = path.join(baseBackupDir, year, month);
+
+    if (!fs.existsSync(monthBackupDir)) {
+      fs.mkdirSync(monthBackupDir, { recursive: true });
     }
 
     for (const col of collections) {
@@ -41,25 +47,36 @@ async function exportFullDatabaseBackup() {
     }
 
     const backupFileName = `tce_appraisal_backup_${timestamp}.json`;
-    const backupFilePath = path.join(backupDir, backupFileName);
+    const backupFilePath = path.join(monthBackupDir, backupFileName);
 
     fs.writeFileSync(backupFilePath, JSON.stringify(backupData, null, 2), 'utf-8');
 
     console.log('\n==================================================');
     console.log('✅ FULL DATABASE BACKUP COMPLETED SUCCESSFULLY!');
-    console.log(`📁 Backup File Saved: ${backupFilePath}`);
+    console.log(`📁 Backup File Saved (Month-wise): ${backupFilePath}`);
     console.log(`📊 Summary of Collections Backed Up:`);
     Object.keys(backupData).forEach((col) => {
       console.log(`   - ${col}: ${backupData[col].length} documents`);
     });
     console.log('==================================================\n');
 
+    // Attempt Google Drive upload (if configured)
+    await uploadBackupToGoogleDrive(backupFilePath);
+
     await mongoose.disconnect();
-    process.exit(0);
+    return backupFilePath;
   } catch (error) {
     console.error('❌ Error exporting database backup:', error);
-    process.exit(1);
+    try {
+      await mongoose.disconnect();
+    } catch (_) {}
+    throw error;
   }
 }
 
-exportFullDatabaseBackup();
+// If invoked directly from CLI
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  exportFullDatabaseBackup()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
+}

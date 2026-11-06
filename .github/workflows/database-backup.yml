@@ -1,0 +1,79 @@
+name: Automated Database Backup
+
+on:
+  schedule:
+    # Runs everyday at 20:30 UTC (02:00 AM IST)
+    - cron: '30 20 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    name: Export Database & Sync to GitHub + Google Drive
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Export Database & Upload to Google Drive
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          GDRIVE_SERVICE_ACCOUNT_KEY: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY }}
+          GDRIVE_BACKUP_FOLDER_ID: 1rZ5YqoN5bqcBryd5B8SXOglMNJlMbU1g
+        run: |
+          if [ -z "${MONGO_URI:-}" ]; then
+            echo "❌ Missing GitHub secret MONGO_URI! Please add it under Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          node scripts/export_database_backup.js
+
+      - name: Commit & Push Backup to database-backups Branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+
+          # Switch or create the orphan database-backups branch
+          if git ls-remote --exit-code --heads origin database-backups; then
+            git checkout database-backups
+            git pull origin database-backups --rebase
+          else
+            git checkout --orphan database-backups
+            git rm -rf .
+          fi
+
+          # Copy generated backup files from server/data/backups to root backups/
+          mkdir -p backups
+          cp -r server/data/backups/* backups/ 2>/dev/null || true
+
+          # Force add since server/data/backups is in .gitignore, but root backups/ is tracked here
+          git add -f backups/
+
+          if git diff --staged --quiet; then
+            echo "ℹ️ No changes to commit (backup already up to date)."
+          else
+            git commit -m "chore(backup): automated snapshot ${TIMESTAMP} [skip ci]"
+            git push origin database-backups
+            echo "✅ Successfully pushed database backup to branch 'database-backups'."
+          fi

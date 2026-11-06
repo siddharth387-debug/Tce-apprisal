@@ -12,6 +12,10 @@ build/
 .env
 .env*.local
 *.pem
+*service-account*.json
+*service_account*.json
+google-service-account*.json
+gdrive*.json
 
 # Logs
 npm-debug.log*
@@ -29,8 +33,7 @@ Thumbs.db
 *.swp
 *.swo
 
-# Temporary files
+# Temporary files & local database backups
 scratch/
 tmp/
-server/data/backups/*.json
-
+server/data/backups/

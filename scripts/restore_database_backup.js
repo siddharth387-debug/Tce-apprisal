@@ -16,12 +16,39 @@ if (!mongoUri) {
   process.exit(1);
 }
 
-const targetFile = process.argv[2];
+function findBackupFilesRecursively(dir) {
+  if (!fs.existsSync(dir)) return [];
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  let files = [];
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files = files.concat(findBackupFilesRecursively(fullPath));
+    } else if (entry.isFile() && entry.name.endsWith('.json')) {
+      const stats = fs.statSync(fullPath);
+      files.push({ path: fullPath, name: entry.name, mtime: stats.mtimeMs });
+    }
+  }
+  return files;
+}
+
+let targetFile = process.argv[2];
 
 if (!targetFile) {
-  console.log('⚠️ Usage: node scripts/restore_database_backup.js <path-to-json-backup-file>');
-  console.log('Example: node scripts/restore_database_backup.js server/data/backups/tce_appraisal_backup_2026-10-08T08-49-11-231Z.json');
-  process.exit(0);
+  const backupsDir = path.join(__dirname, '..', 'server', 'data', 'backups');
+  const availableBackups = findBackupFilesRecursively(backupsDir);
+
+  if (availableBackups.length === 0) {
+    console.error('❌ No backup files found in server/data/backups/!');
+    console.log('Usage: node scripts/restore_database_backup.js <path-to-json-backup-file>');
+    process.exit(1);
+  }
+
+  // Sort newest first
+  availableBackups.sort((a, b) => b.mtime - a.mtime);
+  targetFile = availableBackups[0].path;
+  console.log(`ℹ️ No backup file specified. Automatically selected latest backup:`);
+  console.log(`   👉 ${targetFile}\n`);
 }
 
 async function restoreFullDatabaseBackup() {

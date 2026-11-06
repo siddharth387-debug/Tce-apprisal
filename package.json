@@ -14,7 +14,9 @@
     "preview": "vite preview",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up --build",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "backup": "node scripts/export_database_backup.js",
+    "restore": "node scripts/restore_database_backup.js"
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
