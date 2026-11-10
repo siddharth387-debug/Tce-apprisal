@@ -792,11 +792,39 @@ const DEPARTMENT_NAME_MAP = {
   ALL: 'All Academic Departments'
 };
 
+// ── Helper to detect IQAC accounts and leadership emails ─────────────────────
+export function isIqacAccount(email, record = null) {
+  if (!email && !record) return false;
+  const em = String(email || '').toLowerCase().trim();
+
+  // Generic / institutional IQAC accounts
+  if (em === 'iqac@tce.edu' || em === 'headiqac@tce.edu' || em.includes('iqac')) {
+    return true;
+  }
+
+  // Known Head IQAC personal emails (Dr. P. Chitra)
+  if (em === 'pccse@tce.edu' || em === 'pchitracse@tce.edu') {
+    return true;
+  }
+
+  // Record-level inspection
+  if (record) {
+    if (String(record.role || '').toUpperCase() === 'IQAC') return true;
+    if (record.designation && /iqac/i.test(record.designation)) return true;
+    if (isIqacAccount(record.email) || isIqacAccount(record.personalEmail)) return true;
+    if (Array.isArray(record.alternateEmails) && record.alternateEmails.some(a => isIqacAccount(a))) return true;
+  }
+
+  return false;
+}
+
 // ── Protected Apex Leadership Accounts (Cannot be altered via Webhook) ──────
 const PROTECTED_LEADERSHIP_EMAILS = new Set([
   'principal@tce.edu',
   'registrar@tce.edu',
   'iqac@tce.edu',
+  'headiqac@tce.edu',
+  'pccse@tce.edu',
   'siddharthk@student.tce.edu',
   'deansiddharth@gmail.com'
 ]);
@@ -1101,21 +1129,25 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'Registrar / Master Admin';
-    } else if (verifiedEmail === 'deansiddharth@gmail.com') {
-      assignedRole = 'Faculty';
-      assignedDept = facultyRecord?.department || 'CSE';
-      assignedDeptName = facultyRecord?.departmentName || 'Computer Science and Engineering';
-      assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
     } else if (verifiedEmail === 'principal@tce.edu') {
       assignedRole = 'Principal';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'Principal';
-    } else if (verifiedEmail === 'iqac@tce.edu') {
+    } else if (isIqacAccount(verifiedEmail, facultyRecord)) {
       assignedRole = 'IQAC';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
-      assignedDesignation = 'IQAC Quality Coordinator';
+      assignedDesignation = (facultyRecord?.designation && /iqac/i.test(facultyRecord.designation))
+        ? facultyRecord.designation
+        : (verifiedEmail === 'headiqac@tce.edu' || verifiedEmail === 'pccse@tce.edu' || verifiedEmail === 'pchitracse@tce.edu')
+          ? 'Professor, Head IQAC'
+          : 'IQAC Quality Coordinator';
+    } else if (verifiedEmail === 'deansiddharth@gmail.com') {
+      assignedRole = 'Faculty';
+      assignedDept = facultyRecord?.department || 'CSE';
+      assignedDeptName = facultyRecord?.departmentName || 'Computer Science and Engineering';
+      assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
     } else if (/^hod[a-z]{2,6}@tce\.edu$/i.test(verifiedEmail)) {
       // Official generic departmental HOD account (e.g. hodca@tce.edu, hodcse@tce.edu, hodece@tce.edu)
       assignedRole = 'HOD';
@@ -1728,11 +1760,10 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       masterRecord?.role === 'Principal' ||
       masterRecord?.role === 'IQAC' ||
       masterRecord?.role === 'Admin' ||
-      (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) ||
+      isIqacAccount(requestEmail, masterRecord) ||
       requestEmail === 'siddharthk@student.tce.edu' || 
       requestEmail === 'registrar@tce.edu' ||
       requestEmail === 'principal@tce.edu' ||
-      requestEmail === 'iqac@tce.edu' ||
       /^hod[a-z]{2,6}@tce\.edu$/i.test(requestEmail)
     );
 
@@ -1751,7 +1782,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       const isSuperAdminOrRegistrar = requestEmail === 'siddharthk@student.tce.edu' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
-                                     requestEmail === 'iqac@tce.edu' ||
+                                     isIqacAccount(requestEmail, masterRecord) ||
                                      requestRole === 'REGISTRAR' ||
                                      requestRole === 'PRINCIPAL' ||
                                      requestRole === 'IQAC' ||
@@ -1807,7 +1838,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
-    const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || (masterRecord?.designation && /iqac/i.test(masterRecord.designation)) || requestEmail === 'iqac@tce.edu';
+    const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || isIqacAccount(requestEmail, masterRecord);
     const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu';
 
     if (isIQACUser || isPrincipalUser) {
@@ -2419,7 +2450,7 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
       callerEmail === 'registrar@tce.edu' ||
       callerEmail === 'siddharthk@student.tce.edu' ||
       callerEmail === 'principal@tce.edu' ||
-      callerEmail === 'iqac@tce.edu' ||
+      isIqacAccount(callerEmail) ||
       /^hod[a-z]{2,6}@tce\.edu$/i.test(callerEmail);
 
     if (!hasLeadershipPrivilege) {
@@ -2627,7 +2658,7 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticat
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const isAuthorizedIqac = ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
-      callerEmail === 'iqac@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+      isIqacAccount(callerEmail) || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
 
     if (!isAuthorizedIqac) {
       return res.status(403).json({
@@ -2693,7 +2724,7 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], au
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const isAuthorizedIqac = ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
-      callerEmail === 'iqac@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+      isIqacAccount(callerEmail) || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
 
     if (!isAuthorizedIqac) {
       return res.status(403).json({

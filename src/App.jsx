@@ -1034,7 +1034,7 @@ function getRoleFromEmail(email) {
   if (userEmail === 'principal@tce.edu') {
     return 'Principal';
   }
-  if (userEmail === 'iqac@tce.edu' || userEmail.includes('iqac')) {
+  if (userEmail === 'iqac@tce.edu' || userEmail === 'headiqac@tce.edu' || userEmail.includes('iqac') || userEmail === 'pccse@tce.edu' || userEmail === 'pchitracse@tce.edu') {
     return 'IQAC';
   }
   if (
@@ -4448,25 +4448,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isMasterUser = (user?.email || '').toLowerCase().trim() === 'siddharthk@student.tce.edu';
   const isSuperAdmin = isMasterUser;
 
+  const userEmailLower = (user?.email || '').toLowerCase().trim();
+  const isIqacLeadership = user?.role === 'IQAC' || userEmailLower === 'iqac@tce.edu' || userEmailLower === 'headiqac@tce.edu' || userEmailLower.includes('iqac') || userEmailLower === 'pccse@tce.edu' || userEmailLower === 'pchitracse@tce.edu' || Boolean(user?.designation && /iqac/i.test(user.designation));
+
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
     if (user.role === 'Principal') return 'Principal';
     if (user.role === 'Registrar') return 'Registrar';
-    if (user.role === 'IQAC') return 'IQAC';
+    if (user.role === 'IQAC' || isIqacLeadership) return 'IQAC';
     if (user.role === 'HOD') return 'HOD';
     return user.role || 'Faculty';
   });
-  const effectiveRole = isSuperAdmin ? adminActiveRole : user.role;
+  const effectiveRole = (isSuperAdmin || isIqacLeadership) ? adminActiveRole : user.role;
   const isPrincipal = effectiveRole === 'Principal';
   const isRegistrar = effectiveRole === 'Registrar';
   const [hodWorkspaceMode, setHodWorkspaceMode] = useState('hod_inbox'); // 'hod_inbox' | 'self_appraisal'
   const [iqacWorkspaceMode, setIqacWorkspaceMode] = useState('iqac_audit'); // 'iqac_audit' | 'self_appraisal'
   
-  const isIQACUser = effectiveRole === 'IQAC' || user?.role === 'IQAC';
+  const isIQACUser = effectiveRole === 'IQAC';
   const isIQAC = isIQACUser;
   const isHod = effectiveRole === 'HOD';
   const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal;
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
-  const isFacultyUser = (effectiveRole === 'Faculty' || user?.role === 'Faculty') && !isHod && !isIQAC && !isPrincipal && !isRegistrar && !isReviewMode;
+  const isFacultyUser = (effectiveRole === 'Faculty') && !isHod && !isIQAC && !isPrincipal && !isRegistrar && !isReviewMode;
 
   const [cloudSyncState, setCloudSyncState] = useState('saved'); // 'saving' | 'saved' | 'error'
   const [lastCloudSyncTime, setLastCloudSyncTime] = useState('');
@@ -10594,6 +10597,69 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 >
                   <span>📋</span>
                   <span>Faculty</span>
+                </button>
+              </div>
+            )}
+
+            {/* IQAC / Head IQAC Workspace Switcher */}
+            {isIqacLeadership && !isSuperAdmin && (
+              <div className="flex flex-wrap items-center bg-amber-50/90 p-1 rounded-xl border border-amber-300 shadow-sm gap-0.5">
+                <span className="text-[10px] font-black uppercase text-amber-900 px-1.5 sm:px-2 flex items-center gap-1">
+                  <span>📊</span> <span className="hidden sm:inline">Workspace:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminActiveRole('IQAC');
+                    setActiveView('overview');
+                    setSelectedAppraisal(null);
+                    setSelectedReviewAppraisal(null);
+                  }}
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
+                    effectiveRole === 'IQAC'
+                      ? 'bg-[#4A1519] text-white shadow-sm'
+                      : 'text-amber-950 hover:bg-amber-100'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>IQAC Audit</span>
+                </button>
+                {(user.department === 'MCA' || user.email === 'hodca@tce.edu' || user.email === 'pccse@tce.edu' || (user.designation && user.designation.includes('Head'))) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminActiveRole('HOD');
+                      setHodWorkspaceMode('hod_inbox');
+                      setActiveView('overview');
+                      setSelectedAppraisal(null);
+                      setSelectedReviewAppraisal(null);
+                    }}
+                    className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
+                      effectiveRole === 'HOD'
+                        ? 'bg-[#4A1519] text-white shadow-sm'
+                        : 'text-amber-950 hover:bg-amber-100'
+                    }`}
+                  >
+                    <span>🏢</span>
+                    <span>HoD MCA</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdminActiveRole('Faculty');
+                    setActiveView('overview');
+                    setSelectedAppraisal(null);
+                    setSelectedReviewAppraisal(null);
+                  }}
+                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
+                    effectiveRole === 'Faculty'
+                      ? 'bg-[#4A1519] text-white shadow-sm'
+                      : 'text-amber-950 hover:bg-amber-100'
+                  }`}
+                >
+                  <span>📋</span>
+                  <span>My Self-Appraisal</span>
                 </button>
               </div>
             )}
