@@ -85,7 +85,7 @@ const replacement = `  const rawSection2Sum = sub2_1 + sub2_2 + sub2_3 + sub2_4 
   const sub7_1 = Math.min(
     (safeData.partialDelivery || []).reduce((sum, row) => {
       const hrs = parseFloat(row.duration || 0);
-      if (hrs >= 6) return sum + 3;
+      if (hrs >= 6) return sum + 4;
       if (hrs >= 3) return sum + 2;
       if (hrs >= 1) return sum + 1;
       return sum;

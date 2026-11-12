@@ -448,7 +448,7 @@ export function computeAutomatedScores(sectionData = {}) {
     (safeData.partialDelivery || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['courseDetails', 'mode', 'industryName', 'expertDetails', ['duration', 'hoursDelivered'], 'evidenceLink'])) return sum;
       const h = parseFloat(r.duration || r.hoursDelivered || 0);
-      if (h >= 6) return sum + 3;
+      if (h >= 6) return sum + 4;
       if (h >= 3) return sum + 2;
       if (h >= 1) return sum + 1;
       return sum;
@@ -929,7 +929,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     (safeData.partialDelivery || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['courseDetails', 'mode', ['industryName', 'expertName'], ['duration', 'hoursDelivered'], 'evidenceLink'])) return sum;
       const h = parseFloat(r.duration || r.hoursDelivered || 0);
-      if (h >= 6) return sum + 3;
+      if (h >= 6) return sum + 4;
       if (h >= 3) return sum + 2;
       if (h >= 1) return sum + 1;
       return sum + 1;

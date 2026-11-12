@@ -1926,7 +1926,7 @@ function unusedComputeSectionScores(sectionData = {}, role) {
     (safeData.partialDelivery || []).reduce((sum, row) => {
       if (!isNonEmpty(row.courseDetails) || !isNonEmpty(row.industryName)) return sum;
       const hrs = parseFloat(row.duration || 0);
-      if (hrs >= 6) return sum + 3;
+      if (hrs >= 6) return sum + 4;
       if (hrs >= 3) return sum + 2;
       if (hrs >= 1) return sum + 1;
       return sum;
@@ -10148,7 +10148,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VII" ? 'block' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="7.1 Partial delivery of regular courses by industry experts"
-                subtitle="(Calculation Rubric: >=6 hrs = 3; 3 hrs = 2; 1-2 hrs = 1 | Max 4 marks)"
+                subtitle="(Calculation Rubric: >=6 hrs = 4; 3 hrs = 2; 1-2 hrs = 1 | Max 4 marks)"
                 subScore={scores.sub7_1 || 0}
                 maxScore={4}
                 rows={currentSectionData.partialDelivery || []}
