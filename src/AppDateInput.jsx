@@ -228,7 +228,7 @@ export function computeExpectedEndDate(startDateStr, durationDays) {
 /**
  * Shared Date Input Component
  * Supports both typing (auto-formatting / validation) and native/browser calendar picking.
- * Enforces calendar bounds (Year Calendar vs Academic Calendar) and custom date constraints.
+ * Enforces calendar bounds (Year Calendar vs Academic Year) and custom date constraints.
  * Default calendarType is 'none' (unrestricted).
  */
 export default function AppDateInput({

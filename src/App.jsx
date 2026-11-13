@@ -2318,7 +2318,7 @@ function DynamicArraySection({
   const calendarLabel = useMemo(() => {
     if (propCalendarLabel) return propCalendarLabel;
     if (effectiveCalendarType === 'academic') {
-      return 'Academic Calendar';
+      return 'Academic Year';
     }
     if (effectiveCalendarType === 'year') {
       return 'Calendar Year';
