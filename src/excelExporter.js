@@ -190,15 +190,15 @@ export const exportAppraisalToExcel = async ({
   };
 
   // Section 1
-  pushFlatRows('Teaching', '1.1 Courses Handled', sectionData.coursesHandled, ['courseCode', 'courseName', 'type', 'semester']);
-  pushFlatRows('Teaching', '1.2 Course File', sectionData.courseFiles, ['courseCode', 'courseName', 'compliance']);
-  pushFlatRows('Teaching', '1.3 Course Design', sectionData.coursesDesigned, ['courseCode', 'courseName', 'remarks']);
+  pushFlatRows('Teaching', '1.1 Courses Handled', sectionData.coursesHandled, ['courseCode', 'section', 'courseName', 'type', 'semester']);
+  pushFlatRows('Teaching', '1.2 Course File', sectionData.courseFiles, ['courseCode', 'section', 'courseName', 'compliance']);
+  pushFlatRows('Teaching', '1.3 Course Design', sectionData.coursesDesigned, ['courseCode', 'section', 'courseName', 'remarks']);
   pushFlatRows('Teaching', '1.4 Value-Added', sectionData.valueAdded, ['courseName', 'particulars', 'studentCount']);
-  pushFlatRows('Teaching', '1.5 Innovative Methods', sectionData.innovativeMethods, ['courseCode', 'method']);
+  pushFlatRows('Teaching', '1.5 Innovative Methods', sectionData.innovativeMethods, ['courseCode', 'section', 'method']);
   pushFlatRows('Teaching', '1.8 Certifications', sectionData.certifications, ['courseName', 'platform', 'certType']);
   pushFlatRows('Teaching', '1.9 Student Feedback', sectionData.studentFeedback, ['courseCode', 'feedbackPct']);
-  pushFlatRows('Teaching', '1.10 Result Analysis', sectionData.resultAnalysis, ['courseCode', 'courseName', 'passPercentage']);
-  pushFlatRows('Teaching', '1.11 CO Attainment', sectionData.coAttainment, ['courseCode', 'courseName', 'attainmentPct']);
+  pushFlatRows('Teaching', '1.10 Result Analysis', sectionData.resultAnalysis, ['courseCode', 'section', 'courseName', 'passPercentage']);
+  pushFlatRows('Teaching', '1.11 CO Attainment', sectionData.coAttainment, ['courseCode', 'section', 'courseName', 'attainmentPct']);
 
   // Section 2 & 3 & 4 (Research)
   pushFlatRows('Research', '2.1 Journal Papers', sectionData.journalPapers, ['paperTitle', 'journalName', 'tier']);

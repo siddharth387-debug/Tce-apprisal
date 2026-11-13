@@ -304,6 +304,7 @@ export default function AppraisalPrintDocument({
         </div>
         {renderTable('1.1 Courses Handled', [
           { key: 'courseCode', label: 'Course Code' },
+          { key: 'section', label: 'Section' },
           { key: 'courseName', label: 'Course Name' },
           { key: 'type', label: 'Type' },
           { key: 'semester', label: 'Semester' },
@@ -311,12 +312,14 @@ export default function AppraisalPrintDocument({
         ], sectionData.coursesHandled, '1.1')}
         {renderTable('1.2 Course File Compliance', [
           { key: 'courseCode', label: 'Course Code' },
+          { key: 'section', label: 'Section' },
           { key: 'courseName', label: 'Course Name' },
           { key: 'compliance', label: 'Compliance' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.courseFiles, '1.2')}
         {renderTable('1.3 Course Design', [
           { key: 'courseCode', label: 'Course Code' },
+          { key: 'section', label: 'Section' },
           { key: 'courseName', label: 'Course Name' },
           { key: 'remarks', label: 'Details / Remarks' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
@@ -329,6 +332,7 @@ export default function AppraisalPrintDocument({
         ], sectionData.valueAdded, '1.4')}
         {renderTable('1.5 Innovative Teaching Methods', [
           { key: 'courseCode', label: 'Course Code' },
+          { key: 'section', label: 'Section' },
           { key: 'method', label: 'Method Employed' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.innovativeMethods, '1.5')}
@@ -378,12 +382,14 @@ export default function AppraisalPrintDocument({
         ], sectionData.studentFeedback, '1.9')}
         {renderTable('1.10 Result Analysis', [
           { key: 'courseCode', label: 'Course Code' },
+          { key: 'section', label: 'Section' },
           { key: 'courseName', label: 'Course Name' },
           { key: 'passPercentage', label: 'Pass %' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.resultAnalysis, '1.10')}
         {renderTable('1.11 CO Attainment', [
           { key: 'courseCode', label: 'Course Code' },
+          { key: 'section', label: 'Section' },
           { key: 'courseName', label: 'Course Name' },
           { key: 'attainmentPct', label: 'Attainment %' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },

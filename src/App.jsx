@@ -375,6 +375,8 @@ const SEMESTER_OPTIONS = [
   'Semester X',
 ];
 
+const COURSE_SECTION_OPTIONS = ['A', 'B', 'C'];
+
 const ACADEMIC_COLLABORATION_TYPES = [
   'Joint Research Project',
   'Joint Publication / Patent',
@@ -1111,11 +1113,17 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
         errors[column.name] = true;
       } else if (allRows && allRows.length > 0) {
         const norm = trimmed.toLowerCase();
+        const rowSection = String(row.section || '').trim().toUpperCase();
         const hasDuplicate = allRows.some((other) => {
           if (other === row) return false;
           if (other.id && row.id && other.id === row.id) return false;
           const otherCode = String(other.courseCode || '').trim().toLowerCase();
-          return otherCode === norm;
+          if (otherCode !== norm) return false;
+          const otherSection = String(other.section || '').trim().toUpperCase();
+          if (rowSection && otherSection) {
+            return rowSection === otherSection;
+          }
+          return true;
         });
         if (hasDuplicate) {
           errors[column.name] = 'duplicate';
@@ -2154,8 +2162,19 @@ function DynamicArraySection({
 
   const isDuplicateCourseCode = (code, rowId) => {
     if (!code || !isNonEmpty(code)) return false;
+    const targetRow = safeRows.find((r) => r.id === rowId);
+    const targetSection = String(targetRow?.section || '').trim().toUpperCase();
     const norm = String(code).trim().toLowerCase();
-    return safeRows.some((other) => other.id !== rowId && String(other.courseCode || '').trim().toLowerCase() === norm);
+    return safeRows.some((other) => {
+      if (other.id === rowId) return false;
+      const otherCode = String(other.courseCode || '').trim().toLowerCase();
+      if (otherCode !== norm) return false;
+      const otherSection = String(other.section || '').trim().toUpperCase();
+      if (targetSection && otherSection) {
+        return targetSection === otherSection;
+      }
+      return true;
+    });
   };
 
   const getFieldErrorText = (row, columnName) => {
@@ -5813,6 +5832,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const coursesHandledColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
+      name: 'section',
+      label: 'Section',
+      type: 'select',
+      options: COURSE_SECTION_OPTIONS,
+      placeholder: 'Section',
+    },
+    {
       name: 'courseName',
       label: 'Course Name',
       placeholder: 'Course Name',
@@ -5871,6 +5897,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const courseFilesColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
+      name: 'section',
+      label: 'Section',
+      type: 'select',
+      options: COURSE_SECTION_OPTIONS,
+      placeholder: 'Section',
+    },
+    {
       name: 'courseName',
       label: 'Course Name',
       placeholder: 'Course Name',
@@ -5885,6 +5918,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const coAttainmentColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code (e.g. 21AR101)' },
+    {
+      name: 'section',
+      label: 'Section',
+      type: 'select',
+      options: COURSE_SECTION_OPTIONS,
+      placeholder: 'Section',
+    },
     {
       name: 'courseName',
       label: 'Course Name',
@@ -5901,6 +5941,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const coursesDesignedColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
+    {
+      name: 'section',
+      label: 'Section',
+      type: 'select',
+      options: COURSE_SECTION_OPTIONS,
+      placeholder: 'Section',
+    },
     {
       name: 'courseName',
       label: 'Course Name',
@@ -5935,6 +5982,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const resultAnalysisColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code (e.g. 21AR101)' },
     {
+      name: 'section',
+      label: 'Section',
+      type: 'select',
+      options: COURSE_SECTION_OPTIONS,
+      placeholder: 'Section',
+    },
+    {
       name: 'courseName',
       label: 'Course Name',
       placeholder: 'Course Name',
@@ -5950,6 +6004,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const innovativeMethodsColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
+    {
+      name: 'section',
+      label: 'Section',
+      type: 'select',
+      options: COURSE_SECTION_OPTIONS,
+      placeholder: 'Section',
+    },
     {
       name: 'method',
       label: 'Method',
@@ -9180,6 +9241,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           onAdd={() =>
             addArrayRow('coursesHandled', {
               courseCode: '',
+              section: '',
               courseName: '',
               type: '',
               semester: '',
@@ -9205,6 +9267,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           onAdd={() =>
             addArrayRow('courseFiles', {
               courseCode: '',
+              section: '',
               courseName: '',
               compliance: '',
               evidenceLink: '',
@@ -9229,6 +9292,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           onAdd={() =>
             addArrayRow('coursesDesigned', {
               courseCode: '',
+              section: '',
               courseName: '',
               remarks: '',
               evidenceLink: '',
@@ -9279,6 +9343,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               onAdd={() =>
                 addArrayRow('innovativeMethods', {
                   courseCode: '',
+                  section: '',
                   method: '',
                   semesterType: '',
                   evidenceLink: '',
@@ -9353,6 +9418,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               onAdd={() =>
                 addArrayRow('innovativeMethods', {
                   courseCode: '',
+                  section: '',
                   method: '',
                   semesterType: '',
                   evidenceLink: '',
@@ -9473,6 +9539,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           onAdd={() =>
             addArrayRow('resultAnalysis', {
               courseCode: '',
+              section: '',
               courseName: '',
               passPercentage: '',
               evidenceLink: '',
@@ -9497,6 +9564,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           onAdd={() =>
             addArrayRow('coAttainment', {
               courseCode: '',
+              section: '',
               courseName: '',
               attainmentPct: '',
               evidenceLink: '',

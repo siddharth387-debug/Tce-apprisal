@@ -391,17 +391,17 @@ export const exportAppraisalToPDF = ({
 
   // ── Section I: Teaching & Learning ────────────────────────────────────────
   renderSectionHeader('SECTION I: Teaching & Learning', effectiveScoreObj.section1Total, 50);
-  renderSectionTable('1.1 Courses Handled', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'type', label: 'Type' }, { key: 'semester', label: 'Semester' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coursesHandled, '1.1');
-  renderSectionTable('1.2 Course File Compliance', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'compliance', label: 'Compliance' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.courseFiles, '1.2');
-  renderSectionTable('1.3 Course Design', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'remarks', label: 'Details / Remarks' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coursesDesigned, '1.3');
+  renderSectionTable('1.1 Courses Handled', [{ key: 'courseCode', label: 'Course Code' }, { key: 'section', label: 'Section' }, { key: 'courseName', label: 'Course Name' }, { key: 'type', label: 'Type' }, { key: 'semester', label: 'Semester' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coursesHandled, '1.1');
+  renderSectionTable('1.2 Course File Compliance', [{ key: 'courseCode', label: 'Course Code' }, { key: 'section', label: 'Section' }, { key: 'courseName', label: 'Course Name' }, { key: 'compliance', label: 'Compliance' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.courseFiles, '1.2');
+  renderSectionTable('1.3 Course Design', [{ key: 'courseCode', label: 'Course Code' }, { key: 'section', label: 'Section' }, { key: 'courseName', label: 'Course Name' }, { key: 'remarks', label: 'Details / Remarks' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coursesDesigned, '1.3');
   renderSectionTable('1.4 Value-Added Courses', [{ key: 'courseName', label: 'Course Name' }, { key: 'particulars', label: 'Particulars' }, { key: 'studentCount', label: 'Students Enrolled' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.valueAdded, '1.4');
   
   if (isArch) {
-    renderSectionTable('1.5.1 Innovative Teaching Methods', [{ key: 'courseCode', label: 'Course Code' }, { key: 'method', label: 'Method Employed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.innovativeMethods, '1.5.1');
+    renderSectionTable('1.5.1 Innovative Teaching Methods', [{ key: 'courseCode', label: 'Course Code' }, { key: 'section', label: 'Section' }, { key: 'method', label: 'Method Employed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.innovativeMethods, '1.5.1');
     renderSectionTable('1.5.2 Studio Based Teaching & Design Education', [{ key: 'activityName', label: 'Studio Activity' }, { key: 'batchOrSem', label: 'Batch / Sem' }, { key: 'outcomes', label: 'Outcomes' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.studioPedagogy, '1.5.2');
     renderSectionTable('1.6 Educational Tours & Case Study Visits', [{ key: 'tourType', label: 'Type' }, { key: 'place', label: 'Place / Tour' }, { key: 'batch', label: 'Batch / Duration' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.educationalTours || sectionData.academicCollaborations, '1.6');
   } else {
-    renderSectionTable('1.5 Innovative Teaching Methods', [{ key: 'courseCode', label: 'Course Code' }, { key: 'method', label: 'Method Employed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.innovativeMethods, '1.5');
+    renderSectionTable('1.5 Innovative Teaching Methods', [{ key: 'courseCode', label: 'Course Code' }, { key: 'section', label: 'Section' }, { key: 'method', label: 'Method Employed' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.innovativeMethods, '1.5');
     renderSectionTable('1.6 Academic Collaborations', [{ key: 'organization', label: 'Partner Organization' }, { key: 'collaborationType', label: 'Collaboration Nature' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.academicCollaborations, '1.6');
   }
 
@@ -472,8 +472,8 @@ export const exportAppraisalToPDF = ({
 
   renderSectionTable('1.8 NPTEL / SWAYAM Certifications', [{ key: 'courseName', label: 'Course Title' }, { key: 'platform', label: 'Platform' }, { key: 'certType', label: 'Grade' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.certifications, '1.8');
   renderSectionTable('1.9 Student Feedback', [{ key: 'courseName', altKey: 'courseCode', label: 'Course Name' }, { key: 'feedbackPct', label: 'Feedback Avg / %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.studentFeedback, '1.9');
-  renderSectionTable('1.10 Result Analysis', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'passPercentage', label: 'Pass %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.resultAnalysis, '1.10');
-  renderSectionTable('1.11 CO Attainment', [{ key: 'courseCode', label: 'Course Code' }, { key: 'courseName', label: 'Course Name' }, { key: 'attainmentPct', label: 'Attainment %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coAttainment, '1.11');
+  renderSectionTable('1.10 Result Analysis', [{ key: 'courseCode', label: 'Course Code' }, { key: 'section', label: 'Section' }, { key: 'courseName', label: 'Course Name' }, { key: 'passPercentage', label: 'Pass %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.resultAnalysis, '1.10');
+  renderSectionTable('1.11 CO Attainment', [{ key: 'courseCode', label: 'Course Code' }, { key: 'section', label: 'Section' }, { key: 'courseName', label: 'Course Name' }, { key: 'attainmentPct', label: 'Attainment %' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.coAttainment, '1.11');
 
   // ── Section II: Research Publications ─────────────────────────────────────
   renderSectionHeader('SECTION II: Research Publications', effectiveScoreObj.section2Total, 55);
