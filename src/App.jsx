@@ -832,6 +832,15 @@ function normalizeSection6Data(sec6 = {}) {
 function flattenAppraisalRecord(record) {
   if (!record) return createEmptySectionState();
   const rawSec = record.sectionData || {};
+  const ensureCourseSection = (rows) => {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((r) => {
+      if (r && typeof r === 'object' && r.courseCode && !r.section) {
+        return { ...r, section: 'A' };
+      }
+      return r;
+    });
+  };
   const res = {
     ...createEmptySectionState(),
     ...rawSec,
@@ -845,6 +854,12 @@ function flattenAppraisalRecord(record) {
     ...(record.section8Data || {}),
     ...(record.section9Data || {}),
   };
+  if (res.coursesHandled) res.coursesHandled = ensureCourseSection(res.coursesHandled);
+  if (res.courseFiles) res.courseFiles = ensureCourseSection(res.courseFiles);
+  if (res.coursesDesigned) res.coursesDesigned = ensureCourseSection(res.coursesDesigned);
+  if (res.innovativeMethods) res.innovativeMethods = ensureCourseSection(res.innovativeMethods);
+  if (res.resultAnalysis) res.resultAnalysis = ensureCourseSection(res.resultAnalysis);
+  if (res.coAttainment) res.coAttainment = ensureCourseSection(res.coAttainment);
   if (res.mentoring && !Array.isArray(res.mentoring)) {
     const m = res.mentoring;
     res.mentoring = [
@@ -4890,7 +4905,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     const currentDraft = workspaceByTimeline[selectedTimeline];
     if (!currentDraft) return;
-    if (isAuto && !hasSectionEntries(currentDraft) && !activeTimelineRecord) return;
+    if (isAuto && !hasSectionEntries(currentDraft)) return;
 
     try {
       const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
@@ -5160,17 +5175,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       // Cloud is authoritative for submitted/locked appraisals
       finalData = cloudData;
     } else if (hasLocal && hasCloud) {
-      // For in-progress drafts, respect the most recent edits so local work is never clobbered by a stale draft
+      // For in-progress drafts, merge cloud and local drafts so no work from either device is ever lost!
       const cloudTime = activeTimelineRecord?.updatedAt ? new Date(activeTimelineRecord.updatedAt).getTime() : 0;
       const localTime = Number(localData?._savedAt) || 0;
       if (localTime > cloudTime) {
-        finalData = localData;
+        finalData = mergeSectionState(cloudData, localData);
       } else {
-        finalData = cloudData;
+        finalData = mergeSectionState(localData, cloudData);
       }
-      if (draftUserKey && selectedTimeline && finalData === cloudData) {
+      if (draftUserKey && selectedTimeline) {
         try {
-          localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify({ ...cloudData, _savedAt: cloudTime }));
+          localStorage.setItem(`draft_${draftUserKey}_${selectedTimeline}`, JSON.stringify({ ...finalData, _savedAt: Math.max(cloudTime, localTime) }));
         } catch (e) {}
       }
     } else if (hasCloud) {
@@ -5215,7 +5230,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (!user || !selectedTimeline || isReviewMode || isPrincipal || isRegistrar || !isEditable || isLockedOrSubmitted) return;
     const currentData = workspaceByTimeline[selectedTimeline];
     if (!currentData) return;
-    if (!hasSectionEntries(currentData) && !activeTimelineRecord) return;
+    if (!hasSectionEntries(currentData)) return;
 
     let retryTimeout = null;
     let isCancelled = false;
@@ -6733,11 +6748,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         };
       });
     } else {
-      updateCurrentTimeline((current) => ({
-        ...current,
-        submittedAt: current.submittedAt || null,
-        appraisalStatus: current.appraisalStatus || 'Draft',
-      }));
+      const savedDraft = draftUserKey ? localStorage.getItem(`draft_${draftUserKey}_${selectedTimeline}`) : null;
+      let localData = null;
+      if (savedDraft) {
+        try {
+          localData = JSON.parse(savedDraft);
+        } catch (e) {}
+      }
+      if (localData && hasSectionEntries(localData)) {
+        setWorkspaceByTimeline((prev) => ({
+          ...prev,
+          [selectedTimeline]: {
+            ...createEmptySectionState(),
+            ...localData,
+          },
+        }));
+      }
     }
     setActiveView('section1');
   };

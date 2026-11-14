@@ -1379,6 +1379,17 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       });
     }
 
+    const hasMeaningfulSectionData = (sec) => {
+      if (!sec || typeof sec !== 'object') return false;
+      return Object.values(sec).some((val) => {
+        if (Array.isArray(val)) return val.length > 0;
+        if (val && typeof val === 'object') {
+          return Object.values(val).some(v => v !== null && v !== undefined && String(v).trim() !== '');
+        }
+        return val !== null && val !== undefined && String(val).trim() !== '';
+      });
+    };
+
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
     const replacementPayload = {
       timeline: timeline.trim(),
@@ -1423,15 +1434,15 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       })(),
       hodSubsectionScores: req.body?.hodSubsectionScores || {},
       subsectionRemarks: req.body?.subsectionRemarks || {},
-      section1Data: section1Data || existingDoc?.section1Data || {},
-      section2Data: section2Data || existingDoc?.section2Data || {},
-      section3Data: section3Data || existingDoc?.section3Data || {},
-      section4Data: section4Data || existingDoc?.section4Data || {},
-      section5Data: section5Data || existingDoc?.section5Data || {},
-      section6Data: section6Data || existingDoc?.section6Data || {},
-      section7Data: section7Data || existingDoc?.section7Data || {},
-      section8Data: section8Data || existingDoc?.section8Data || {},
-      section9Data: section9Data || existingDoc?.section9Data || {},
+      section1Data: hasMeaningfulSectionData(section1Data) ? section1Data : (existingDoc?.section1Data || section1Data || {}),
+      section2Data: hasMeaningfulSectionData(section2Data) ? section2Data : (existingDoc?.section2Data || section2Data || {}),
+      section3Data: hasMeaningfulSectionData(section3Data) ? section3Data : (existingDoc?.section3Data || section3Data || {}),
+      section4Data: hasMeaningfulSectionData(section4Data) ? section4Data : (existingDoc?.section4Data || section4Data || {}),
+      section5Data: hasMeaningfulSectionData(section5Data) ? section5Data : (existingDoc?.section5Data || section5Data || {}),
+      section6Data: hasMeaningfulSectionData(section6Data) ? section6Data : (existingDoc?.section6Data || section6Data || {}),
+      section7Data: hasMeaningfulSectionData(section7Data) ? section7Data : (existingDoc?.section7Data || section7Data || {}),
+      section8Data: hasMeaningfulSectionData(section8Data) ? section8Data : (existingDoc?.section8Data || section8Data || {}),
+      section9Data: hasMeaningfulSectionData(section9Data) ? section9Data : (existingDoc?.section9Data || section9Data || {}),
       iqacStatus: existingDoc?.iqacStatus || 'Pending',
       iqacAuditRemarks: existingDoc?.iqacAuditRemarks || '',
       iqacExcluded: Boolean(existingDoc?.iqacExcluded),
