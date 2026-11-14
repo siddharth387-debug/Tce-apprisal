@@ -5275,6 +5275,42 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     };
   }, [workspaceByTimeline, selectedTimeline, user, isReviewMode, isPrincipal, isRegistrar, activeTimelineRecord, saveDraftToCloud, isEditable]);
 
+  // ── PERIODIC SAFETY NET SYNC (60s interval) ──
+  // Guarantees data reaches the cloud even if the debounced change-based auto-save was
+  // skipped (e.g. user stopped typing exactly before the 4s window, or closed laptop lid).
+  useEffect(() => {
+    const recordStatus = (activeTimelineRecord?.appraisalStatus || '').toUpperCase().trim();
+    const isLockedOrSubmitted = ['PENDING', 'SUBMITTED', 'PENDING REVIEW', 'APPROVED', 'HOD APPROVED', 'IQAC APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(recordStatus);
+    if (!user || !selectedTimeline || isReviewMode || isPrincipal || isRegistrar || !isEditable || isLockedOrSubmitted) return;
+
+    const intervalId = setInterval(async () => {
+      const currentData = workspaceByTimeline[selectedTimeline];
+      if (!currentData || !hasSectionEntries(currentData)) return;
+      try {
+        await saveDraftToCloud(true, false);
+      } catch (err) {
+        console.warn('⏳ Periodic safety sync failed, will retry next cycle:', err.message);
+      }
+    }, 60000); // Every 60 seconds
+
+    // Also sync immediately when the tab regains focus (user returns from another tab/app)
+    const handleFocusSync = async () => {
+      const currentData = workspaceByTimeline[selectedTimeline];
+      if (!currentData || !hasSectionEntries(currentData)) return;
+      try {
+        await saveDraftToCloud(true, false);
+      } catch (err) {
+        console.warn('⏳ Focus-restore sync failed:', err.message);
+      }
+    };
+    window.addEventListener('focus', handleFocusSync);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocusSync);
+    };
+  }, [user, selectedTimeline, isReviewMode, isPrincipal, isRegistrar, activeTimelineRecord, isEditable, workspaceByTimeline, saveDraftToCloud]);
+
   // ── INACTIVITY / SESSION TIMEOUT WATCHDOG (15-Minute Idle Threshold) ──
   // Automatically logs out inactive faculty/staff sessions after 15 minutes of inactivity.
   // Displays a 2-minute countdown warning at the 13-minute mark, and executes an emergency
