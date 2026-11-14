@@ -375,7 +375,7 @@ const SEMESTER_OPTIONS = [
   'Semester X',
 ];
 
-const COURSE_SECTION_OPTIONS = ['A', 'B', 'C'];
+const COURSE_SECTION_OPTIONS = ['A', 'B', 'C', 'D'];
 
 const ACADEMIC_COLLABORATION_TYPES = [
   'Joint Research Project',
@@ -1992,13 +1992,12 @@ function unusedComputeSectionScores(sectionData = {}, role) {
       if (!isNonEmpty(row.description)) return sum;
       const cat = String(row.category || '').trim();
       const catLower = cat.toLowerCase();
-      if (catLower.includes('associate dean') || catLower.includes('deputy registrar') || catLower.includes('deputy coe') || catLower === 'associate dean / deputy registrar / deputy coe / warden') return sum + 10;
       if (catLower.includes('clc') || catLower.includes('deputy warden') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
       if (catLower.includes('internal review') || catLower.includes('iqac')) return sum + 5;
       if (catLower.includes('committee member') || catLower.includes('others') || catLower === 'other') return sum + 3;
       return sum + 3;
     }, 0),
-    10
+    7
   );
   const sub9_3 = Math.min((safeData.adminResponsibilities || []).filter(r => isNonEmpty(r.role) && (isNonEmpty(r.evidenceLink) || isNonEmpty(r.appointmentLink))).length > 0 ? 20 : 0, 20);
   const section9Total = Math.min(sub9_1 + sub9_2 + sub9_3, 20);
@@ -5957,13 +5956,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const coursesDesignedColumns = [
     { name: 'courseCode', label: 'Course Code', placeholder: 'Course Code' },
     {
-      name: 'section',
-      label: 'Section',
-      type: 'select',
-      options: COURSE_SECTION_OPTIONS,
-      placeholder: 'Section',
-    },
-    {
       name: 'courseName',
       label: 'Course Name',
       placeholder: 'Course Name',
@@ -6302,7 +6294,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         "Committee Member", 
         "Internal Review Committee", 
         "CLC / Deputy Warden", 
-        "Associate Dean / Deputy Registrar / Deputy CoE",
         "5S Coordinator",
         "Alumni Coordinator",
         "IQAC Coordinator",
@@ -10393,9 +10384,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="9.2 College Level Activities"
-                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / IQAC Coordinator = 5; CLCs/Deputy Warden / Alumni Coordinator / 5S Coordinator = 7; Deans/Registrar/CoE = 10 | Max 10 marks)"
+                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / IQAC Coordinator = 5; CLCs/Deputy Warden / Alumni Coordinator / 5S Coordinator = 7 | Max 7 marks)"
                 subScore={scores.sub9_2 || 0}
-                maxScore={10}
+                maxScore={7}
                 rows={currentSectionData.collegeActivities || []}
                 canAdd={canAddCollegeActivities(currentSectionData.collegeActivities || [])}
                 disabled={!isEditable}
