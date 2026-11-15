@@ -856,7 +856,6 @@ function flattenAppraisalRecord(record) {
   };
   if (res.coursesHandled) res.coursesHandled = ensureCourseSection(res.coursesHandled);
   if (res.courseFiles) res.courseFiles = ensureCourseSection(res.courseFiles);
-  if (res.coursesDesigned) res.coursesDesigned = ensureCourseSection(res.coursesDesigned);
   if (res.innovativeMethods) res.innovativeMethods = ensureCourseSection(res.innovativeMethods);
   if (res.resultAnalysis) res.resultAnalysis = ensureCourseSection(res.resultAnalysis);
   if (res.coAttainment) res.coAttainment = ensureCourseSection(res.coAttainment);
@@ -9345,7 +9344,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           onAdd={() =>
             addArrayRow('coursesDesigned', {
               courseCode: '',
-              section: '',
               courseName: '',
               remarks: '',
               evidenceLink: '',
