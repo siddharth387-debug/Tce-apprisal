@@ -375,7 +375,7 @@ const SEMESTER_OPTIONS = [
   'Semester X',
 ];
 
-const COURSE_SECTION_OPTIONS = ['A', 'B', 'C', 'D'];
+const COURSE_SECTION_OPTIONS = ['A', 'B', 'C', 'D', '-'];
 
 const ACADEMIC_COLLABORATION_TYPES = [
   'Joint Research Project',
