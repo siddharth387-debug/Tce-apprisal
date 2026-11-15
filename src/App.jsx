@@ -305,7 +305,7 @@ export const getScoreboardSectionConfig = (sectionId, isArch, scores = {}) => {
       max: 20,
       items: [
         { key: '9.1', label: '9.1 Department Level Activities', value: scores.sub9_1 || 0, max: 10 },
-        { key: '9.2', label: '9.2 College Level Activities', value: scores.sub9_2 || 0, max: 10 },
+        { key: '9.2', label: '9.2 College Level Activities', value: scores.sub9_2 || 0, max: 7 },
         { key: '9.3', label: '9.3 Administrative Responsibilities', value: scores.sub9_3 || 0, max: 20 },
       ],
     },
