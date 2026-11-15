@@ -125,7 +125,7 @@ export const CALENDAR_BY_SUBSECTION = Object.freeze({
   '1.10': 'academic',
   '1.11': 'academic',
 
-  '2.7': 'academic',
+  '2.7': 'none',
 
   '3.6': 'academic',
 
