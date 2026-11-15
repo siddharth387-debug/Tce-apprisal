@@ -515,7 +515,7 @@ export function computeAutomatedScores(sectionData = {}) {
       if (!isRowFullyFilled(r, ['description', ['category', 'committeeLevel'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = String(r.category || r.committeeLevel || '').trim();
       const catLower = cat.toLowerCase();
-      if (catLower.includes('clc') || catLower.includes('deputy warden') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
+      if (catLower.includes('chief coordinator') || catLower.includes('clc') || catLower.includes('deputy warden') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
       if (catLower.includes('internal review') || catLower.includes('iqac')) return sum + 5;
       if (catLower.includes('committee member') || catLower.includes('others') || catLower === 'other') return sum + 3;
       return sum + 3;
@@ -1000,7 +1000,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     (safeData.collegeActivities || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['description', ['category', 'description'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = (r.category || r.description || '').toLowerCase();
-      if (cat.includes('clc') || cat.includes('deputy warden') || cat.includes('alumni') || cat.includes('5s')) return sum + 7;
+      if (cat.includes('chief coordinator') || cat.includes('clc') || cat.includes('deputy warden') || cat.includes('alumni') || cat.includes('5s')) return sum + 7;
       if (cat.includes('internal review') || cat.includes('iqac')) return sum + 5;
       if (cat.includes('committee member') || cat.includes('others') || cat === 'other') return sum + 3;
       return sum + 3;
