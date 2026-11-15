@@ -138,8 +138,8 @@ export function generateGuidelinesPDF(outputPath) {
     [
       '2',
       'College Level Activities\n(College Day, Graduation Day, Founders Day, MoUs Status review panel, Professional Societies Review panel, …)',
-      '• Committee Members in College Level Activities / Others: 3 per Activity\n• Members in Internal Review Committee / IQAC Coordinator: 5 per Committee\n• Chief Coordinator (FDP / Branding / Alumni) / CLCs / Dy.Warden / Alumni Coordinator / 5S Coordinator: 7',
-      '7',
+      '• Committee Members in College Level Activities / Others: 3 per Activity\n• Members in Internal Review Committee / IQAC Coordinator: 5 per Committee\n• Chief Coordinator (FDP / Branding / Alumni) / CLCs / Alumni Coordinator / 5S Coordinator: 7\n• Deputy CoE / Deputy Registrar / Deputy Warden: 10',
+      '10',
     ],
     [
       '3',

@@ -63,7 +63,7 @@ export const SUBSECTION_MAX_MARKS = {
   '6.1': 3, '6.2': 4, '6.3': 4, '6.4': 1, '6.5': 2, '6.6': 6,
   '7.1': 4, '7.2': 2, '7.3': 3, '7.4': 1,
   '8.1': 2, '8.2': 2, '8.3': 1,
-  '9.1': 10, '9.2': 7, '9.3': 20,
+  '9.1': 10, '9.2': 10, '9.3': 20,
 };
 
 // ── TSEDA Architecture Scoring Rubrics (COA Standards) ───────────────────────
@@ -76,7 +76,7 @@ export const SUBSECTION_MAX_MARKS_ARCH = {
   '6.1': 3, '6.2': 4, '6.3': 4, '6.4': 1, '6.5': 2, '6.6': 6,
   '7.1': 4, '7.2': 2, '7.3': 3, '7.4': 1,
   '8.1': 1, '8.2': 2, '8.3': 1, '8.4': 1,
-  '9.1': 10, '9.2': 7, '9.3': 20,
+  '9.1': 10, '9.2': 10, '9.3': 20,
 };
 
 export const SECTION_MAX_MARKS = {
@@ -515,12 +515,13 @@ export function computeAutomatedScores(sectionData = {}) {
       if (!isRowFullyFilled(r, ['description', ['category', 'committeeLevel'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = String(r.category || r.committeeLevel || '').trim();
       const catLower = cat.toLowerCase();
-      if (catLower.includes('chief coordinator') || catLower.includes('clc') || catLower.includes('deputy warden') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
+      if (catLower.includes('deputy coe') || catLower.includes('deputy registrar') || catLower.includes('deputy warden')) return sum + 10;
+      if (catLower.includes('chief coordinator') || catLower.includes('clc') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
       if (catLower.includes('internal review') || catLower.includes('iqac')) return sum + 5;
       if (catLower.includes('committee member') || catLower.includes('others') || catLower === 'other') return sum + 3;
       return sum + 3;
     }, 0),
-    7
+    10
   );
   const s9_3 = Math.min(
     (safeData.adminResponsibilities || []).filter(
@@ -1000,12 +1001,13 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     (safeData.collegeActivities || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['description', ['category', 'description'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = (r.category || r.description || '').toLowerCase();
-      if (cat.includes('chief coordinator') || cat.includes('clc') || cat.includes('deputy warden') || cat.includes('alumni') || cat.includes('5s')) return sum + 7;
+      if (cat.includes('deputy coe') || cat.includes('deputy registrar') || cat.includes('deputy warden')) return sum + 10;
+      if (cat.includes('chief coordinator') || cat.includes('clc') || cat.includes('alumni') || cat.includes('5s')) return sum + 7;
       if (cat.includes('internal review') || cat.includes('iqac')) return sum + 5;
       if (cat.includes('committee member') || cat.includes('others') || cat === 'other') return sum + 3;
       return sum + 3;
     }, 0),
-    7
+    10
   );
   const s9_3 = Math.min(
     (safeData.adminResponsibilities || []).filter(
