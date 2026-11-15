@@ -6173,13 +6173,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     { name: 'title', label: 'Paper / Project Title', placeholder: 'Paper / Project Title' },
     { name: 'partner', label: 'Partner Inst. / Expert', placeholder: 'Partner Institution or Expert' },
     {
-      name: 'semesterType',
-      label: 'Semester',
-      type: 'select',
-      options: ['Odd', 'Even', 'Both'],
-      placeholder: 'Select Semester',
-    },
-    {
       name: 'type',
       label: 'Collaboration Type',
       type: 'select',
@@ -9940,7 +9933,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   addArrayRow('researchCollaborations', {
                     title: '',
                     partner: '',
-                    semesterType: '',
                     type: '',
                     evidenceLink: '',
                   })
