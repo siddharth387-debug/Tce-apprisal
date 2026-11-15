@@ -6454,7 +6454,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const phdAwardedColumns = [
     { name: 'scholarName', label: 'Scholar Name', placeholder: 'Scholar Name' },
     { name: 'researchArea', label: 'Title / Area of Research', placeholder: 'Research Area / Title' },
-    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'academic', placeholder: 'Viva Date' },
+    { name: 'vivaDate', label: 'Viva Date', type: 'date', calendarType: 'year', placeholder: 'Viva Date' },
     { name: 'evidenceLink', label: 'Viva Circular Link', type: 'url', placeholder: 'Viva Circular Link' },
   ];
   const timelineApprovalStatus = currentSectionData.appraisalStatus || 'Not Approved';
