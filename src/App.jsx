@@ -570,8 +570,8 @@ function createEmptySectionState() {
     resultAnalysis: [],
     coAttainment: [],
     journalPapers: [],
-    citationsReceived: { totalCount: '' },
-    q1Citations: { totalCount: '' },
+    citationsReceived: { totalCount: '', evidenceLink: '' },
+    q1Citations: { totalCount: '', evidenceLink: '' },
     bookPublications: [],
     conferencePapers: [],
     researchCollaborations: [],
@@ -648,8 +648,8 @@ const CRITERIA_SECTION_MAP = [
   { key: '1.8', dataKey: 'resultAnalysis', label: '1.8 Result Analysis', fields: ['courseCode', 'passPct', 'evidenceLink'] },
   { key: '1.9', dataKey: 'coAttainment', label: '1.9 CO Attainment', fields: ['courseCode', 'coTargetMet', 'evidenceLink'] },
   { key: '2.1', dataKey: 'journalPapers', label: '2.1 Journal Publications (SCI / Scopus)', fields: ['paperTitle', 'journalName', 'tier', 'doi', 'evidenceLink'] },
-  { key: '2.2', dataKey: 'citationsReceived', label: '2.2 Citations Received', fields: ['totalCount'], isObject: true },
-  { key: '2.3', dataKey: 'q1Citations', label: '2.3 Total Q1 Citations', fields: ['totalCount'], isObject: true },
+  { key: '2.2', dataKey: 'citationsReceived', label: '2.2 Citations Received', fields: ['totalCount', 'evidenceLink'], isObject: true },
+  { key: '2.3', dataKey: 'q1Citations', label: '2.3 Total Q1 Citations', fields: ['totalCount', 'evidenceLink'], isObject: true },
   { key: '2.4', dataKey: 'bookPublications', label: '2.4 Books & Book Chapters Published', fields: ['title', 'publisher', 'type', 'evidenceLink'] },
   { key: '2.5', dataKey: 'conferencePapers', label: '2.5 Conference Publications', fields: ['paperTitle', 'proceedingName', 'evidenceLink'] },
   { key: '2.6', dataKey: 'researchCollaborations', label: '2.6 Research Collaborations', fields: ['title', 'partner', 'type', 'evidenceLink'] },
@@ -954,7 +954,9 @@ function hasSectionEntries(sectionData) {
 
   if (
     Boolean(sectionData.citationsReceived?.totalCount?.toString().trim()) ||
-    Boolean(sectionData.q1Citations?.totalCount?.toString().trim())
+    Boolean(sectionData.citationsReceived?.evidenceLink?.toString().trim()) ||
+    Boolean(sectionData.q1Citations?.totalCount?.toString().trim()) ||
+    Boolean(sectionData.q1Citations?.evidenceLink?.toString().trim())
   ) {
     return true;
   }
@@ -3928,8 +3930,13 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                 return (
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-2 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="text-xs font-medium">
+                      <div className="text-xs font-medium flex flex-wrap items-center gap-2">
                         <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">2.2 Citations Received (3 Yrs):</span> <span className="font-bold text-slate-800">{sec2.citationsReceived?.totalCount || '0'}</span>
+                        {sec2.citationsReceived?.evidenceLink && (
+                          <a href={sec2.citationsReceived.evidenceLink} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-blue-700 underline">
+                            View Proof ↗
+                          </a>
+                        )}
                       </div>
                       {isIqacView && (
                         <span className="text-xs font-bold text-[#4A1519]">
@@ -3939,8 +3946,13 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                     </div>
                     {!isIqacView && renderHoDSubsectionScoringAndFeedback('2.2', '2.2 Citations Received')}
                     <div className="flex items-center justify-between pt-1">
-                      <div className="text-xs font-medium">
+                      <div className="text-xs font-medium flex flex-wrap items-center gap-2">
                         <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">2.3 Total Q1 Citations:</span> <span className="font-bold text-slate-800">{sec2.q1Citations?.totalCount || '0'}</span>
+                        {sec2.q1Citations?.evidenceLink && (
+                          <a href={sec2.q1Citations.evidenceLink} target="_blank" rel="noopener noreferrer" className="text-[11px] font-semibold text-blue-700 underline">
+                            View Proof ↗
+                          </a>
+                        )}
                       </div>
                       {isIqacView && (
                         <span className="text-xs font-bold text-[#4A1519]">
@@ -6891,18 +6903,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         checkCustomErrors: (data) => {
           const errs = [];
           const cit = data?.citationsReceived?.totalCount;
+          const citLink = String(data?.citationsReceived?.evidenceLink || '').trim();
           if (isNonEmpty(cit)) {
             const num = Number(cit);
             if (num < 0) {
               errs.push('Section II (2.2 Citations Received): Citations count cannot be negative.');
+            } else if (num > 0 && !citLink) {
+              errs.push('Section II (2.2 Citations Received): Supporting document link is required.');
             }
           }
+          if (citLink && !parseLink(citLink).valid) {
+            errs.push('Section II (2.2 Citations Received): Enter a valid supporting link.');
+          }
           const q1Cit = data?.q1Citations?.totalCount;
+          const q1Link = String(data?.q1Citations?.evidenceLink || '').trim();
           if (isNonEmpty(q1Cit)) {
             const num = Number(q1Cit);
             if (num < 0) {
               errs.push('Section II (2.3 Q1 Citations): Q1 citations count cannot be negative.');
+            } else if (num > 0 && !q1Link) {
+              errs.push('Section II (2.3 Q1 Citations): Supporting document link is required.');
             }
+          }
+          if (q1Link && !parseLink(q1Link).valid) {
+            errs.push('Section II (2.3 Q1 Citations): Enter a valid supporting link.');
           }
           return errs;
         }
@@ -7212,8 +7236,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
       const cleanedSection2Data = {
         journalPapers: cleanSectionArray(formData.journalPapers),
-        citationsReceived: formData.citationsReceived || { totalCount: '' },
-        q1Citations: formData.q1Citations || { totalCount: '' },
+        citationsReceived: formData.citationsReceived || { totalCount: '', evidenceLink: '' },
+        q1Citations: formData.q1Citations || { totalCount: '', evidenceLink: '' },
         bookPublications: cleanSectionArray(formData.bookPublications),
         conferencePapers: cleanSectionArray(formData.conferencePapers),
         researchCollaborations: cleanSectionArray(formData.researchCollaborations),
@@ -9695,7 +9719,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 </div>
                 <div className="mt-3 space-y-2">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 sm:p-2.5">
-                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-2 w-full">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start gap-2.5 sm:gap-3 w-full">
                       <div className="w-full sm:max-w-xs flex flex-col">
                         <span className="text-xs font-medium text-slate-700 mb-1 block">
                           Total Citations Count
@@ -9717,7 +9741,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               ...prev,
                               citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
                                 ? { ...prev.citationsReceived, totalCount: val }
-                                : { totalCount: val }
+                                : { totalCount: val, evidenceLink: '' }
                             }));
                           }}
                           onChange={(e) => {
@@ -9726,11 +9750,41 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               ...prev,
                               citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
                                 ? { ...prev.citationsReceived, totalCount: val }
-                                : { totalCount: val }
+                                : { totalCount: val, evidenceLink: '' }
                             }));
                           }}
                           disabled={!isEditable}
                           className="w-full rounded-md border border-slate-200 bg-white h-[38px] sm:h-8 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap"
+                        />
+                      </div>
+                      <div className="w-full sm:flex-1 sm:min-w-[240px] flex flex-col">
+                        <span className="text-xs font-medium text-slate-700 mb-1 block">
+                          Supporting Document Link
+                        </span>
+                        <AppLinkInput
+                          value={currentSectionData.citationsReceived?.evidenceLink || ''}
+                          onFocus={() => setActiveSubsection('2.2')}
+                          onChange={(val) => {
+                            updateCurrentTimeline((prev) => ({
+                              ...prev,
+                              citationsReceived: typeof prev.citationsReceived === 'object' && prev.citationsReceived !== null && !Array.isArray(prev.citationsReceived)
+                                ? { ...prev.citationsReceived, evidenceLink: val }
+                                : { totalCount: '', evidenceLink: val }
+                            }));
+                          }}
+                          disabled={!isEditable}
+                          placeholder="Supporting Document Link"
+                          title="Supporting Document Link for Citations Received"
+                          ariaLabel="Supporting Document Link for Citations Received"
+                          hasError={
+                            (Number(currentSectionData.citationsReceived?.totalCount || 0) > 0 && !String(currentSectionData.citationsReceived?.evidenceLink || '').trim()) ||
+                            (Boolean(String(currentSectionData.citationsReceived?.evidenceLink || '').trim()) && !parseLink(currentSectionData.citationsReceived?.evidenceLink).valid)
+                          }
+                          errorText={
+                            Number(currentSectionData.citationsReceived?.totalCount || 0) > 0 && !String(currentSectionData.citationsReceived?.evidenceLink || '').trim()
+                              ? 'Supporting link required (e.g. Google Drive link).'
+                              : ''
+                          }
                         />
                       </div>
                     </div>
@@ -9757,7 +9811,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 </div>
                 <div className="mt-3 space-y-2">
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 sm:p-2.5">
-                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-2 w-full">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-start gap-2.5 sm:gap-3 w-full">
                       <div className="w-full sm:max-w-xs flex flex-col">
                         <span className="text-xs font-medium text-slate-700 mb-1 block">
                           Q1 Citations Count
@@ -9779,7 +9833,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               ...prev,
                               q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
                                 ? { ...prev.q1Citations, totalCount: val }
-                                : { totalCount: val }
+                                : { totalCount: val, evidenceLink: '' }
                             }));
                           }}
                           onChange={(e) => {
@@ -9788,11 +9842,41 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               ...prev,
                               q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
                                 ? { ...prev.q1Citations, totalCount: val }
-                                : { totalCount: val }
+                                : { totalCount: val, evidenceLink: '' }
                             }));
                           }}
                           disabled={!isEditable}
                           className="w-full rounded-md border border-slate-200 bg-white h-[38px] sm:h-8 py-1 px-2.5 text-xs text-slate-800 outline-none transition focus:border-[#4A1519] focus:ring-2 focus:ring-[#4A1519]/20 disabled:bg-slate-100 disabled:cursor-not-allowed truncate whitespace-nowrap"
+                        />
+                      </div>
+                      <div className="w-full sm:flex-1 sm:min-w-[240px] flex flex-col">
+                        <span className="text-xs font-medium text-slate-700 mb-1 block">
+                          Supporting Document Link
+                        </span>
+                        <AppLinkInput
+                          value={currentSectionData.q1Citations?.evidenceLink || ''}
+                          onFocus={() => setActiveSubsection('2.3')}
+                          onChange={(val) => {
+                            updateCurrentTimeline((prev) => ({
+                              ...prev,
+                              q1Citations: typeof prev.q1Citations === 'object' && prev.q1Citations !== null && !Array.isArray(prev.q1Citations)
+                                ? { ...prev.q1Citations, evidenceLink: val }
+                                : { totalCount: '', evidenceLink: val }
+                            }));
+                          }}
+                          disabled={!isEditable}
+                          placeholder="Supporting Document Link"
+                          title="Supporting Document Link for Q1 Citations"
+                          ariaLabel="Supporting Document Link for Q1 Citations"
+                          hasError={
+                            (Number(currentSectionData.q1Citations?.totalCount || 0) > 0 && !String(currentSectionData.q1Citations?.evidenceLink || '').trim()) ||
+                            (Boolean(String(currentSectionData.q1Citations?.evidenceLink || '').trim()) && !parseLink(currentSectionData.q1Citations?.evidenceLink).valid)
+                          }
+                          errorText={
+                            Number(currentSectionData.q1Citations?.totalCount || 0) > 0 && !String(currentSectionData.q1Citations?.evidenceLink || '').trim()
+                              ? 'Supporting link required (e.g. Google Drive link).'
+                              : ''
+                          }
                         />
                       </div>
                     </div>
