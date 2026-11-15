@@ -652,7 +652,7 @@ const CRITERIA_SECTION_MAP = [
   { key: '2.3', dataKey: 'q1Citations', label: '2.3 Total Q1 Citations', fields: ['totalCount', 'evidenceLink'], isObject: true },
   { key: '2.4', dataKey: 'bookPublications', label: '2.4 Books & Book Chapters Published', fields: ['title', 'publisher', 'type', 'evidenceLink'] },
   { key: '2.5', dataKey: 'conferencePapers', label: '2.5 Conference Publications', fields: ['paperTitle', 'proceedingName', 'evidenceLink'] },
-  { key: '2.6', dataKey: 'researchCollaborations', label: '2.6 Research Collaborations', fields: ['title', 'partner', 'type', 'evidenceLink'] },
+  { key: '2.6', dataKey: 'researchCollaborations', label: '2.6 Research Collaborations', fields: ['title', 'partner', 'type', 'nirfRanking', 'qsRanking', 'evidenceLink'] },
   { key: '2.7', dataKey: 'phdRegistered', label: '2.7 PhD Scholars Registered', fields: ['scholarName', 'researchArea', 'evidenceLink'] },
   { key: '2.8', dataKey: 'phdAwarded', label: '2.8 PhD Scholars Awarded', fields: ['scholarName', 'researchArea', 'evidenceLink'] },
   { key: '3.1', dataKey: 'patentsPublished', label: '3.1 Patents Published', fields: ['title', 'refNumber', 'evidenceLink'] },
@@ -1236,7 +1236,9 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
 
     if (column.type === 'number') {
       if (!trimmed) {
-        errors[column.name] = true;
+        if (!column.optional) {
+          errors[column.name] = true;
+        }
       } else {
         const num = Number(trimmed);
         const fieldMax = column.isLakhs ? undefined : getNumericFieldMax(column);
@@ -3374,7 +3376,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: '2.1 Journal Publications', rows: (sec2.journalPapers || []).filter(r => !isRowBlank(r)), fields: ['paperTitle', 'journalName', 'tier', 'evidenceLink'] },
     { label: '2.4 Books / Chapters', rows: (sec2.bookPublications || []).filter(r => !isRowBlank(r)), fields: ['title', 'type', 'evidenceLink'] },
     { label: '2.5 Conference Publications', rows: (sec2.conferencePapers || []).filter(r => !isRowBlank(r)), fields: ['paperTitle', 'proceedingName', 'evidenceLink'] },
-    { label: '2.6 Research Collaborations', rows: (sec2.researchCollaborations || []).filter(r => !isRowBlank(r)), fields: ['title', 'partner', 'type', 'evidenceLink'] },
+    { label: '2.6 Research Collaborations', rows: (sec2.researchCollaborations || []).filter(r => !isRowBlank(r)), fields: ['title', 'partner', 'type', 'nirfRanking', 'qsRanking', 'evidenceLink'] },
     { label: '2.7 PhD Scholars (Registered)', rows: (sec2.phdRegistered || []).filter(r => !isRowBlank(r)), fields: ['scholarName', 'researchArea', 'evidenceLink'] },
     { label: '2.8 PhD Scholars (Awarded)', rows: (sec2.phdAwarded || []).filter(r => !isRowBlank(r)), fields: ['scholarName', 'researchArea', 'evidenceLink'] },
   ];
@@ -6171,7 +6173,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ];
   const researchCollaborationsColumns = [
     { name: 'title', label: 'Paper / Project Title', placeholder: 'Paper / Project Title' },
-    { name: 'partner', label: 'Partner Inst. / Expert', placeholder: 'Partner Institution or Expert' },
+    { name: 'partner', label: 'Partner Inst. / Expert', placeholder: 'Collaboration with premium institution or industry experts' },
     {
       name: 'type',
       label: 'Collaboration Type',
@@ -6182,6 +6184,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         { value: 'Industry', label: 'Industry (2 marks)' },
       ],
     },
+    { name: 'nirfRanking', label: 'NIRF Ranking', type: 'number', min: 0, isWholeNumber: true, optional: true, placeholder: 'NIRF Ranking' },
+    { name: 'qsRanking', label: 'QS Ranking', type: 'number', min: 0, isWholeNumber: true, optional: true, placeholder: 'QS Ranking' },
     { name: 'evidenceLink', label: 'Supporting Document Link', type: 'url', placeholder: 'Supporting Document Link' },
   ];
   const phdRegisteredColumns = [
@@ -9934,6 +9938,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     title: '',
                     partner: '',
                     type: '',
+                    nirfRanking: '',
+                    qsRanking: '',
                     evidenceLink: '',
                   })
                 }

@@ -527,7 +527,7 @@ export const exportAppraisalToPDF = ({
   if (isArch) {
     renderSectionTable('2.6 Creative Scholarship & Professional Writing', [{ key: 'title', label: 'Title / Essay' }, { key: 'publisher', label: 'Magazine / Publisher' }, { key: 'category', label: 'Category' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.creativeScholarship || sectionData.researchCollaborations, '2.6');
   } else {
-    renderSectionTable('2.6 Research Collaborations', [{ key: 'title', label: 'Title' }, { key: 'partner', label: 'Partner' }, { key: 'type', label: 'Type' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.researchCollaborations, '2.6');
+    renderSectionTable('2.6 Research Collaborations', [{ key: 'title', label: 'Title' }, { key: 'partner', label: 'Partner' }, { key: 'type', label: 'Type' }, { key: 'nirfRanking', label: 'NIRF Ranking' }, { key: 'qsRanking', label: 'QS Ranking' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.researchCollaborations, '2.6');
   }
   
   renderSectionTable('2.7 PhD Scholars Guided (Registered)', [{ key: 'scholarName', label: 'Scholar Name' }, { key: 'researchArea', label: 'Research Area' }, { key: 'evidenceLink', label: 'Evidence Link' }], sectionData.phdRegistered, '2.7');

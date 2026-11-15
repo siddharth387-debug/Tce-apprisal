@@ -454,6 +454,8 @@ export default function AppraisalPrintDocument({
           { key: 'title', label: 'Title' },
           { key: 'partner', label: 'Partner' },
           { key: 'type', label: 'Type' },
+          { key: 'nirfRanking', label: 'NIRF Ranking' },
+          { key: 'qsRanking', label: 'QS Ranking' },
           { key: 'evidenceLink', label: 'Evidence Link', isLink: true },
         ], sectionData.researchCollaborations, '2.6')}
         {renderTable('2.7 PhD Scholars Guided (Registered)', [
