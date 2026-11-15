@@ -1107,6 +1107,29 @@ function isNonEmpty(value) {
   return Boolean(String(value).trim());
 }
 
+/**
+ * Flags duplicate course codes only when no named section is selected (empty or '-').
+ * Rows with an explicit section (e.g., A, B, C, D) are allowed to repeat a course code.
+ */
+function hasDuplicateCourseCodeRow(targetRow, allRows = []) {
+  if (!targetRow || !isNonEmpty(targetRow.courseCode) || !Array.isArray(allRows) || allRows.length === 0) {
+    return false;
+  }
+  const targetSection = String(targetRow.section || '').trim().toUpperCase();
+  if (targetSection && targetSection !== '-') {
+    return false;
+  }
+  const norm = String(targetRow.courseCode || '').trim().toLowerCase();
+  return allRows.some((other) => {
+    if (!other || other === targetRow) return false;
+    if (other.id && targetRow.id && other.id === targetRow.id) return false;
+    const otherCode = String(other.courseCode || '').trim().toLowerCase();
+    if (otherCode !== norm) return false;
+    const otherSection = String(other.section || '').trim().toUpperCase();
+    return !otherSection || otherSection === '-';
+  });
+}
+
 function getRowValidationErrors(row, columns, allRows = [], options = {}) {
   const errors = {};
 
@@ -1127,23 +1150,8 @@ function getRowValidationErrors(row, columns, allRows = [], options = {}) {
     if (column.name === 'courseCode') {
       if (!isValidCourseCode(trimmed)) {
         errors[column.name] = true;
-      } else if (allRows && allRows.length > 0) {
-        const norm = trimmed.toLowerCase();
-        const rowSection = String(row.section || '').trim().toUpperCase();
-        const hasDuplicate = allRows.some((other) => {
-          if (other === row) return false;
-          if (other.id && row.id && other.id === row.id) return false;
-          const otherCode = String(other.courseCode || '').trim().toLowerCase();
-          if (otherCode !== norm) return false;
-          const otherSection = String(other.section || '').trim().toUpperCase();
-          if (rowSection && otherSection) {
-            return rowSection === otherSection;
-          }
-          return true;
-        });
-        if (hasDuplicate) {
-          errors[column.name] = 'duplicate';
-        }
+      } else if (hasDuplicateCourseCodeRow(row, allRows)) {
+        errors[column.name] = 'duplicate';
       }
       return;
     }
@@ -2179,18 +2187,7 @@ function DynamicArraySection({
   const isDuplicateCourseCode = (code, rowId) => {
     if (!code || !isNonEmpty(code)) return false;
     const targetRow = safeRows.find((r) => r.id === rowId);
-    const targetSection = String(targetRow?.section || '').trim().toUpperCase();
-    const norm = String(code).trim().toLowerCase();
-    return safeRows.some((other) => {
-      if (other.id === rowId) return false;
-      const otherCode = String(other.courseCode || '').trim().toLowerCase();
-      if (otherCode !== norm) return false;
-      const otherSection = String(other.section || '').trim().toUpperCase();
-      if (targetSection && otherSection) {
-        return targetSection === otherSection;
-      }
-      return true;
-    });
+    return hasDuplicateCourseCodeRow(targetRow ? { ...targetRow, courseCode: code } : { id: rowId, courseCode: code }, safeRows);
   };
 
   const getFieldErrorText = (row, columnName) => {
