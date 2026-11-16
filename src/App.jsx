@@ -45,6 +45,9 @@ const STATS = [
 
 export const isHodApprovedOrLater = (recordOrStatus) => {
   if (!recordOrStatus) return false;
+  if (typeof recordOrStatus === 'object' && recordOrStatus.isHodSubmission === true) {
+    return true;
+  }
   const status = typeof recordOrStatus === 'string'
     ? recordOrStatus
     : (recordOrStatus.appraisalStatus || '');
@@ -5790,10 +5793,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (!hasHodPrivileges || !Array.isArray(appraisals)) return;
     const rebuilt = {};
     const seenKeys = new Set();
+    const isOnlyHodReviewer = !isIQAC && !isPrincipal && !isRegistrar;
+    const currentUserEmail = String(user?.email || '').toLowerCase().trim();
     appraisals.forEach((record) => {
       const tl = record.timeline;
       if (!tl) return;
       const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
+      if (isOnlyHodReviewer && (record.isHodSubmission || (currentUserEmail && recEmail === currentUserEmail))) {
+        return; // HOD submissions bypass HOD review and go directly to IQAC & Principal
+      }
       const uniqueKey = `${recEmail}_${tl}`;
       if (recEmail && seenKeys.has(uniqueKey)) return;
       if (recEmail) seenKeys.add(uniqueKey);
@@ -5807,6 +5815,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         facultyEmail: record.email || record.facultyEmail,
         department: record.department || 'CSE',
         departmentName: record.departmentName || '',
+        isHodSubmission: Boolean(record.isHodSubmission),
         appraisalStatus: ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(String(record.appraisalStatus || '').toUpperCase().trim())
           ? 'Pending'
           : (String(record.appraisalStatus || '').toUpperCase().trim() === 'NOT APPROVED BY IQAC' ? 'Approved' : (record.appraisalStatus || 'Pending')),
@@ -5839,7 +5848,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       });
     });
     setHodInboxByTimeline(rebuilt);
-  }, [appraisals, hasHodPrivileges]);
+  }, [appraisals, hasHodPrivileges, isIQAC, isPrincipal, isRegistrar, user]);
 
   const currentSectionData =
     workspaceByTimeline[selectedTimeline] || createEmptySectionState();
@@ -8703,6 +8712,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                     <span>✔</span> Approved
                                   </span>
                                 );
+                              } else if (row.isHodSubmission) {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
+                                    <span>⏳</span> HoD Submission • Pending IQAC
+                                  </span>
+                                );
                               } else {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
@@ -8752,7 +8767,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                  <span>⏳</span> {isHod ? 'Pending Review' : 'Pending HoD Review'}
+                                  <span>⏳</span> {row.isHodSubmission ? 'Pending IQAC Review' : (isHod ? 'Pending Review' : 'Pending HoD Review')}
                                 </span>
                               );
                             }
@@ -11294,7 +11309,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-emerald-800 font-semibold">Official Status:</span>
-                  <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">Pending HoD Review</span>
+                  <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    {(user?.role === 'HOD' || /^hod[a-z]{2,6}@tce\.edu$/i.test(user?.email || '')) ? 'Pending IQAC Review' : 'Pending HoD Review'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-emerald-800 font-semibold">Recorded Score:</span>

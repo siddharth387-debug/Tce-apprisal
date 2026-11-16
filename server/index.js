@@ -16,6 +16,9 @@ import { sendRejectionEmail } from './mailer.js';
 
 export const isHodApprovedOrLater = (recordOrStatus) => {
   if (!recordOrStatus) return false;
+  if (typeof recordOrStatus === 'object' && recordOrStatus.isHodSubmission === true) {
+    return true;
+  }
   const status = typeof recordOrStatus === 'string'
     ? recordOrStatus
     : (recordOrStatus.appraisalStatus || '');
@@ -314,6 +317,7 @@ const AppraisalSchema = new mongoose.Schema({
   iqacEvaluatedAt: { type: Date, default: null },
   iqacEvaluatedBy: { type: String, default: '' },
   isLocked: { type: Boolean, default: false },
+  isHodSubmission: { type: Boolean, default: false },
   section1Data: {
     coursesHandled: { type: Array, default: [] },
     courseFiles: { type: Array, default: [] },
@@ -331,8 +335,8 @@ const AppraisalSchema = new mongoose.Schema({
   },
   section2Data: {
     journalPapers: { type: Array, default: [] },
-    citationsReceived: { totalCount: { type: String, default: '' } },
-    q1Citations: { totalCount: { type: String, default: '' } },
+    citationsReceived: { totalCount: { type: String, default: '' }, evidenceLink: { type: String, default: '' } },
+    q1Citations: { totalCount: { type: String, default: '' }, evidenceLink: { type: String, default: '' } },
     bookPublications: { type: Array, default: [] },
     conferencePapers: { type: Array, default: [] },
     researchCollaborations: { type: Array, default: [] },
@@ -819,6 +823,27 @@ export function isIqacAccount(email, record = null) {
   }
 
   return false;
+}
+
+async function getHodEmailSet() {
+  const hodMembers = await FacultyMember.find(
+    { role: 'HOD' },
+    { email: 1, personalEmail: 1, hodEmail: 1, alternateEmails: 1 }
+  ).lean();
+  const hodSet = new Set();
+  for (const m of hodMembers) {
+    [m.email, m.personalEmail, m.hodEmail, ...(m.alternateEmails || [])].forEach((e) => {
+      const clean = String(e || '').toLowerCase().trim();
+      if (clean) hodSet.add(clean);
+    });
+  }
+  return hodSet;
+}
+
+function isHodEmailInSet(email, hodSet) {
+  const clean = String(email || '').toLowerCase().trim();
+  if (!clean) return false;
+  return hodSet.has(clean) || /^hod[a-z]{2,6}@tce\.edu$/i.test(clean);
 }
 
 // ── Protected Apex Leadership Accounts (Cannot be altered via Webhook) ──────
@@ -1405,6 +1430,12 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       });
     };
 
+    const submitterIsHod = Boolean(
+      facultyRecord?.role === 'HOD' ||
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(canonicalEmail) ||
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(verifiedEmail)
+    );
+
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
     const replacementPayload = {
       timeline: timeline.trim(),
@@ -1413,6 +1444,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       email: canonicalEmail,
       department: targetDept,
       departmentName: targetDeptName,
+      isHodSubmission: submitterIsHod,
       isSubmitted: Boolean(req.body?.isSubmitted || existingDoc?.isSubmitted),
       submittedAt: req.body?.isSubmitted
         ? (existingDoc?.submittedAt || new Date())
@@ -1908,11 +1940,28 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     }
 
     const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
+    const hodEmailSet = await getHodEmailSet();
+    const isCallerOnlyHod = isElevated && !(
+      requestEmail === 'siddharthk@student.tce.edu' ||
+      requestEmail === 'registrar@tce.edu' ||
+      requestEmail === 'principal@tce.edu' ||
+      isIqacAccount(requestEmail, masterRecord) ||
+      requestRole === 'REGISTRAR' ||
+      requestRole === 'PRINCIPAL' ||
+      requestRole === 'IQAC' ||
+      tokenRole === 'REGISTRAR' ||
+      tokenRole === 'PRINCIPAL' ||
+      tokenRole === 'IQAC'
+    );
     const seenMap = new Map();
     const records = [];
     for (const doc of rawRecords) {
       normalizeAppraisalLeadershipDecision(doc);
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
+      const recordIsHodSubmission = Boolean(doc.isHodSubmission) || isHodEmailInSet(emailKey, hodEmailSet);
+      if (recordIsHodSubmission && !doc.isHodSubmission) {
+        doc.isHodSubmission = true;
+      }
       if (isElevated) {
         if (
           emailKey === 'deansiddharth@gmail.com' ||
@@ -1922,6 +1971,9 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
           emailKey.endsWith('@googlemail.com')
         ) {
           continue; // Purely for testing — never return test accounts to HoD or higher authorities
+        }
+        if (isCallerOnlyHod && recordIsHodSubmission) {
+          continue; // HOD appraisals bypass HOD review and go directly to IQAC & Principal
         }
       }
       const tlKey = (doc.timeline || '').trim();
@@ -2519,6 +2571,24 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
         success: false,
         message: "Cannot review or modify a Draft submission. The faculty member has not submitted this appraisal yet."
       });
+    }
+
+    const targetEmailCheck = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
+    const callerIsOnlyHod = !(
+      ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
+      callerEmail === 'registrar@tce.edu' ||
+      callerEmail === 'siddharthk@student.tce.edu' ||
+      callerEmail === 'principal@tce.edu' ||
+      isIqacAccount(callerEmail)
+    );
+    if (callerIsOnlyHod) {
+      const hodEmailSet = await getHodEmailSet();
+      if (Boolean(targetRecord.isHodSubmission) || isHodEmailInSet(targetEmailCheck, hodEmailSet) || targetEmailCheck === callerEmail) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden: HOD appraisals cannot be reviewed or approved by an HOD. They are routed directly to IQAC and Principal."
+        });
+      }
     }
 
     // Determine evaluated final score
