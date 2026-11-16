@@ -825,12 +825,20 @@ export function isIqacAccount(email, record = null) {
   return false;
 }
 
+const KNOWN_HOD_PERSONAL_EMAILS = [
+  'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
+  'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
+  'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
+  'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
+  'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
+];
+
 async function getHodEmailSet() {
   const hodMembers = await FacultyMember.find(
     { role: 'HOD' },
     { email: 1, personalEmail: 1, hodEmail: 1, alternateEmails: 1 }
   ).lean();
-  const hodSet = new Set();
+  const hodSet = new Set(KNOWN_HOD_PERSONAL_EMAILS);
   for (const m of hodMembers) {
     [m.email, m.personalEmail, m.hodEmail, ...(m.alternateEmails || [])].forEach((e) => {
       const clean = String(e || '').toLowerCase().trim();

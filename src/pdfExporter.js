@@ -138,17 +138,47 @@ export const exportAppraisalToPDF = ({
   doc.text('Appraisal Status:', boxX + boxWidth / 2 + 2, currentY + 14.5);
   const isRatified = statusStr === 'RATIFIED' || (record.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
   const isApproved = statusStr === 'APPROVED';
-  
+  const targetEmailLower = String(record?.email || record?.facultyEmail || user?.email || '').toLowerCase().trim();
+  const targetDesig = String(record?.designation || user?.designation || '');
+  const KNOWN_HOD_PERSONAL_EMAILS = new Set([
+    'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
+    'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
+    'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
+    'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
+    'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
+  ]);
+  const isHodRecord = Boolean(
+    record?.isHodSubmission ||
+    KNOWN_HOD_PERSONAL_EMAILS.has(targetEmailLower) ||
+    /^hod[a-z]{2,6}@tce\.edu$/i.test(targetEmailLower) ||
+    /\b(head|hod)\b/i.test(targetDesig) ||
+    (String(user?.role || '').toUpperCase() === 'HOD' && targetEmailLower === String(user?.email || '').toLowerCase().trim())
+  );
+  const iqacStatusUpper = String(record?.iqacStatus || '').toUpperCase().trim();
+  const isIqacApproved = iqacStatusUpper === 'APPROVED' || iqacStatusUpper === 'IQAC APPROVED';
+
   let badgeBg = [254, 243, 199];
   let badgeBorder = [252, 211, 77];
   let badgeText = [146, 64, 14];
-  let badgeLabel = 'PENDING HOD APPROVAL';
+  let badgeLabel = isHodRecord ? 'PENDING IQAC APPROVAL' : 'PENDING HOD APPROVAL';
 
   if (isRatified) {
     badgeBg = [209, 250, 229];
     badgeBorder = [52, 211, 153];
     badgeText = [6, 95, 70];
     badgeLabel = 'RATIFIED & LOCKED';
+  } else if (isHodRecord) {
+    if (isIqacApproved) {
+      badgeBg = [220, 252, 231];
+      badgeBorder = [134, 239, 172];
+      badgeText = [22, 101, 52];
+      badgeLabel = 'APPROVED BY IQAC';
+    } else {
+      badgeBg = [254, 243, 199];
+      badgeBorder = [252, 211, 77];
+      badgeText = [146, 64, 14];
+      badgeLabel = 'PENDING IQAC APPROVAL';
+    }
   } else if (isApproved) {
     badgeBg = [220, 252, 231];
     badgeBorder = [134, 239, 172];
@@ -685,7 +715,19 @@ export const exportAppraisalToPDF = ({
     doc.text('[Digitally Ratified & Sealed]', margin + colW * 2.5, sigY - 2, { align: 'center' });
   }
 
-  if (isApproved || isRatified) {
+  if (isHodRecord) {
+    if (isIqacApproved || isRatified) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(22, 101, 52);
+      doc.text('[Approved by IQAC]', margin + colW * 1.5, sigY - 2, { align: 'center' });
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(146, 64, 14);
+      doc.text('[Pending IQAC Approval]', margin + colW * 1.5, sigY - 2, { align: 'center' });
+    }
+  } else if (isApproved || isRatified) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
     doc.setTextColor(22, 101, 52);
@@ -701,7 +743,7 @@ export const exportAppraisalToPDF = ({
   doc.setFontSize(7.5);
   doc.setTextColor(30, 41, 59);
   doc.text('FACULTY', margin + colW / 2, sigY + 3.5, { align: 'center' });
-  doc.text('HOD', margin + colW * 1.5, sigY + 3.5, { align: 'center' });
+  doc.text(isHodRecord ? 'IQAC' : 'HOD', margin + colW * 1.5, sigY + 3.5, { align: 'center' });
   doc.text('PRINCIPAL', margin + colW * 2.5, sigY + 3.5, { align: 'center' });
 
 
