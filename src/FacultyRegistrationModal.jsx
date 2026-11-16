@@ -18,7 +18,7 @@ const DEPARTMENTS = [
   { code: 'PHY', name: 'Physics' },
   { code: 'CHEM', name: 'Chemistry' },
   { code: 'ENG', name: 'English' },
-  { code: 'AI', name: 'Artificial Intelligence and Data Science' }
+  { code: 'AI', name: 'Artificial Intelligence and Machine Learning' }
 ];
 
 const DESIGNATIONS = [

@@ -1022,7 +1022,7 @@ const TCE_DEPARTMENTS = [
   { code: 'PHY', name: 'Physics' },
   { code: 'CHEM', name: 'Chemistry' },
   { code: 'ENG', name: 'English' },
-  { code: 'AI', name: 'Artificial Intelligence and Data Science' }
+  { code: 'AI', name: 'Artificial Intelligence and Machine Learning' }
 ];
 
 function getUnauthorizedPortalMessage(email) {
@@ -11006,7 +11006,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               {isPrincipal || isRegistrar || isIQAC
                 ? '16 Academic Departments'
                 : user.department
-                  ? `Dept of ${user.department} ${user.departmentName ? `• ${user.departmentName}` : ''}`
+                  ? `Dept of ${user.department} ${user.department === 'AI' ? '• Artificial Intelligence and Machine Learning' : (user.departmentName ? `• ${user.departmentName}` : '')}`
                   : ''}
             </span>
           </div>
@@ -11041,7 +11041,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase text-slate-400">Department</p>
-                <p className="text-sm font-extrabold text-slate-800 mt-0.5">{user?.departmentName || user?.department || 'MCA'}</p>
+                <p className="text-sm font-extrabold text-slate-800 mt-0.5">{user?.department === 'AI' ? 'Artificial Intelligence and Machine Learning' : (user?.departmentName || user?.department || 'MCA')}</p>
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase text-slate-400">Date of Joining (DOJ)</p>

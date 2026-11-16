@@ -784,6 +784,9 @@ const DEPARTMENT_NAME_MAP = {
   MECH: 'Mechanical Engineering',
   CIVIL: 'Civil Engineering',
   IT: 'Information Technology',
+  CHEM: 'Chemistry',
+  ENG: 'English',
+  AI: 'Artificial Intelligence and Machine Learning',
   DS: 'Data Science',
   MATHS: 'Mathematics',
   PHYSICS: 'Physics',
@@ -1155,14 +1158,26 @@ app.post('/api/auth/google', async (request, response) => {
       const hodMatch = verifiedEmail.match(/^hod([a-z]+)@/i);
       let rawDept = facultyRecord?.department || (hodMatch ? hodMatch[1].toUpperCase() : 'CSE');
       assignedDept = normalizeDepartmentCode(rawDept);
-      assignedDeptName = facultyRecord?.departmentName || '';
+      assignedDeptName = assignedDept === 'AI'
+        ? 'Artificial Intelligence and Machine Learning'
+        : (facultyRecord?.departmentName || '');
     } else if (facultyRecord) {
       // Individual personal faculty account (e.g. pccse@tce.edu, shalinie@tce.edu, etc.)
       assignedRole = facultyRecord.role || 'Faculty';
       let rawDept = facultyRecord.department || 'CSE';
       assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : normalizeDepartmentCode(rawDept);
-      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'All Academic Departments' : (facultyRecord.departmentName || '');
+      assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal')
+        ? 'All Academic Departments'
+        : (assignedDept === 'AI' ? 'Artificial Intelligence and Machine Learning' : (facultyRecord.departmentName || ''));
       assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
+    }
+
+    if (
+      verifiedEmail === 'spmcse@tce.edu' ||
+      verifiedEmail === 'hodai@tce.edu' ||
+      String(facultyRecord?.staffId || '').toUpperCase() === 'SPMCSE'
+    ) {
+      assignedDesignation = 'Professor & Head I/C';
     }
 
     const canonicalPersonalEmail = facultyRecord?.personalEmail || facultyRecord?.email || verifiedEmail;
@@ -2371,7 +2386,7 @@ app.post('/api/directory/register', authenticateToken, async (req, res) => {
       PHY: 'Physics',
       CHEM: 'Chemistry',
       ENG: 'English',
-      AI: 'Artificial Intelligence and Data Science'
+      AI: 'Artificial Intelligence and Machine Learning'
     };
 
     const newMember = await FacultyMember.create({
@@ -3403,6 +3418,31 @@ async function startServer() {
 
     // Auto-seed/verify faculty master directory
     await seedFacultyDirectory(false);
+
+    // Ensure AI department name and Dr. S. Padmavathi's designation are up to date in MongoDB
+    try {
+      await FacultyMember.updateMany(
+        { $or: [{ department: 'AI' }, { departmentName: 'Artificial Intelligence and Data Science' }] },
+        { $set: { departmentName: 'Artificial Intelligence and Machine Learning' } }
+      );
+      await Appraisal.updateMany(
+        { $or: [{ department: 'AI' }, { departmentName: 'Artificial Intelligence and Data Science' }] },
+        { $set: { departmentName: 'Artificial Intelligence and Machine Learning' } }
+      );
+      await FacultyMember.updateMany(
+        {
+          $or: [
+            { email: { $in: ['spmcse@tce.edu', 'hodai@tce.edu'] } },
+            { personalEmail: { $in: ['spmcse@tce.edu', 'hodai@tce.edu'] } },
+            { alternateEmails: { $in: ['spmcse@tce.edu', 'hodai@tce.edu'] } },
+            { staffId: 'SPMCSE' }
+          ]
+        },
+        { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence and Machine Learning' } }
+      );
+    } catch (normErr) {
+      console.warn('AI dept / designation normalization warning:', normErr.message);
+    }
 
     // Enforce Domain Security Policy (purge unauthorized gmail and student data)
     await enforceDomainSecurityPolicy();
