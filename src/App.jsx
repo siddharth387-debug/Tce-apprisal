@@ -4650,7 +4650,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     return () => cancelAnimationFrame(animId);
   }, [activeSubsection, activeSection]);
 
-  const handleSectionToggle = (sec) => {
+  const handleSectionToggle = (sec, event) => {
+    const headerEl = event?.currentTarget || null;
+    const prevViewportTop = headerEl ? headerEl.getBoundingClientRect().top : null;
     const next = activeSection === sec ? null : sec;
     setActiveSection(next);
     if (next) {
@@ -4666,6 +4668,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         'IX': '9.1',
       }[next];
       if (defaultSub) setActiveSubsection(defaultSub);
+    }
+    if (headerEl && prevViewportTop !== null && typeof window !== 'undefined') {
+      requestAnimationFrame(() => {
+        const newViewportTop = headerEl.getBoundingClientRect().top;
+        const delta = newViewportTop - prevViewportTop;
+        if (Math.abs(delta) > 2) {
+          window.scrollBy({ top: delta, behavior: 'instant' });
+        }
+        if (next) {
+          const rectAfter = headerEl.getBoundingClientRect();
+          if (rectAfter.top > 120 || rectAfter.top < 12) {
+            window.scrollTo({
+              top: Math.max(0, window.scrollY + rectAfter.top - 24),
+              behavior: 'smooth',
+            });
+          }
+        }
+      });
     }
   };
   const [showHodRemarks, setShowHodRemarks] = useState(false);
@@ -9311,7 +9331,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section I Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'I' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle('I')} 
+            onClick={(e) => handleSectionToggle('I', e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'I' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
           >
             <div>
@@ -9320,7 +9340,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === 'I' ? '▲ Collapse' : '▼ Expand'}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === 'I' ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === 'I' ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
         <DynamicArraySection
           title="1.1 Courses Handled"
           subtitle="(Calculation Rubric: 1 course = 3 marks | 2 courses = 6 marks | 3+ courses = 8 marks max)"
@@ -9675,7 +9695,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section II Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === 'II' ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle('II')} 
+            onClick={(e) => handleSectionToggle('II', e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === 'II' ? 'bg-orange-50/50 border-b border-orange-100' : 'hover:bg-gray-50'}`}
           >
             <div>
@@ -9684,7 +9704,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === 'II' ? '▲ Collapse' : '▼ Expand'}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === 'II' ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === 'II' ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               {/* 2.1 Journal Papers */}
               <DynamicArraySection
                 title="2.1 Journal Publications (SCI / Scopus Indexed)"
@@ -10016,7 +10036,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section III Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "III" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle("III")} 
+            onClick={(e) => handleSectionToggle("III", e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "III" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -10025,7 +10045,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "III" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "III" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "III" ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="3.1 Number of Patents Published"
                 subtitle={isArch ? "(Calculation Rubric: 1 mark per patent | Max 1 mark)" : "(Calculation Rubric: 1 mark per patent | Max 2 marks)"}
@@ -10114,7 +10134,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section IV Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IV" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle("IV")} 
+            onClick={(e) => handleSectionToggle("IV", e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IV" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -10123,7 +10143,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "IV" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "IV" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "IV" ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="4.1 Sponsored Research Project - PI / Co-PI"
                 subtitle="(Calculation Rubric: ≥₹20L = 8 | ₹15–20L = 5 | ₹10L–15L = 3 | ₹5L-10L = 2 | ₹1L-5L = 1 | Max 8 marks | Note: Sanction letter to be uploaded)"
@@ -10156,7 +10176,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section V Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "V" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle("V")} 
+            onClick={(e) => handleSectionToggle("V", e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "V" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -10165,7 +10185,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "V" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "V" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "V" ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="5.1 International Engagement / MoU"
                 subtitle={isArch ? "(Calculation Rubric: 1 mark per engagement | Max 1 mark)" : "(Calculation Rubric: 1 mark per engagement | Max 2 marks)"}
@@ -10253,7 +10273,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section VI Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VI" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle("VI")} 
+            onClick={(e) => handleSectionToggle("VI", e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VI" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -10262,7 +10282,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "VI" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VI" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VI" ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               {(() => {
                 const fdpList = currentSectionData.fdpAttended || [];
                 const hasFdp = fdpList.some((r) => isMeaningfullyFilledRow(r));
@@ -10356,7 +10376,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section VII Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle("VII")} 
+            onClick={(e) => handleSectionToggle("VII", e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -10365,7 +10385,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "VII" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VII" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VII" ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="7.1 Partial delivery of regular courses by industry experts"
                 subtitle="(Calculation Rubric: >=6 hrs = 4; 3 hrs = 2; 1-2 hrs = 1 | Max 4 marks)"
@@ -10424,7 +10444,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section VIII Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "VIII" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle("VIII")} 
+            onClick={(e) => handleSectionToggle("VIII", e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "VIII" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -10433,7 +10453,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "VIII" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VIII" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "VIII" ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="8.1 UG/PG Student Project Publication- Journal/ Conference (Scopus indexed)"
                 subtitle={isArch ? "(Calculation Rubric: Per publication = 1 mark | Max 1 mark)" : "(Calculation Rubric: Per publication = 2 marks | Max 2 marks)"}
@@ -10494,7 +10514,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         {/* Section IX Collapsible Card Container */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm hover:bg-white/95 border border-gray-200/80 ${activeSection === "IX" ? 'overflow-visible relative z-20' : 'overflow-hidden relative z-0'} mb-4 glass-card-float`}>
           <div 
-            onClick={() => handleSectionToggle("IX")} 
+            onClick={(e) => handleSectionToggle("IX", e)} 
             className={`p-3.5 sm:p-5 flex justify-between items-center cursor-pointer transition-all ${activeSection === "IX" ? "bg-orange-50/50 border-b border-orange-100" : "hover:bg-gray-50"}`}
           >
             <div>
@@ -10503,7 +10523,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             </div>
             <span className="text-xs font-bold text-[#4A1519]">{activeSection === "IX" ? "\u25B2 Collapse" : "\u25BC Expand"}</span>
           </div>
-            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "IX" ? 'block' : 'hidden print-section'}`}>
+            <div className={`p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-6 ${activeSection === "IX" ? 'block animate-in fade-in duration-200' : 'hidden print-section'}`}>
               <DynamicArraySection
                 title="9.1 Department Level Activities"
                 subtitle="(Calculation Rubric: DLCs and File Maintenance = 5; Dept. Activity & File Maintenance = 2 per Activity | Max 10 marks)"
