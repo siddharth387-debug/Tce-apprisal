@@ -128,7 +128,11 @@ export const exportAppraisalToPDF = ({
   doc.setFont('helvetica', 'bold');
   doc.text('Designation:', boxX + 3, currentY + 14.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(String(record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor')), boxX + 24, currentY + 14.5);
+  doc.text(String(
+    ['spmcse@tce.edu', 'hodai@tce.edu'].includes(String(record?.email || record?.facultyEmail || user?.email || '').toLowerCase().trim())
+      ? 'Professor & Head I/C'
+      : (record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'))
+  ), boxX + 24, currentY + 14.5);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Appraisal Status:', boxX + boxWidth / 2 + 2, currentY + 14.5);

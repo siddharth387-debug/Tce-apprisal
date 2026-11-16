@@ -180,7 +180,7 @@ export default function AppraisalPrintDocument({
           </div>
           <div>
             <span className="font-bold text-slate-700">Designation:</span>{' '}
-            <span className="font-medium text-slate-800">{record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor')}</span>
+            <span className="font-medium text-slate-800">{['spmcse@tce.edu', 'hodai@tce.edu'].includes(String(record?.email || record?.facultyEmail || user?.email || '').toLowerCase().trim()) ? 'Professor & Head I/C' : (record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'))}</span>
           </div>
           <div>
             <span className="font-bold text-slate-700">Appraisal Status:</span>{' '}

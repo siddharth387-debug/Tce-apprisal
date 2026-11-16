@@ -3440,6 +3440,16 @@ async function startServer() {
         },
         { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence and Machine Learning' } }
       );
+      // Keep stored appraisal records (used by PDF / Excel exports) in sync with the corrected designation
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: { $in: ['spmcse@tce.edu', 'hodai@tce.edu'] } },
+            { facultyEmail: { $in: ['spmcse@tce.edu', 'hodai@tce.edu'] } }
+          ]
+        },
+        { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence and Machine Learning' } }
+      );
     } catch (normErr) {
       console.warn('AI dept / designation normalization warning:', normErr.message);
     }
