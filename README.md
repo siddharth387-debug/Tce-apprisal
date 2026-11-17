@@ -193,11 +193,6 @@ npm run dev
 TCE's 16 active departments are pre-configured:
 `CSE`, `IT`, `ECE`, `EEE`, `MECH`, `CIVIL`, `MECT`, `CSBS`, `MCA`, `AI`, `AMCS`, `ARCH`, `MATH`, `PHY`, `CHEM`, `ENG`.
 
-Master super-admin roles are pre-mapped for:
-- `principal@tce.edu` (Principal Executive Mode)
-- `registrar@tce.edu` (Registrar Institutional Governance Mode)
-- `siddharthk@student.tce.edu` (System Super Admin)
-
 ---
 
 ## 📄 License & Intellectual Property
