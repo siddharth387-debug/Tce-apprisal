@@ -89,9 +89,35 @@ export const exportAppraisalToPDF = ({
   currentY += 7;
 
   // ── 2. Faculty Profile Box ────────────────────────────────────────────────
+  const DEPT_FULL_NAMES = {
+    CSE: 'Computer Science and Engineering',
+    ECE: 'Electronics and Communication Engineering',
+    EEE: 'Electrical and Electronics Engineering',
+    MECH: 'Mechanical Engineering',
+    CIVIL: 'Civil Engineering',
+    IT: 'Information Technology',
+    MECT: 'Mechatronics',
+    CSBS: 'Computer Science and Business Systems',
+    MCA: 'Computer Applications',
+    ARCH: 'Architecture',
+    MATH: 'Mathematics',
+    AMCS: 'Applied Mathematics and Computational Science',
+    PHY: 'Physics',
+    CHEM: 'Chemistry',
+    ENG: 'English',
+    AI: 'Artificial Intelligence',
+  };
+  const deptCodeUpper = String(targetDept || '').toUpperCase().trim();
+  const resolvedDeptName = deptCodeUpper === 'AI'
+    ? 'Artificial Intelligence'
+    : (DEPT_FULL_NAMES[deptCodeUpper] || record?.departmentName || user?.departmentName || deptCodeUpper || '-');
+  const displayDepartment = deptCodeUpper && resolvedDeptName && resolvedDeptName !== deptCodeUpper
+    ? `${deptCodeUpper} - ${resolvedDeptName}`
+    : resolvedDeptName;
+
   const boxX = margin;
   const boxWidth = pageWidth - margin * 2;
-  const boxHeight = 18;
+  const boxHeight = 23;
   doc.setFillColor(248, 250, 252); // slate-50
   doc.setDrawColor(203, 213, 225); // slate-300
   doc.setLineWidth(0.2);
@@ -207,6 +233,14 @@ export const exportAppraisalToPDF = ({
   doc.roundedRect(statusX, statusY, statusWidth, 4, 0.6, 0.6, 'FD');
   doc.setTextColor(badgeText[0], badgeText[1], badgeText[2]);
   doc.text(badgeLabel, statusX + 2, currentY + 14.4);
+
+  // Row 4: Department
+  doc.setFontSize(8);
+  doc.setTextColor(51, 65, 85);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Department:', boxX + 3, currentY + 19.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(String(displayDepartment), boxX + 24, currentY + 19.5);
 
   currentY += boxHeight + 4;
 
@@ -809,7 +843,29 @@ export const exportIqacRosterPDF = ({
     : `Score Filter: ${scoreFilterMode === 'min' ? '≥' : '=='} ${targetScore} / 200`;
   doc.text(scoreFilterLabel, margin + 4, currentY + 12);
 
-  doc.text(`Department: ${departmentFilter === 'ALL' ? 'All 16 Departments' : departmentFilter}`, pageWidth / 2, currentY + 6);
+  const ROSTER_DEPT_NAMES = {
+    CSE: 'Computer Science and Engineering',
+    ECE: 'Electronics and Communication Engineering',
+    EEE: 'Electrical and Electronics Engineering',
+    MECH: 'Mechanical Engineering',
+    CIVIL: 'Civil Engineering',
+    IT: 'Information Technology',
+    MECT: 'Mechatronics',
+    CSBS: 'Computer Science and Business Systems',
+    MCA: 'Computer Applications',
+    ARCH: 'Architecture',
+    MATH: 'Mathematics',
+    AMCS: 'Applied Mathematics and Computational Science',
+    PHY: 'Physics',
+    CHEM: 'Chemistry',
+    ENG: 'English',
+    AI: 'Artificial Intelligence',
+  };
+  const deptFilterUpper = String(departmentFilter || 'ALL').toUpperCase().trim();
+  const rosterDeptLabel = deptFilterUpper === 'ALL'
+    ? 'All 16 Departments'
+    : (ROSTER_DEPT_NAMES[deptFilterUpper] ? `${deptFilterUpper} - ${ROSTER_DEPT_NAMES[deptFilterUpper]}` : departmentFilter);
+  doc.text(`Department: ${rosterDeptLabel}`, pageWidth / 2, currentY + 6);
   doc.text(`Academic Year: ${timeline}`, pageWidth / 2, currentY + 12);
 
   doc.text(`Records: ${activeRows.length}`, pageWidth - margin - 35, currentY + 6);

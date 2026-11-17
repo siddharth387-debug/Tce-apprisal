@@ -790,7 +790,7 @@ const DEPARTMENT_NAME_MAP = {
   IT: 'Information Technology',
   CHEM: 'Chemistry',
   ENG: 'English',
-  AI: 'Artificial Intelligence and Machine Learning',
+  AI: 'Artificial Intelligence',
   DS: 'Data Science',
   MATHS: 'Mathematics',
   PHYSICS: 'Physics',
@@ -1192,7 +1192,7 @@ app.post('/api/auth/google', async (request, response) => {
       let rawDept = facultyRecord?.department || (hodMatch ? hodMatch[1].toUpperCase() : 'CSE');
       assignedDept = normalizeDepartmentCode(rawDept);
       assignedDeptName = assignedDept === 'AI'
-        ? 'Artificial Intelligence and Machine Learning'
+        ? 'Artificial Intelligence'
         : (facultyRecord?.departmentName || '');
     } else if (facultyRecord) {
       // Individual personal faculty account (e.g. pccse@tce.edu, shalinie@tce.edu, etc.)
@@ -1201,7 +1201,7 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : normalizeDepartmentCode(rawDept);
       assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal')
         ? 'All Academic Departments'
-        : (assignedDept === 'AI' ? 'Artificial Intelligence and Machine Learning' : (facultyRecord.departmentName || ''));
+        : (assignedDept === 'AI' ? 'Artificial Intelligence' : (facultyRecord.departmentName || ''));
       assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
     }
 
@@ -2446,7 +2446,7 @@ app.post('/api/directory/register', authenticateToken, async (req, res) => {
       PHY: 'Physics',
       CHEM: 'Chemistry',
       ENG: 'English',
-      AI: 'Artificial Intelligence and Machine Learning'
+      AI: 'Artificial Intelligence'
     };
 
     const newMember = await FacultyMember.create({
@@ -3500,12 +3500,12 @@ async function startServer() {
     // Ensure AI department name and Dr. S. Padmavathi's designation are up to date in MongoDB
     try {
       await FacultyMember.updateMany(
-        { $or: [{ department: 'AI' }, { departmentName: 'Artificial Intelligence and Data Science' }] },
-        { $set: { departmentName: 'Artificial Intelligence and Machine Learning' } }
+        { $or: [{ department: 'AI' }, { departmentName: { $in: ['Artificial Intelligence and Data Science', 'Artificial Intelligence and Machine Learning'] } }] },
+        { $set: { departmentName: 'Artificial Intelligence' } }
       );
       await Appraisal.updateMany(
-        { $or: [{ department: 'AI' }, { departmentName: 'Artificial Intelligence and Data Science' }] },
-        { $set: { departmentName: 'Artificial Intelligence and Machine Learning' } }
+        { $or: [{ department: 'AI' }, { departmentName: { $in: ['Artificial Intelligence and Data Science', 'Artificial Intelligence and Machine Learning'] } }] },
+        { $set: { departmentName: 'Artificial Intelligence' } }
       );
       await FacultyMember.updateMany(
         {
@@ -3516,7 +3516,7 @@ async function startServer() {
             { staffId: 'SPMCSE' }
           ]
         },
-        { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence and Machine Learning' } }
+        { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence' } }
       );
       // Keep stored appraisal records (used by PDF / Excel exports) in sync with the corrected designation
       await Appraisal.updateMany(
@@ -3526,7 +3526,7 @@ async function startServer() {
             { facultyEmail: { $in: ['spmcse@tce.edu', 'hodai@tce.edu'] } }
           ]
         },
-        { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence and Machine Learning' } }
+        { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence' } }
       );
     } catch (normErr) {
       console.warn('AI dept / designation normalization warning:', normErr.message);

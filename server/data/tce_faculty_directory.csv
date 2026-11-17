@@ -1,10 +1,10 @@
 S.No,Staff ID,Faculty Name,Designation,Department Code,Department Name,Personal / Faculty Email,Department HoD Email,Active Role,Profile URL
-1,SPMCSE,Dr. S. Padmavathi,"Professor & Head I/C",AI,Artificial Intelligence and Machine Learning,hodai@tce.edu,hodai@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECSE/spmcse.html
-2,NSSCSE,Dr. N. Sheerin Sitara,Assistant Professor,AI,Artificial Intelligence and Machine Learning,nsscse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/nsscse.html
-3,PSKCSEAI,Mrs. P. Senthil Kumari,Assistant Professor,AI,Artificial Intelligence and Machine Learning,pskcseai@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSEAIML/pskcseai.html
-4,SJACSE,Mrs. S. Jeniba,Assistant Professor,AI,Artificial Intelligence and Machine Learning,sjacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/sjacse.html
-5,GDPCSEAI,Ms. G. Deepa Priya,Assistant Professor,AI,Artificial Intelligence and Machine Learning,gdpcseai@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSEAIML/gdpcseai.html
-6,SNACSE,Ms. S. Naveena,Assistant Professor,AI,Artificial Intelligence and Machine Learning,snacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/snacse.html
+1,SPMCSE,Dr. S. Padmavathi,"Professor & Head I/C",AI,Artificial Intelligence,hodai@tce.edu,hodai@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/BECSE/spmcse.html
+2,NSSCSE,Dr. N. Sheerin Sitara,Assistant Professor,AI,Artificial Intelligence,nsscse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/nsscse.html
+3,PSKCSEAI,Mrs. P. Senthil Kumari,Assistant Professor,AI,Artificial Intelligence,pskcseai@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSEAIML/pskcseai.html
+4,SJACSE,Mrs. S. Jeniba,Assistant Professor,AI,Artificial Intelligence,sjacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/COM/sjacse.html
+5,GDPCSEAI,Ms. G. Deepa Priya,Assistant Professor,AI,Artificial Intelligence,gdpcseai@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSEAIML/gdpcseai.html
+6,SNACSE,Ms. S. Naveena,Assistant Professor,AI,Artificial Intelligence,snacse@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/BECSE/snacse.html
 7,SPCSE,Dr. S. Parthasarathy,"Professor, Dean (Centres of Excellence and Continuing Education) and Head",AMCS,Applied Mathematics and Computational Science,hodamcs@tce.edu,hodamcs@tce.edu,HOD,https://www.tce.edu/staff_profile/faculty/MCACSE/spcse.html
 8,BSDCA,Dr. B. Surya Devi,Assistant Professor,AMCS,Applied Mathematics and Computational Science,bsdca@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/bsdca.html
 9,ANITHAD,Dr. D. Anitha,Associate Professor,AMCS,Applied Mathematics and Computational Science,anithad@tce.edu,—,Faculty,https://www.tce.edu/staff_profile/faculty/MCACSE/daca.html

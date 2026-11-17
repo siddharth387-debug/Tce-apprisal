@@ -178,6 +178,34 @@ export default function AppraisalPrintDocument({
             <span className="font-bold text-slate-700">Date of Submission / Report:</span>{' '}
             <span className="font-medium text-slate-800">{submissionDate}</span>
           </div>
+          <div className="col-span-2">
+            <span className="font-bold text-slate-700">Department:</span>{' '}
+            <span className="font-medium text-slate-800">
+              {(() => {
+                const DEPT_NAMES = {
+                  CSE: 'Computer Science and Engineering',
+                  ECE: 'Electronics and Communication Engineering',
+                  EEE: 'Electrical and Electronics Engineering',
+                  MECH: 'Mechanical Engineering',
+                  CIVIL: 'Civil Engineering',
+                  IT: 'Information Technology',
+                  MECT: 'Mechatronics',
+                  CSBS: 'Computer Science and Business Systems',
+                  MCA: 'Computer Applications',
+                  ARCH: 'Architecture',
+                  MATH: 'Mathematics',
+                  AMCS: 'Applied Mathematics and Computational Science',
+                  PHY: 'Physics',
+                  CHEM: 'Chemistry',
+                  ENG: 'English',
+                  AI: 'Artificial Intelligence',
+                };
+                const dCode = String(user?.department || record?.department || '').toUpperCase().trim();
+                const dName = dCode === 'AI' ? 'Artificial Intelligence' : (DEPT_NAMES[dCode] || record?.departmentName || user?.departmentName || dCode || '—');
+                return dCode && dName && dName !== dCode ? `${dCode} - ${dName}` : dName;
+              })()}
+            </span>
+          </div>
           <div>
             <span className="font-bold text-slate-700">Designation:</span>{' '}
             <span className="font-medium text-slate-800">{['spmcse@tce.edu', 'hodai@tce.edu'].includes(String(record?.email || record?.facultyEmail || user?.email || '').toLowerCase().trim()) ? 'Professor & Head I/C' : (record?.designation || user?.designation || (user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'))}</span>
