@@ -2006,10 +2006,10 @@ function unusedComputeSectionScores(sectionData = {}, role) {
       if (!isNonEmpty(row.description)) return sum;
       const cat = String(row.category || '').trim();
       const catLower = cat.toLowerCase();
-      if (catLower.includes('deputy coe') || catLower.includes('deputy registrar') || catLower.includes('deputy warden')) return sum + 10;
-      if (catLower.includes('chief coordinator') || catLower.includes('clc') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
+      if (catLower.includes('dy.warden') || catLower.includes('dy. warden') || catLower.includes('deputy warden') || catLower.includes('chief coordinator') || catLower.includes('clc') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
+      if (catLower.includes('associate dean') || catLower.includes('dy.registrar') || catLower.includes('dy. registrar') || catLower.includes('deputy registrar') || catLower.includes('dy.coe') || catLower.includes('dy. coe') || catLower.includes('deputy coe') || catLower.includes('warden')) return sum + 10;
       if (catLower.includes('internal review') || catLower.includes('iqac')) return sum + 5;
-      if (catLower.includes('committee member') || catLower.includes('others') || catLower === 'other') return sum + 3;
+      if (catLower.includes('committee member') || catLower.includes('college level') || catLower.includes('others') || catLower === 'other') return sum + 3;
       return sum + 3;
     }, 0),
     10
@@ -6362,15 +6362,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       label: "Activity Category", 
       type: "select", 
       options: [
+        "Committee Members in College Level Activities",
+        "Members in Internal Review Committee",
+        "CLCs",
+        "Dy.Warden",
         "Chief Coordinator (FDP)",
         "Chief Coordinator (Branding)",
         "Chief Coordinator (Alumni)",
-        "Deputy CoE",
-        "Deputy Registrar",
-        "Deputy Warden",
-        "CLC",
-        "Committee Member", 
-        "Internal Review Committee", 
+        "Associate Deans",
+        "Dy.Registrar",
+        "Dy.CoE",
+        "Warden",
         "5S Coordinator",
         "Alumni Coordinator",
         "IQAC Coordinator",
@@ -10539,7 +10541,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               />
               <DynamicArraySection
                 title="9.2 College Level Activities"
-                subtitle="(Calculation Rubric: Committee Member / Others = 3; Internal Review Committee / IQAC Coordinator = 5; Chief Coordinator (FDP / Branding / Alumni) / CLCs / Alumni Coordinator / 5S Coordinator = 7; Deputy CoE / Deputy Registrar / Deputy Warden = 10 | Max 10 marks)"
+                subtitle="(Calculation Rubric: Committee Members in College Level Activities = 3 per Activity; Members in Internal Review Committee = 5 per Committee; CLCs / Dy.Warden / Chief Coordinator (FDP / Branding / Alumni) = 7; Associate Deans / Dy.Registrar / Dy.CoE / Warden = 10 | Max 10 marks)"
                 subScore={scores.sub9_2 || 0}
                 maxScore={10}
                 rows={currentSectionData.collegeActivities || []}
