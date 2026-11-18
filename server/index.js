@@ -318,6 +318,7 @@ const AppraisalSchema = new mongoose.Schema({
   iqacEvaluatedBy: { type: String, default: '' },
   isLocked: { type: Boolean, default: false },
   isHodSubmission: { type: Boolean, default: false },
+  unlockedReleaseTag: { type: String, default: '' },
   section1Data: {
     coursesHandled: { type: Array, default: [] },
     courseFiles: { type: Array, default: [] },
@@ -1411,7 +1412,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
 
     // ── GUARD: Protect submitted appraisals from background auto-save draft overwrites ──
     const existingStatus = String(existingDoc?.appraisalStatus || '').toUpperCase().trim();
-    const isAlreadySubmitted = existingDoc && (
+    const isAlreadySubmitted = existingDoc && existingStatus !== 'DRAFT' && (
       existingDoc.isSubmitted === true ||
       ['PENDING', 'SUBMITTED', 'PENDING REVIEW', 'APPROVED', 'HOD APPROVED', 'IQAC APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(existingStatus)
     );
@@ -1453,7 +1454,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       department: targetDept,
       departmentName: targetDeptName,
       isHodSubmission: submitterIsHod,
-      isSubmitted: Boolean(req.body?.isSubmitted || existingDoc?.isSubmitted),
+      isSubmitted: Boolean(req.body?.isSubmitted || (existingDoc?.isSubmitted && existingStatus !== 'DRAFT')),
       submittedAt: req.body?.isSubmitted
         ? (existingDoc?.submittedAt || new Date())
         : (existingDoc?.submittedAt || null),
@@ -2719,6 +2720,7 @@ app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], aut
 
     const updateFields = {
       appraisalStatus: 'Draft',
+      isSubmitted: false,
       isDraft: true,
       isLocked: false,
       principalApprovalStatus: 'Draft',
@@ -3527,6 +3529,29 @@ async function startServer() {
           ]
         },
         { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence' } }
+      );
+      // One-time unlock to Draft for Dr. C. Selva Kumar (MECH) and Mr. S. A. R. Sheik Masthan (MECT)
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: { $in: ['cskmech@tce.edu', 'sarsmech@tce.edu'] } },
+            { facultyEmail: { $in: ['cskmech@tce.edu', 'sarsmech@tce.edu'] } }
+          ],
+          unlockedReleaseTag: { $ne: 'unlock-2026-11-18' }
+        },
+        {
+          $set: {
+            appraisalStatus: 'Draft',
+            isSubmitted: false,
+            isDraft: true,
+            isLocked: false,
+            principalApprovalStatus: 'Draft',
+            iqacStatus: 'Draft',
+            submittedAt: null,
+            unlockedReleaseTag: 'unlock-2026-11-18',
+            updatedAt: new Date()
+          }
+        }
       );
     } catch (normErr) {
       console.warn('AI dept / designation normalization warning:', normErr.message);
