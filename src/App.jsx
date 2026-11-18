@@ -10972,11 +10972,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 ? 'Principal' 
                 : isRegistrar 
                   ? 'Registrar' 
-                  : isIQAC
-                    ? 'IQAC Coordinator'
+                  : (isIQAC || isIqacLeadership)
+                    ? 'IQAC Head'
                     : effectiveRole === 'HOD' 
                       ? 'HOD' 
-                      : (user.designation && user.designation !== 'Registrar' && user.designation !== 'Principal' && user.designation !== 'IQAC Quality Coordinator' ? user.designation : 'Assistant Professor')}
+                      : (user.designation && user.designation !== 'Registrar' && user.designation !== 'Principal' && user.designation !== 'IQAC Quality Coordinator' && user.designation !== 'IQAC Head' ? user.designation : 'Assistant Professor')}
             </span>
 
             {/* Special Condition Correction Badge (Only shows if required) */}

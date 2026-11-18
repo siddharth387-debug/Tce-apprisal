@@ -1178,7 +1178,7 @@ app.post('/api/auth/google', async (request, response) => {
         ? facultyRecord.designation
         : (verifiedEmail === 'headiqac@tce.edu' || verifiedEmail === 'pccse@tce.edu' || verifiedEmail === 'pchitracse@tce.edu')
           ? 'Professor, Head IQAC'
-          : 'IQAC Quality Coordinator';
+          : 'IQAC Head';
     } else if (verifiedEmail === 'deansiddharth@gmail.com') {
       assignedRole = 'Faculty';
       assignedDept = facultyRecord?.department || 'CSE';
