@@ -488,7 +488,8 @@
     "__v": 0,
     "active": true,
     "alternateEmails": [
-      "hodarch@tce.edu"
+      "hodarch@tce.edu",
+      "jjlkarch@tce.edu"
     ],
     "createdAt": "2026-09-08T16:21:59.655Z",
     "department": "ARCH",
@@ -659,7 +660,8 @@
     "personalEmail": "crissindhu@tce.edu",
     "hodEmail": "",
     "alternateEmails": [
-      "crissindhu@tce.edu"
+      "crissindhu@tce.edu",
+      "msarch@tce.edu"
     ],
     "department": "ARCH",
     "departmentName": "Architecture (T'SEDA)",
@@ -764,7 +766,8 @@
     "personalEmail": "rrarch@tce.edu",
     "hodEmail": "",
     "alternateEmails": [
-      "rrarch@tce.edu"
+      "rrarch@tce.edu",
+      "rraarch@tce.edu"
     ],
     "department": "ARCH",
     "departmentName": "Architecture (T'SEDA)",
@@ -911,7 +914,8 @@
     "personalEmail": "lavanya_arch@tce.edu",
     "hodEmail": "",
     "alternateEmails": [
-      "lavanya_arch@tce.edu"
+      "lavanya_arch@tce.edu",
+      "stlarch@tce.edu"
     ],
     "department": "ARCH",
     "departmentName": "Architecture (T'SEDA)",
@@ -1016,7 +1020,8 @@
     "personalEmail": "cmarch@tce.edu",
     "hodEmail": "",
     "alternateEmails": [
-      "cmarch@tce.edu"
+      "cmarch@tce.edu",
+      "icarch@tce.edu"
     ],
     "department": "ARCH",
     "departmentName": "Architecture (T'SEDA)",

@@ -195,8 +195,16 @@ const normalizeDepartmentCode = (rawDept) => {
     'COMPUTER APPLICATIONS': 'MCA',
     'CIVIL ENGINEERING': 'CIVIL',
     'MATHEMATICS': 'MATH',
+    'ARCHITECTURE': 'ARCH',
+    "ARCHITECTURE (T'SEDA)": 'ARCH',
+    'TSEDA': 'ARCH',
+    'B.ARCH': 'ARCH',
+    'BARCH': 'ARCH',
+    'THIAGARAJAR SCHOOL OF ARCHITECTURE': 'ARCH',
   };
-  return map[d] || d;
+  if (map[d]) return map[d];
+  if (d.includes('ARCH') || d.includes('TSEDA')) return 'ARCH';
+  return d;
 };
 
 const mentoringBatchOptions = [
@@ -792,6 +800,7 @@ const DEPARTMENT_NAME_MAP = {
   CHEM: 'Chemistry',
   ENG: 'English',
   AI: 'Artificial Intelligence',
+  ARCH: "Architecture (T'SEDA)",
   DS: 'Data Science',
   MATHS: 'Mathematics',
   PHYSICS: 'Physics',
@@ -1141,6 +1150,12 @@ app.post('/api/auth/google', async (request, response) => {
         ]
       });
     }
+    if (!facultyRecord && verifiedEmail.endsWith('@tce.edu')) {
+      const emailPrefix = verifiedEmail.split('@')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      facultyRecord = await FacultyMember.findOne({
+        profileUrl: new RegExp(`/${emailPrefix}\\.html$`, 'i')
+      });
+    }
 
     // Auto-link alternate email in directory so cross-device logins share identical identity
     if (facultyRecord && verifiedEmail && !facultyRecord.alternateEmails?.includes(verifiedEmail)) {
@@ -1204,6 +1219,18 @@ app.post('/api/auth/google', async (request, response) => {
         ? 'All Academic Departments'
         : (assignedDept === 'AI' ? 'Artificial Intelligence' : (facultyRecord.departmentName || ''));
       assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
+    }
+
+    const isArchFacultyAccount =
+      assignedDept === 'ARCH' ||
+      /arch@tce\.edu$/i.test(verifiedEmail) ||
+      verifiedEmail === 'crissindhu@tce.edu' ||
+      /arch|tseda/i.test(facultyRecord?.department || '') ||
+      /arch|tseda/i.test(facultyRecord?.departmentName || '') ||
+      /\/BARCH\//i.test(facultyRecord?.profileUrl || '');
+    if (isArchFacultyAccount && !['IQAC', 'Registrar', 'Principal'].includes(assignedRole)) {
+      assignedDept = 'ARCH';
+      assignedDeptName = "Architecture (T'SEDA)";
     }
 
     if (
@@ -3552,6 +3579,48 @@ async function startServer() {
             updatedAt: new Date()
           }
         }
+      );
+
+      // Ensure all Architecture (T'SEDA) faculty and their appraisals are strictly mapped to department: 'ARCH'
+      const archEmails = [
+        'gsjarch@tce.edu', 'hodarch@tce.edu', 'jjlkarch@tce.edu', 'aakarch@tce.edu',
+        'aaarch@tce.edu', 'agarch@tce.edu', 'cparch@tce.edu', 'dglarch@tce.edu',
+        'drnarch@tce.edu', 'mlsarch@tce.edu', 'crissindhu@tce.edu', 'msarch@tce.edu',
+        'mvlarch@tce.edu', 'ppharch@tce.edu', 'pvkarch@tce.edu', 'ajarch@tce.edu',
+        'rrarch@tce.edu', 'rraarch@tce.edu', 'rsrarch@tce.edu', 'sararch@tce.edu',
+        'senarch@tce.edu', 'skrarch@tce.edu', 'smvsarch@tce.edu', 'ssuarch@tce.edu',
+        'lavanya_arch@tce.edu', 'stlarch@tce.edu', 'svlarch@tce.edu', 'uvaarch@tce.edu',
+        'gviarch@tce.edu', 'gbarch@tce.edu', 'cmarch@tce.edu', 'icarch@tce.edu',
+        'rmiarch@tce.edu', 'rvkarch@tce.edu', 'psaarch@tce.edu', 'priarch@tce.edu',
+        'amdarch@tce.edu', 'saarch@tce.edu', 'svaarch@tce.edu'
+      ];
+      await FacultyMember.updateMany(
+        {
+          $or: [
+            { email: { $in: archEmails } },
+            { personalEmail: { $in: archEmails } },
+            { alternateEmails: { $in: archEmails } },
+            { email: /arch@tce\.edu$/i },
+            { personalEmail: /arch@tce\.edu$/i },
+            { profileUrl: /\/BARCH\//i },
+            { department: /^arch/i },
+            { departmentName: /arch|tseda/i }
+          ]
+        },
+        { $set: { department: 'ARCH', departmentName: "Architecture (T'SEDA)" } }
+      );
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: { $in: archEmails } },
+            { facultyEmail: { $in: archEmails } },
+            { email: /arch@tce\.edu$/i },
+            { facultyEmail: /arch@tce\.edu$/i },
+            { department: /^arch/i },
+            { departmentName: /arch|tseda/i }
+          ]
+        },
+        { $set: { department: 'ARCH', departmentName: "Architecture (T'SEDA)" } }
       );
     } catch (normErr) {
       console.warn('AI dept / designation normalization warning:', normErr.message);

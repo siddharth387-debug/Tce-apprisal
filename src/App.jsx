@@ -11500,6 +11500,23 @@ function getStoredAuthContext() {
   return { token, source };
 }
 
+function normalizeArchUserProfile(userProfile) {
+  if (!userProfile || typeof userProfile !== 'object') return userProfile;
+  const em = String(userProfile.email || userProfile.personalEmail || '').toLowerCase().trim();
+  const isArchEmail = /arch@tce\.edu$/i.test(em) || em === 'crissindhu@tce.edu';
+  if (
+    (isArchEmail || isArchDepartment(userProfile.department) || isArchDepartment(userProfile.departmentName)) &&
+    !['IQAC', 'Registrar', 'Principal'].includes(userProfile.role)
+  ) {
+    return {
+      ...userProfile,
+      department: 'ARCH',
+      departmentName: "Architecture (T'SEDA)",
+    };
+  }
+  return userProfile;
+}
+
 function loadUserFromStorage() {
   if (typeof window === 'undefined') {
     return null;
@@ -11507,7 +11524,7 @@ function loadUserFromStorage() {
 
   try {
     const stored = window.localStorage.getItem(STORAGE_USER_KEY);
-    return stored ? JSON.parse(stored) : null;
+    return stored ? normalizeArchUserProfile(JSON.parse(stored)) : null;
   } catch (error) {
     console.error('Failed to load user from storage:', error);
     return null;
@@ -11520,10 +11537,11 @@ function saveUserToStorage(userProfile) {
   }
 
   try {
-    window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(userProfile));
-    if (userProfile?.token) {
-      window.localStorage.setItem('userToken', userProfile.token);
-      window.localStorage.setItem('token', userProfile.token);
+    const normalizedProfile = normalizeArchUserProfile(userProfile);
+    window.localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(normalizedProfile));
+    if (normalizedProfile?.token) {
+      window.localStorage.setItem('userToken', normalizedProfile.token);
+      window.localStorage.setItem('token', normalizedProfile.token);
     }
   } catch (error) {
     console.error('Failed to save user to storage:', error);
@@ -11654,8 +11672,9 @@ export default function App() {
       setSessionTerminatedNotice(false);
       return;
     }
-    setUser(userProfile);
-    saveUserToStorage(userProfile);
+    const normalizedProfile = normalizeArchUserProfile(userProfile);
+    setUser(normalizedProfile);
+    saveUserToStorage(normalizedProfile);
     setSessionTimedOut(false);
     setSessionTerminatedNotice(false);
     setDomainBlockedNotice(false);
