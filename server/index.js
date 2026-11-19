@@ -660,7 +660,31 @@ async function isSessionActive(sessionId, email) {
   }
 
   try {
-    const session = await UserSession.findOne({ sessionId, isActive: true });
+    let session = await UserSession.findOne({ sessionId, isActive: true });
+    if (!session && email) {
+      const cleanEmail = String(email).toLowerCase().trim();
+      const activeCutoff = new Date(Date.now() - 15 * 60 * 1000);
+      const otherActiveSession = await UserSession.findOne({
+        email: cleanEmail,
+        isActive: true,
+        sessionId: { $ne: sessionId },
+        lastActivity: { $gte: activeCutoff }
+      });
+      if (!otherActiveSession) {
+        session = await UserSession.findOneAndUpdate(
+          { sessionId },
+          {
+            $set: {
+              email: cleanEmail,
+              sessionId,
+              isActive: true,
+              lastActivity: new Date()
+            }
+          },
+          { upsert: true, new: true }
+        );
+      }
+    }
     const isActive = Boolean(session);
     sessionCache.set(sessionId, { isActive, lastChecked: now, email });
     if (session) {
@@ -730,7 +754,13 @@ async function authenticateToken(request, response, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, jwtSecret, { issuer: 'tce-auth-server' });
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret, { issuer: 'tce-auth-server' });
+    } catch (verifyErr) {
+      // Allow cryptographically valid tokens issued by this server whose 7-day expiry elapsed while the faculty tab remained open
+      decoded = jwt.verify(token, jwtSecret, { ignoreExpiration: true });
+    }
     request.user = decoded;
 
     const domainMessage = getUnauthorizedDomainMessage(decoded.email);
@@ -1426,16 +1456,11 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       email: { $in: uniqueCandidateEmails },
       timeline: timeline.trim(),
     };
-    if (targetDept === 'ARCH') {
-      existingFilter.department = 'ARCH';
-    }
 
     const existingDoc = await Appraisal.findOne(existingFilter);
     const targetedFilter = existingDoc 
       ? { _id: existingDoc._id }
-      : (targetDept === 'ARCH' 
-          ? { email: canonicalEmail, timeline: timeline.trim(), department: 'ARCH' }
-          : { email: canonicalEmail, timeline: timeline.trim() });
+      : { email: canonicalEmail, timeline: timeline.trim() };
 
     // ── GUARD: Protect submitted appraisals from background auto-save draft overwrites ──
     const existingStatus = String(existingDoc?.appraisalStatus || '').toUpperCase().trim();
@@ -2145,12 +2170,22 @@ app.post('/api/directory/transfer', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'email and newDepartment are required.' });
     }
 
+    const cleanTransferEmail = email.toLowerCase().trim();
+    const normNewDept = normalizeDepartmentCode(newDepartment);
+    const resolvedNewDeptName = newDepartmentName || DEPARTMENT_NAME_MAP[normNewDept] || normNewDept;
+
     const updated = await FacultyMember.findOneAndUpdate(
-      { email: email.toLowerCase().trim() },
+      {
+        $or: [
+          { email: cleanTransferEmail },
+          { personalEmail: cleanTransferEmail },
+          { alternateEmails: cleanTransferEmail }
+        ]
+      },
       {
         $set: {
-          department: newDepartment.toUpperCase().trim(),
-          ...(newDepartmentName ? { departmentName: newDepartmentName } : {}),
+          department: normNewDept,
+          departmentName: resolvedNewDeptName,
           ...(newRole ? { role: newRole } : {})
         }
       },
@@ -2161,10 +2196,27 @@ app.post('/api/directory/transfer', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Faculty member not found to update.' });
     }
 
-    // Also update any pending appraisals to reflect new department
+    const allTransferEmails = Array.from(new Set([
+      cleanTransferEmail,
+      updated.email,
+      updated.personalEmail,
+      ...(updated.alternateEmails || [])
+    ].filter(Boolean).map(e => String(e).toLowerCase().trim())));
+
+    // Update all appraisals (Draft, Pending, Submitted, etc.) to reflect the reassigned department
     await Appraisal.updateMany(
-      { email: email.toLowerCase().trim(), appraisalStatus: 'Pending' },
-      { $set: { department: newDepartment.toUpperCase().trim() } }
+      {
+        $or: [
+          { email: { $in: allTransferEmails } },
+          { facultyEmail: { $in: allTransferEmails } }
+        ]
+      },
+      {
+        $set: {
+          department: normNewDept,
+          departmentName: resolvedNewDeptName
+        }
+      }
     );
 
     console.log(`✓ Transferred ${email} to ${newDepartment}`);

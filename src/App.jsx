@@ -25,14 +25,17 @@ import { API_BASE_URL } from './apiBase.js';
 
 // ── Module-level constants ────────────────────────────────────────────────────
 
-// Resolves the active JWT from every known localStorage key slot.
+// Resolves the active JWT from every known localStorage key slot (prioritizing the active user profile).
 const getAuthToken = () => {
-  const directToken = window.localStorage.getItem('token') || window.localStorage.getItem('userToken');
-  if (directToken) return directToken;
   try {
     const raw = window.localStorage.getItem('tce_appraisal_user') || window.localStorage.getItem('STORAGE_USER_KEY');
-    if (raw) return JSON.parse(raw)?.token || null;
+    if (raw) {
+      const parsedToken = JSON.parse(raw)?.token;
+      if (parsedToken) return parsedToken;
+    }
   } catch { /* ignore parse errors */ }
+  const directToken = window.localStorage.getItem('token') || window.localStorage.getItem('userToken');
+  if (directToken) return directToken;
   return null;
 };
 
