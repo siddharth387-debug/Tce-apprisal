@@ -3642,6 +3642,30 @@ async function startServer() {
         }
       );
 
+      // One-time unlock to Draft for Dr. RS. Swarnalakshmi (rssleng@tce.edu, ENG)
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: 'rssleng@tce.edu' },
+            { facultyEmail: 'rssleng@tce.edu' }
+          ],
+          unlockedReleaseTag: { $ne: 'unlock-2026-11-20-rssleng' }
+        },
+        {
+          $set: {
+            appraisalStatus: 'Draft',
+            isSubmitted: false,
+            isDraft: true,
+            isLocked: false,
+            principalApprovalStatus: 'Draft',
+            iqacStatus: 'Draft',
+            submittedAt: null,
+            unlockedReleaseTag: 'unlock-2026-11-20-rssleng',
+            updatedAt: new Date()
+          }
+        }
+      );
+
       // Ensure all Architecture (T'SEDA) faculty and their appraisals are strictly mapped to department: 'ARCH'
       const archEmails = [
         'gsjarch@tce.edu', 'hodarch@tce.edu', 'jjlkarch@tce.edu', 'aakarch@tce.edu',
