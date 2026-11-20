@@ -8724,7 +8724,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         <td className="py-2.5 px-3 font-medium text-slate-800">{row.timeline || selectedTimeline}</td>
                         <td className="py-2.5 px-3 text-slate-500">{formattedDate}</td>
                         <td className="py-2.5 px-3 font-bold text-[#4A1519]">
-                          <span className={`px-2 py-0.5 rounded text-xs font-black ${totalScore >= 100 ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-sm' : 'text-[#4A1519]'}`}>
+                          <span className="px-2 py-0.5 rounded text-xs font-black text-[#4A1519]">
                             {totalScore} / 200
                           </span>
                         </td>
