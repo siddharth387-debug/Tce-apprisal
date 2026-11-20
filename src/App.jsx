@@ -4499,7 +4499,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isSuperAdmin = isMasterUser;
 
   const userEmailLower = (user?.email || '').toLowerCase().trim();
-  const isIqacLeadership = user?.role === 'IQAC' || userEmailLower === 'iqac@tce.edu' || userEmailLower === 'headiqac@tce.edu' || userEmailLower.includes('iqac') || userEmailLower === 'pccse@tce.edu' || userEmailLower === 'pchitracse@tce.edu' || Boolean(user?.designation && /iqac/i.test(user.designation));
+  const isOfficialHodDeptAccount = /^hod[a-z]{2,6}@tce\.edu$/i.test(userEmailLower);
+  const isIqacLeadership = !isOfficialHodDeptAccount && (
+    user?.role === 'IQAC' ||
+    userEmailLower === 'iqac@tce.edu' ||
+    userEmailLower === 'headiqac@tce.edu' ||
+    userEmailLower.includes('iqac') ||
+    userEmailLower === 'pccse@tce.edu' ||
+    userEmailLower === 'pchitracse@tce.edu' ||
+    Boolean(user?.designation && /iqac/i.test(user.designation))
+  );
 
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
     if (user.role === 'Principal') return 'Principal';
@@ -5541,10 +5550,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   // Trigger the sync whenever the authenticated user session, effective role, or department filter changes.
   useEffect(() => {
     if (user) {
-      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) 
-        ? selectedDeptFilter 
-        : (effectiveRole === 'HOD' ? normalizeDepartmentCode(user.department) : (user.department || 'ALL'));
-      const isSelfMode = false;
+      const hodMatch = String(user.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
+      const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
+      const resolvedHodDept = (user.department && String(user.department).toUpperCase() !== 'ALL')
+        ? normalizeDepartmentCode(user.department)
+        : (inferredHodDept || 'MCA');
+      const currentDeptParam = effectiveRole === 'HOD'
+        ? resolvedHodDept
+        : ((isPrincipal || isRegistrar || isIQAC || isMasterUser)
+            ? selectedDeptFilter
+            : (user.department || 'ALL'));
       const roleForSync = effectiveRole;
       syncHistoryFromCloud(user, roleForSync, currentDeptParam);
     }
@@ -6512,18 +6527,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     let rows = appraisals;
 
     // Department filtering:
-    if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
+    if (effectiveRole === 'HOD') {
+      const hodMatch = String(user?.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
+      const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
+      const hodDept = (user?.department && String(user.department).toUpperCase() !== 'ALL')
+        ? normalizeDepartmentCode(user.department)
+        : (inferredHodDept || 'MCA');
+      if (hodDept && hodDept !== 'ALL') {
+        rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === hodDept);
+      }
+    } else if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
       if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
         const normSelected = normalizeDepartmentCode(selectedDeptFilter);
         rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === normSelected);
-      }
-    } else if (effectiveRole === 'HOD') {
-      const hodDept = normalizeDepartmentCode(user?.department || '');
-      if (hodDept && hodDept !== 'ALL') {
-        rows = rows.filter(r => {
-          const rowDept = normalizeDepartmentCode(r.department || '');
-          return !rowDept || rowDept === hodDept;
-        });
       }
     }
 
@@ -11506,6 +11522,17 @@ function getStoredAuthContext() {
 function normalizeArchUserProfile(userProfile) {
   if (!userProfile || typeof userProfile !== 'object') return userProfile;
   const em = String(userProfile.email || userProfile.personalEmail || '').toLowerCase().trim();
+  const hodMatch = em.match(/^hod([a-z]{2,6})@tce\.edu$/i);
+  if (hodMatch) {
+    const hodDeptCode = normalizeDepartmentCode(hodMatch[1].toUpperCase());
+    const matchedDeptObj = TCE_DEPARTMENTS.find(d => d.code === hodDeptCode);
+    return {
+      ...userProfile,
+      role: 'HOD',
+      department: hodDeptCode,
+      departmentName: matchedDeptObj ? matchedDeptObj.name : (userProfile.departmentName || hodDeptCode),
+    };
+  }
   const isArchEmail = /arch@tce\.edu$/i.test(em) || em === 'crissindhu@tce.edu';
   if (
     (isArchEmail || isArchDepartment(userProfile.department) || isArchDepartment(userProfile.departmentName)) &&

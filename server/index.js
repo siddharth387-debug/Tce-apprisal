@@ -844,6 +844,11 @@ export function isIqacAccount(email, record = null) {
   if (!email && !record) return false;
   const em = String(email || '').toLowerCase().trim();
 
+  // Official departmental HOD accounts (e.g. hodca@tce.edu, hodcse@tce.edu) are strictly HOD accounts, never IQAC
+  if (/^hod[a-z]{2,6}@tce\.edu$/i.test(em)) {
+    return false;
+  }
+
   // Generic / institutional IQAC accounts
   if (em === 'iqac@tce.edu' || em === 'headiqac@tce.edu' || em.includes('iqac')) {
     return true;
@@ -854,12 +859,9 @@ export function isIqacAccount(email, record = null) {
     return true;
   }
 
-  // Record-level inspection
+  // Record-level inspection (only when not logging in via a departmental hod<dept>@tce.edu email)
   if (record) {
     if (String(record.role || '').toUpperCase() === 'IQAC') return true;
-    if (record.designation && /iqac/i.test(record.designation)) return true;
-    if (isIqacAccount(record.email) || isIqacAccount(record.personalEmail)) return true;
-    if (Array.isArray(record.alternateEmails) && record.alternateEmails.some(a => isIqacAccount(a))) return true;
   }
 
   return false;
@@ -1894,11 +1896,14 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
 
     let queryFilter = {};
 
+    const isExplicitHodRequest = requestRole === 'HOD' || /^hod[a-z]{2,6}@tce\.edu$/i.test(requestEmail);
+
     if (isElevated) {
       // Determine department scoping
       const deptQuery = (req.query.department || '').toUpperCase().trim();
       const userDept = (tokenDept || masterRecord?.department || '').toUpperCase().trim();
-      const isSuperAdminOrRegistrar = requestEmail === 'siddharthk@student.tce.edu' ||
+      const isSuperAdminOrRegistrar = !isExplicitHodRequest && (
+                                     requestEmail === 'siddharthk@student.tce.edu' ||
                                      requestEmail === 'registrar@tce.edu' ||
                                      requestEmail === 'principal@tce.edu' ||
                                      isIqacAccount(requestEmail, masterRecord) ||
@@ -1907,13 +1912,21 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
                                      requestRole === 'IQAC' ||
                                      tokenRole === 'REGISTRAR' ||
                                      tokenRole === 'PRINCIPAL' ||
-                                     tokenRole === 'IQAC';
+                                     tokenRole === 'IQAC'
+      );
 
-      if (deptQuery === 'ALL' || (!deptQuery && isSuperAdminOrRegistrar)) {
+      if (isSuperAdminOrRegistrar && (deptQuery === 'ALL' || !deptQuery)) {
         console.log("🏛️ Registrar/Broad Access: Fetching across all 16 departments.");
         queryFilter = {};
       } else {
-        const targetDept = deptQuery || userDept;
+        const hodMatch = requestEmail.match(/^hod([a-z]+)@/i);
+        const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
+        const targetDept = isExplicitHodRequest
+          ? ((masterRecord?.department && masterRecord.department.toUpperCase() !== 'ALL')
+              ? masterRecord.department.toUpperCase()
+              : (inferredHodDept || (deptQuery && deptQuery !== 'ALL' ? deptQuery : '') || (userDept && userDept !== 'ALL' ? userDept : 'MCA')))
+          : ((deptQuery && deptQuery !== 'ALL') ? deptQuery : userDept);
+
         if (targetDept && targetDept !== 'ALL') {
           const normTarget = normalizeDepartmentCode(targetDept);
           const deptAliases = [targetDept, normTarget];
@@ -1924,16 +1937,12 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
           if (normTarget === 'PHY') deptAliases.push('PHYSICS');
           if (normTarget === 'AI') deptAliases.push('AIDS');
           if (normTarget === 'MECT') deptAliases.push('MCT');
+          if (normTarget === 'ARCH') deptAliases.push('ARCHITECTURE', "Architecture (T'SEDA)", 'TSEDA');
 
-          const deptRegexes = Array.from(new Set(deptAliases)).map(d => new RegExp(`^${d}$`, 'i'));
-          console.log(`🏢 Scoped Access: Fetching submissions for department [${targetDept}] with aliases:`, deptAliases);
+          const deptRegexes = Array.from(new Set(deptAliases)).map(d => new RegExp(`^${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'));
+          console.log(`🏢 Scoped Access: Fetching submissions for department [${normTarget}] with aliases:`, deptAliases);
           queryFilter = {
-            $or: [
-              { department: { $in: deptRegexes } },
-              { department: { $exists: false } },
-              { department: null },
-              { department: '' }
-            ]
+            department: { $in: deptRegexes }
           };
         } else {
           queryFilter = {};
@@ -1957,8 +1966,8 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
-    const isIQACUser = tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || isIqacAccount(requestEmail, masterRecord);
-    const isPrincipalUser = tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu';
+    const isIQACUser = !isExplicitHodRequest && (tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || isIqacAccount(requestEmail, masterRecord));
+    const isPrincipalUser = !isExplicitHodRequest && (tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu');
 
     if (isIQACUser || isPrincipalUser) {
       const allowedStatuses = [
@@ -2002,7 +2011,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
 
     const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
     const hodEmailSet = await getHodEmailSet();
-    const isCallerOnlyHod = isElevated && !(
+    const isCallerOnlyHod = isExplicitHodRequest || (isElevated && !(
       requestEmail === 'siddharthk@student.tce.edu' ||
       requestEmail === 'registrar@tce.edu' ||
       requestEmail === 'principal@tce.edu' ||
@@ -2013,7 +2022,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       tokenRole === 'REGISTRAR' ||
       tokenRole === 'PRINCIPAL' ||
       tokenRole === 'IQAC'
-    );
+    ));
     const seenMap = new Map();
     const records = [];
     for (const doc of rawRecords) {
