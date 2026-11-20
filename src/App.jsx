@@ -8074,8 +8074,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 Campus-Wide Accreditation &amp; Analytics
               </h2>
             ) : isIQAC ? (
-              <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                <span>📊</span> IQAC Accreditation &amp; Quality Audit
+              <h2 className="text-xl font-semibold text-slate-900">
+                IQAC
               </h2>
             ) : (
               <>
