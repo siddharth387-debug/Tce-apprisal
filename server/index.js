@@ -3672,6 +3672,30 @@ async function startServer() {
         }
       );
 
+      // One-time unlock to Draft for Dr. I. Chandramathy (cmarch@tce.edu / icarch@tce.edu, ARCH)
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: { $in: ['cmarch@tce.edu', 'icarch@tce.edu'] } },
+            { facultyEmail: { $in: ['cmarch@tce.edu', 'icarch@tce.edu'] } }
+          ],
+          unlockedReleaseTag: { $ne: 'unlock-2026-11-20-cmarch' }
+        },
+        {
+          $set: {
+            appraisalStatus: 'Draft',
+            isSubmitted: false,
+            isDraft: true,
+            isLocked: false,
+            principalApprovalStatus: 'Draft',
+            iqacStatus: 'Draft',
+            submittedAt: null,
+            unlockedReleaseTag: 'unlock-2026-11-20-cmarch',
+            updatedAt: new Date()
+          }
+        }
+      );
+
       // Ensure all Architecture (T'SEDA) faculty and their appraisals are strictly mapped to department: 'ARCH'
       const archEmails = [
         'gsjarch@tce.edu', 'hodarch@tce.edu', 'jjlkarch@tce.edu', 'aakarch@tce.edu',
