@@ -4517,7 +4517,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (user.role === 'HOD') return 'HOD';
     return user.role || 'Faculty';
   });
-  const effectiveRole = (isSuperAdmin || isIqacLeadership) ? adminActiveRole : user.role;
+  const effectiveRole = isSuperAdmin ? adminActiveRole : (isIqacLeadership ? 'IQAC' : user.role);
   const isPrincipal = effectiveRole === 'Principal';
   const isRegistrar = effectiveRole === 'Registrar';
   const [hodWorkspaceMode, setHodWorkspaceMode] = useState('hod_inbox'); // 'hod_inbox' | 'self_appraisal'
@@ -4623,6 +4623,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     selectedTimeline,
     hodScoreSliderValue,
     hodScoreFilterMode,
+    iqacScoreFrom,
+    iqacScoreTo,
     activeReviewTab
   ]);
   const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
@@ -8008,7 +8010,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
 
     // Score Filter for HoD, IQAC & Principal
-    if (isHod || isIQAC || isPrincipal) {
+    if (isIQAC || isPrincipal) {
+      const rawFrom = iqacScoreFrom === '' ? 0 : Number(iqacScoreFrom);
+      const rawTo = iqacScoreTo === '' ? 200 : Number(iqacScoreTo);
+      const safeFrom = isNaN(rawFrom) ? 0 : Math.max(0, Math.min(200, rawFrom));
+      const safeTo = isNaN(rawTo) ? 200 : Math.max(0, Math.min(200, rawTo));
+      const minBound = Math.min(safeFrom, safeTo);
+      const maxBound = Math.max(safeFrom, safeTo);
+      if (minBound > 0 || maxBound < 200) {
+        displayInboxRows = displayInboxRows.filter((row) => {
+          const totalScore = Number(row.totalScore ?? row.convertedScore) || 0;
+          return totalScore >= minBound && totalScore <= maxBound;
+        });
+      }
+    } else if (isHod) {
       const safeN = isNaN(Number(hodScoreSliderValue)) ? 200 : Number(hodScoreSliderValue);
       if (hodScoreFilterMode === 'all') {
         // All Scores: shows all records, ignores slider value
@@ -8141,14 +8156,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <button
                 type="button"
                 onClick={() => {
+                  const rawFrom = iqacScoreFrom === '' ? 0 : Number(iqacScoreFrom);
+                  const rawTo = iqacScoreTo === '' ? 200 : Number(iqacScoreTo);
+                  const sFrom = isNaN(rawFrom) ? 0 : Math.max(0, Math.min(200, rawFrom));
+                  const sTo = isNaN(rawTo) ? 200 : Math.max(0, Math.min(200, rawTo));
                   exportIqacRosterPDF({
                     rows: displayInboxRows,
                     timeline: selectedTimeline,
                     departmentFilter: selectedDeptFilter,
-                    targetScore: hodScoreSliderValue,
-                    scoreFrom: 0,
-                    scoreTo: hodScoreSliderValue,
-                    scoreFilterMode: (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? 'range' : hodScoreFilterMode,
+                    targetScore: Math.max(sFrom, sTo),
+                    scoreFrom: Math.min(sFrom, sTo),
+                    scoreTo: Math.max(sFrom, sTo),
+                    scoreFilterMode: 'range',
                     showExcludedArchive: false,
                   });
                 }}
@@ -8650,7 +8669,71 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       </div>
                     )}
 
-                {(isHod || isIQAC || isPrincipal) && (
+                {(isIQAC || isPrincipal) ? (
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                    <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Range:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={iqacScoreFrom}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setIqacScoreFrom('');
+                          return;
+                        }
+                        const num = Math.max(0, Math.min(200, Number(val)));
+                        if (!isNaN(num)) setIqacScoreFrom(num);
+                      }}
+                      aria-label="Minimum score"
+                      title="Minimum score (0 to 200)"
+                      className="w-14 h-6 px-1.5 text-xs font-bold text-center text-[#4A1519] rounded border border-slate-300 focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] outline-none tabular-nums"
+                    />
+                    <span className="text-[11px] font-semibold text-slate-500 select-none">to</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="200"
+                      value={iqacScoreTo}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setIqacScoreTo('');
+                          return;
+                        }
+                        const num = Math.max(0, Math.min(200, Number(val)));
+                        if (!isNaN(num)) setIqacScoreTo(num);
+                      }}
+                      aria-label="Maximum score"
+                      title="Maximum score (0 to 200)"
+                      className="w-14 h-6 px-1.5 text-xs font-bold text-center text-[#4A1519] rounded border border-slate-300 focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] outline-none tabular-nums"
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max="200"
+                      step="1"
+                      value={iqacScoreFrom === '' ? 0 : iqacScoreFrom}
+                      onChange={(e) => setIqacScoreFrom(Number(e.target.value))}
+                      title={`Minimum score slider: ${iqacScoreFrom === '' ? 0 : iqacScoreFrom} to ${iqacScoreTo === '' ? 200 : iqacScoreTo}`}
+                      className="w-20 sm:w-24 accent-[#4A1519] cursor-pointer"
+                    />
+                    {(Number(iqacScoreFrom) > 0 || (iqacScoreTo !== '' && Number(iqacScoreTo) < 200)) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIqacScoreFrom(0);
+                          setIqacScoreTo(200);
+                        }}
+                        className="text-[10px] font-bold text-slate-600 hover:text-[#4A1519] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition cursor-pointer"
+                        title="Reset range to 0 - 200"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+                ) : isHod && (
                   <div className="relative flex items-center gap-2 shrink-0">
                   <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Filter</span>
                   <input
@@ -11002,51 +11085,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     setSelectedAppraisal(null);
                     setSelectedReviewAppraisal(null);
                   }}
-                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
-                    effectiveRole === 'IQAC'
-                      ? 'bg-[#4A1519] text-white shadow-sm'
-                      : 'text-amber-950 hover:bg-amber-100'
-                  }`}
+                  className="px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 bg-[#4A1519] text-white shadow-sm"
                 >
                   <span>📊</span>
                   <span>IQAC Audit</span>
-                </button>
-                {(user.department === 'MCA' || user.email === 'hodca@tce.edu' || user.email === 'pccse@tce.edu' || (user.designation && user.designation.includes('Head'))) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdminActiveRole('HOD');
-                      setHodWorkspaceMode('hod_inbox');
-                      setActiveView('overview');
-                      setSelectedAppraisal(null);
-                      setSelectedReviewAppraisal(null);
-                    }}
-                    className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
-                      effectiveRole === 'HOD'
-                        ? 'bg-[#4A1519] text-white shadow-sm'
-                        : 'text-amber-950 hover:bg-amber-100'
-                    }`}
-                  >
-                    <span>🏢</span>
-                    <span>HoD MCA</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdminActiveRole('Faculty');
-                    setActiveView('overview');
-                    setSelectedAppraisal(null);
-                    setSelectedReviewAppraisal(null);
-                  }}
-                  className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
-                    effectiveRole === 'Faculty'
-                      ? 'bg-[#4A1519] text-white shadow-sm'
-                      : 'text-amber-950 hover:bg-amber-100'
-                  }`}
-                >
-                  <span>📋</span>
-                  <span>My Self-Appraisal</span>
                 </button>
               </div>
             )}
