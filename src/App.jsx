@@ -7829,11 +7829,53 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const statusCounts = { ALL: 0, DRAFT: 0, PENDING: 0, APPROVED: 0, IQAC_APPROVED: 0, RATIFIED: 0 };
     
     // Two-level classification helpers for IQAC & Principal
+    const KNOWN_HOD_EMAIL_SET = new Set([
+      'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
+      'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
+      'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
+      'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
+      'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
+    ]);
+    const KNOWN_DEAN_EMAIL_SET = new Set([
+      'gbarch@tce.edu', 'deaneca@tce.edu', 'rvchem@tce.edu', 'khh@tce.edu',
+      'khhece@tce.edu', 'smmroomi@tce.edu', 'smmrece@tce.edu', 'sbeee@tce.edu',
+      'spcse@tce.edu', 'hodamcs@tce.edu', 'shalinie@tce.edu', 'smscse@tce.edu',
+      'hodcse@tce.edu',
+    ]);
     const isDraftRecord = (r) => String(r.appraisalStatus || '').toUpperCase().trim() === 'DRAFT' || Boolean(r.isDraft);
-    const isApprovedByHod = (r) => !isDraftRecord(r) && isHodApprovedOrLater(r);
-    const isPendingByHod = (r) => !isDraftRecord(r) && !isHodApprovedOrLater(r);
-    const isLeadershipApproved = (r) => !isDraftRecord(r) && isIqacApprovedRecord(r);
-    const isLeadershipPending = (r) => !isDraftRecord(r) && isHodApprovedOrLater(r) && !isIqacApprovedRecord(r);
+    const isDeanSubmissionRow = (r) => {
+      const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+      const desig = String(r.designation || '');
+      const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
+      const collegeRows = r.section9Data?.collegeActivities || r.sectionData?.collegeActivities || [];
+      return (
+        KNOWN_DEAN_EMAIL_SET.has(em) ||
+        /\bdean\b/i.test(desig) ||
+        (Array.isArray(adminRows) && adminRows.some((a) => /\bdean\b/i.test(a?.role || ''))) ||
+        (Array.isArray(collegeRows) && collegeRows.some((c) => /\bassociate\s*dean/i.test(c?.category || '')))
+      );
+    };
+    const isHodSubmissionRow = (r) => {
+      const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+      const desig = String(r.designation || '');
+      const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
+      return (
+        Boolean(r.isHodSubmission) ||
+        KNOWN_HOD_EMAIL_SET.has(em) ||
+        /^hod[a-z]{2,6}@tce\.edu$/i.test(em) ||
+        /\b(head|hod)\b/i.test(desig) ||
+        (Array.isArray(adminRows) && adminRows.some((a) => /\bhod\b/i.test(a?.role || '')))
+      );
+    };
+    const isRegularFacultyRow = (r) => !isHodSubmissionRow(r) && !isDeanSubmissionRow(r);
+    const isApprovedByHod = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && isHodApprovedOrLater(r);
+    const isPendingByHod = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && !isHodApprovedOrLater(r);
+    const isLeadershipApproved = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && isIqacApprovedRecord(r);
+    const isLeadershipPending = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && isHodApprovedOrLater(r) && !isIqacApprovedRecord(r);
+    const isHodDirectPending = (r) => !isDraftRecord(r) && isHodSubmissionRow(r) && !isIqacApprovedRecord(r);
+    const isHodDirectApproved = (r) => !isDraftRecord(r) && isHodSubmissionRow(r) && isIqacApprovedRecord(r);
+    const isDeanDirectPending = (r) => !isDraftRecord(r) && isDeanSubmissionRow(r) && !isIqacApprovedRecord(r);
+    const isDeanDirectApproved = (r) => !isDraftRecord(r) && isDeanSubmissionRow(r) && isIqacApprovedRecord(r);
 
     const hodCounts = {
       HOD_APPROVED: 0,
@@ -7846,29 +7888,59 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       APPROVED: 0,
       TOTAL: 0
     };
+    const hodSubmissionCounts = {
+      PENDING_REVIEW: 0,
+      APPROVED: 0,
+      TOTAL: 0
+    };
+    const deanSubmissionCounts = {
+      PENDING_REVIEW: 0,
+      APPROVED: 0,
+      TOTAL: 0
+    };
 
     if (isIQAC || isPrincipal) {
       selectedInboxRows.forEach((row) => {
         if (isDraftRecord(row)) {
           hodCounts.DRAFT++;
-        } else if (isApprovedByHod(row)) {
-          hodCounts.HOD_APPROVED++;
-          if (isLeadershipApproved(row)) {
-            yourCounts.APPROVED++;
+          return;
+        }
+        if (isHodSubmissionRow(row)) {
+          if (isIqacApprovedRecord(row)) {
+            hodSubmissionCounts.APPROVED++;
           } else {
-            yourCounts.PENDING_REVIEW++;
+            hodSubmissionCounts.PENDING_REVIEW++;
           }
-        } else if (isPendingByHod(row)) {
-          hodCounts.HOD_PENDING++;
+        }
+        if (isDeanSubmissionRow(row)) {
+          if (isIqacApprovedRecord(row)) {
+            deanSubmissionCounts.APPROVED++;
+          } else {
+            deanSubmissionCounts.PENDING_REVIEW++;
+          }
+        }
+        if (isRegularFacultyRow(row)) {
+          if (isApprovedByHod(row)) {
+            hodCounts.HOD_APPROVED++;
+            if (isLeadershipApproved(row)) {
+              yourCounts.APPROVED++;
+            } else {
+              yourCounts.PENDING_REVIEW++;
+            }
+          } else if (isPendingByHod(row)) {
+            hodCounts.HOD_PENDING++;
+          }
         }
       });
       hodCounts.TOTAL = hodCounts.HOD_APPROVED + hodCounts.HOD_PENDING + hodCounts.DRAFT;
       yourCounts.TOTAL = yourCounts.PENDING_REVIEW + yourCounts.APPROVED;
+      hodSubmissionCounts.TOTAL = hodSubmissionCounts.PENDING_REVIEW + hodSubmissionCounts.APPROVED;
+      deanSubmissionCounts.TOTAL = deanSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.APPROVED;
 
       // Populate statusCounts for live summary cards
       statusCounts.ALL = selectedInboxRows.filter(r => !isDraftRecord(r)).length;
-      statusCounts.APPROVED = yourCounts.APPROVED;
-      statusCounts.PENDING = yourCounts.PENDING_REVIEW;
+      statusCounts.APPROVED = yourCounts.APPROVED + hodSubmissionCounts.APPROVED + deanSubmissionCounts.APPROVED;
+      statusCounts.PENDING = yourCounts.PENDING_REVIEW + hodSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.PENDING_REVIEW;
       statusCounts.DRAFT = hodCounts.DRAFT;
     } else {
       selectedInboxRows.forEach((row) => {
@@ -7904,6 +7976,18 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           displayInboxRows = displayInboxRows.filter(isLeadershipPending);
         } else if (yourApprovalsTab === 'APPROVED') {
           displayInboxRows = displayInboxRows.filter(isLeadershipApproved);
+        }
+      } else if (leadershipTopBox === 'HOD_SUBMISSIONS') {
+        if (yourApprovalsTab === 'PENDING_REVIEW') {
+          displayInboxRows = displayInboxRows.filter(isHodDirectPending);
+        } else if (yourApprovalsTab === 'APPROVED') {
+          displayInboxRows = displayInboxRows.filter(isHodDirectApproved);
+        }
+      } else if (leadershipTopBox === 'DEAN_SUBMISSIONS') {
+        if (yourApprovalsTab === 'PENDING_REVIEW') {
+          displayInboxRows = displayInboxRows.filter(isDeanDirectPending);
+        } else if (yourApprovalsTab === 'APPROVED') {
+          displayInboxRows = displayInboxRows.filter(isDeanDirectApproved);
         }
       } else {
         displayInboxRows = [];
@@ -7948,14 +8032,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       displayInboxRows = displayInboxRows.filter((row) => !row.iqacExcluded);
     }
 
+    const isDirectApprovalBox = ['YOUR_APPROVALS', 'HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS'].includes(leadershipTopBox);
     const isBulkSelectAllowed = (isIQAC || isPrincipal)
-      ? (leadershipTopBox === 'YOUR_APPROVALS' && ['PENDING_REVIEW', 'APPROVED'].includes(yourApprovalsTab))
+      ? (isDirectApprovalBox && ['PENDING_REVIEW', 'APPROVED'].includes(yourApprovalsTab))
       : false;
     const isRowSelectable = (row) => {
       if (isIQAC || isPrincipal) {
-        if (leadershipTopBox !== 'YOUR_APPROVALS') return false;
-        if (yourApprovalsTab === 'PENDING_REVIEW') return isLeadershipPending(row);
-        if (yourApprovalsTab === 'APPROVED') return isLeadershipApproved(row);
+        if (!isDirectApprovalBox) return false;
+        if (yourApprovalsTab === 'PENDING_REVIEW') return !isDraftRecord(row) && !isIqacApprovedRecord(row);
+        if (yourApprovalsTab === 'APPROVED') return !isDraftRecord(row) && isIqacApprovedRecord(row);
         return false;
       }
       return false;
@@ -8340,8 +8425,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="space-y-3">
             {/* Task 3: ROW A - Compact segmented toggle */}
             {(isIQAC || isPrincipal) && (
-              <div className="flex items-center">
-                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-0.5">
+              <div className="flex flex-wrap items-center">
+                <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-100 p-0.5 gap-0.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -8373,6 +8458,48 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     }`}
                   >
                     Your Approvals
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLeadershipTopBox('HOD_SUBMISSIONS');
+                      setYourApprovalsTab('PENDING_REVIEW');
+                      setIsIqacSelectMode(false);
+                      setSelectedIqacRowIds([]);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5 ${
+                      leadershipTopBox === 'HOD_SUBMISSIONS'
+                        ? 'bg-[#4A1519] text-white shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <span>HOD</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      leadershipTopBox === 'HOD_SUBMISSIONS' ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-700'
+                    }`}>
+                      {hodSubmissionCounts.TOTAL}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLeadershipTopBox('DEAN_SUBMISSIONS');
+                      setYourApprovalsTab('PENDING_REVIEW');
+                      setIsIqacSelectMode(false);
+                      setSelectedIqacRowIds([]);
+                    }}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5 ${
+                      leadershipTopBox === 'DEAN_SUBMISSIONS'
+                        ? 'bg-[#4A1519] text-white shadow-sm font-bold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
+                  >
+                    <span>Dean</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      leadershipTopBox === 'DEAN_SUBMISSIONS' ? 'bg-white/20 text-white' : 'bg-slate-200/80 text-slate-700'
+                    }`}>
+                      {deanSubmissionCounts.TOTAL}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -8420,10 +8547,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           </button>
                         ))
                       ) : (
-                        [
-                          { key: 'PENDING_REVIEW', label: '⏳ Pending Review', count: yourCounts.PENDING_REVIEW, color: 'bg-amber-600 text-white' },
-                          { key: 'APPROVED', label: '✔ Approved', count: yourCounts.APPROVED, color: 'bg-green-600 text-white' },
-                        ].map((tab) => (
+                        (() => {
+                          const activeBoxCounts = leadershipTopBox === 'HOD_SUBMISSIONS'
+                            ? hodSubmissionCounts
+                            : leadershipTopBox === 'DEAN_SUBMISSIONS'
+                              ? deanSubmissionCounts
+                              : yourCounts;
+                          return [
+                            { key: 'PENDING_REVIEW', label: '⏳ Pending Review', count: activeBoxCounts.PENDING_REVIEW, color: 'bg-amber-600 text-white' },
+                            { key: 'APPROVED', label: '✔ Approved', count: activeBoxCounts.APPROVED, color: 'bg-green-600 text-white' },
+                          ];
+                        })().map((tab) => (
                           <button
                             key={tab.key}
                             type="button"
@@ -8738,7 +8872,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   </span>
                                 );
                               }
-                              if (!isHodApprovedOrLater(row)) {
+                              if (!isHodApprovedOrLater(row) && !isHodSubmissionRow(row) && !isDeanSubmissionRow(row)) {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm flex items-center gap-1 w-fit">
                                     <span>⏳</span> Pending HoD Review
@@ -8749,12 +8883,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
                                     <span>✔</span> Approved
-                                  </span>
-                                );
-                              } else if (row.isHodSubmission) {
-                                return (
-                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                    <span>⏳</span> HoD Submission • Pending IQAC
                                   </span>
                                 );
                               } else {
