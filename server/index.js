@@ -1896,7 +1896,13 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
 
     let queryFilter = {};
 
-    const isExplicitHodRequest = requestRole === 'HOD' || /^hod[a-z]{2,6}@tce\.edu$/i.test(requestEmail);
+    const isMasterOrRegistrarAccount =
+      requestEmail === 'siddharthk@student.tce.edu' ||
+      requestEmail === 'registrar@tce.edu';
+    const isExplicitHodRequest = !isMasterOrRegistrarAccount && (
+      requestRole === 'HOD' ||
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(requestEmail)
+    );
 
     if (isElevated) {
       // Determine department scoping

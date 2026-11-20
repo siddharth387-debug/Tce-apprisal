@@ -5555,11 +5555,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const resolvedHodDept = (user.department && String(user.department).toUpperCase() !== 'ALL')
         ? normalizeDepartmentCode(user.department)
         : (inferredHodDept || 'MCA');
-      const currentDeptParam = effectiveRole === 'HOD'
-        ? resolvedHodDept
-        : ((isPrincipal || isRegistrar || isIQAC || isMasterUser)
-            ? selectedDeptFilter
-            : (user.department || 'ALL'));
+      const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser)
+        ? selectedDeptFilter
+        : (effectiveRole === 'HOD' ? resolvedHodDept : (user.department || 'ALL'));
       const roleForSync = effectiveRole;
       syncHistoryFromCloud(user, roleForSync, currentDeptParam);
     }
@@ -5831,7 +5829,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (!hasHodPrivileges || !Array.isArray(appraisals)) return;
     const rebuilt = {};
     const seenKeys = new Set();
-    const isOnlyHodReviewer = !isIQAC && !isPrincipal && !isRegistrar;
+    const isOnlyHodReviewer = !isIQAC && !isPrincipal && !isRegistrar && !isMasterUser;
     const currentUserEmail = String(user?.email || '').toLowerCase().trim();
     appraisals.forEach((record) => {
       const tl = record.timeline;
@@ -6527,7 +6525,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     let rows = appraisals;
 
     // Department filtering:
-    if (effectiveRole === 'HOD') {
+    if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
+      if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
+        const normSelected = normalizeDepartmentCode(selectedDeptFilter);
+        rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === normSelected);
+      }
+    } else if (effectiveRole === 'HOD') {
       const hodMatch = String(user?.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
       const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
       const hodDept = (user?.department && String(user.department).toUpperCase() !== 'ALL')
@@ -6535,11 +6538,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         : (inferredHodDept || 'MCA');
       if (hodDept && hodDept !== 'ALL') {
         rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === hodDept);
-      }
-    } else if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
-      if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
-        const normSelected = normalizeDepartmentCode(selectedDeptFilter);
-        rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === normSelected);
       }
     }
 
