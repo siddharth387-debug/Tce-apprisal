@@ -1009,6 +1009,8 @@ function flattenAppraisalRecord(record) {
   return {
     ...res,
     ...(record.section9Data || {}),
+    department: record.department || rawSec.department || '',
+    departmentName: record.departmentName || rawSec.departmentName || '',
     submittedAt: record.submittedAt,
     appraisalStatus: effectiveAppraisalStatus,
     hodRemarks: record.hodRemarks || rawSec.hodRemarks || '',
@@ -1712,9 +1714,10 @@ function canAddStudentExhibitions(rows) {
   return !!(last.title && last.evidenceLink);
 }
 
-function computeSectionScores(sectionData = {}, role) {
-  const isArchMode = isArchDepartment(role) || isArchDepartment(sectionData.department);
-  const targetDept = isArchMode ? 'ARCH' : (sectionData.department || 'CSE');
+function computeSectionScores(sectionData = {}, role, deptOverride = '') {
+  const resolvedDept = deptOverride || sectionData.department || sectionData.dept || '';
+  const isArchMode = isArchDepartment(role) || isArchDepartment(resolvedDept);
+  const targetDept = isArchMode ? 'ARCH' : (resolvedDept || 'CSE');
   return computeEffectiveScores(sectionData, sectionData.hodSubsectionScores || {}, targetDept);
 }
 
@@ -3234,6 +3237,8 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     valueAdded: getFirstPopulatedArray('valueAdded', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
     innovativeMethods: getFirstPopulatedArray('innovativeMethods', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
     academicCollaborations: getFirstPopulatedArray('academicCollaborations', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    studioPedagogy: getFirstPopulatedArray('studioPedagogy', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
+    educationalTours: getFirstPopulatedArray('educationalTours', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
     certifications: getFirstPopulatedArray('certifications', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
     studentFeedback: getFirstPopulatedArray('studentFeedback', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
     resultAnalysis: getFirstPopulatedArray('resultAnalysis', appraisal.section1Data, appraisal.sectionData, fullData, appraisal),
@@ -3265,6 +3270,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const activeHodScores = (hodControls ? hodControls.subsectionScores : appraisal.hodSubsectionScores) || {};
   const effectiveScoreObj = computeEffectiveScores(fullData, activeHodScores, appraisal.department || fullData.department);
   const scoreObj = effectiveScoreObj;
+  const activeMaxMarks = effectiveScoreObj.isArch ? SUBSECTION_MAX_MARKS_ARCH : SUBSECTION_MAX_MARKS;
 
   const [expandedSections, setExpandedSections] = useState({});
   const toggleSection = (secKey) => {
@@ -3355,7 +3361,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   };
 
   const renderHoDSubsectionScoringAndFeedback = (subKey, label) => {
-    const maxMark = SUBSECTION_MAX_MARKS[subKey] || 10;
+    const maxMark = activeMaxMarks[subKey] || 10;
     const autoScore = effectiveScoreObj.autoMap[subKey] ?? 0;
     const effScore = effectiveScoreObj.effectiveMap[subKey] ?? autoScore;
     const isOverridden = effScore !== autoScore;
@@ -3476,8 +3482,16 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: '1.2 Course File', rows: (sec1.courseFiles || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'courseName', 'compliance', 'evidenceLink'] },
     { label: '1.3 Course Design', rows: (sec1.coursesDesigned || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'courseName', 'remarks', 'evidenceLink'] },
     { label: '1.4 Value-Added', rows: (sec1.valueAdded || []).filter(r => !isRowBlank(r)), fields: ['courseName', 'particulars', 'studentCount', 'evidenceLink'] },
-    { label: '1.5 Innovative Methods', rows: (sec1.innovativeMethods || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'method', 'evidenceLink'] },
-    { label: '1.6 Academic Collaborations', rows: (sec1.academicCollaborations || []).filter(r => !isRowBlank(r)), fields: ['organization', 'collaborationType', 'evidenceLink'] },
+    ...(effectiveScoreObj.isArch ? [
+      { label: '1.5.1 Innovative Teaching Methods', rows: (sec1.innovativeMethods || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'method', 'evidenceLink'] },
+      { label: '1.5.2 Studio Based Teaching', rows: (sec1.studioPedagogy || []).filter(r => !isRowBlank(r)), fields: ['activityName', 'batchOrSem', 'outcomes', 'evidenceLink'] },
+      (sec1.educationalTours || []).filter(r => !isRowBlank(r)).length > 0
+        ? { label: '1.6 Educational Tours & Case Studies', rows: (sec1.educationalTours || []).filter(r => !isRowBlank(r)), fields: ['tourType', 'place', 'batch', 'evidenceLink'] }
+        : { label: '1.6 Educational Tours & Case Studies', rows: (sec1.academicCollaborations || []).filter(r => !isRowBlank(r)), fields: ['organization', 'collaborationType', 'evidenceLink'] },
+    ] : [
+      { label: '1.5 Innovative Methods', rows: (sec1.innovativeMethods || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'method', 'evidenceLink'] },
+      { label: '1.6 Academic Collaborations', rows: (sec1.academicCollaborations || []).filter(r => !isRowBlank(r)), fields: ['organization', 'collaborationType', 'evidenceLink'] },
+    ]),
     { label: '1.8 NPTEL Certifications', rows: (sec1.certifications || []).filter(r => !isRowBlank(r)), fields: ['courseName', 'platform', 'certType', 'evidenceLink'] },
     { label: '1.9 Student Feedback', rows: (sec1.studentFeedback || []).filter(r => !isRowBlank(r)), fields: ['courseName', 'feedbackPct', 'evidenceLink'] },
     { label: '1.10 Result Analysis', rows: (sec1.resultAnalysis || []).filter(r => !isRowBlank(r)), fields: ['courseCode', 'courseName', 'passPercentage', 'evidenceLink'] },
@@ -3488,7 +3502,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: '2.1 Journal Publications', rows: (sec2.journalPapers || []).filter(r => !isRowBlank(r)), fields: ['paperTitle', 'journalName', 'tier', 'evidenceLink'] },
     { label: '2.4 Books / Chapters', rows: (sec2.bookPublications || []).filter(r => !isRowBlank(r)), fields: ['title', 'type', 'evidenceLink'] },
     { label: '2.5 Conference Publications', rows: (sec2.conferencePapers || []).filter(r => !isRowBlank(r)), fields: ['paperTitle', 'proceedingName', 'evidenceLink'] },
-    { label: '2.6 Research Collaborations', rows: (sec2.researchCollaborations || []).filter(r => !isRowBlank(r)), fields: ['title', 'partner', 'type', 'nirfRanking', 'qsRanking', 'evidenceLink'] },
+    ...(effectiveScoreObj.isArch && getFirstPopulatedArray('creativeScholarship', appraisal.section2Data, appraisal.sectionData, fullData, appraisal).filter(r => !isRowBlank(r)).length > 0
+      ? [{ label: '2.6 Creative Scholarship & Writing', rows: getFirstPopulatedArray('creativeScholarship', appraisal.section2Data, appraisal.sectionData, fullData, appraisal).filter(r => !isRowBlank(r)), fields: ['title', 'publisher', 'category', 'evidenceLink'] }]
+      : [{ label: '2.6 Research Collaborations', rows: (sec2.researchCollaborations || []).filter(r => !isRowBlank(r)), fields: ['title', 'partner', 'type', 'nirfRanking', 'qsRanking', 'evidenceLink'] }]),
     { label: '2.7 PhD Scholars (Registered)', rows: (sec2.phdRegistered || []).filter(r => !isRowBlank(r)), fields: ['scholarName', 'researchArea', 'evidenceLink'] },
     { label: '2.8 PhD Scholars (Awarded)', rows: (sec2.phdAwarded || []).filter(r => !isRowBlank(r)), fields: ['scholarName', 'researchArea', 'evidenceLink'] },
   ];
@@ -3510,6 +3526,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     transferOfTechnology: getFirstPopulatedArray('transferOfTechnology', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
     prototypesDeveloped: getFirstPopulatedArray('prototypesDeveloped', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
     hackathonPrizes: getFirstPopulatedArray('hackathonPrizes', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
+    designPatents: getFirstPopulatedArray('designPatents', appraisal.section3Data, appraisal.sectionData, fullData, appraisal),
   }), [appraisal, fullData]);
 
   const sec4 = useMemo(() => ({
@@ -3527,6 +3544,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     foreignFaculty: getFirstPopulatedArray('foreignFaculty', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
     reputationSurvey: getFirstPopulatedArray('reputationSurvey', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
     nirfSurvey: getFirstPopulatedArray('nirfSurvey', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
+    internationalDesignStudio: getFirstPopulatedArray('internationalDesignStudio', appraisal.section5Data, appraisal.sectionData, fullData, appraisal),
   }), [appraisal, fullData]);
 
   const sec6Norm = useMemo(() => normalizeSection6Data(appraisal.section6Data || appraisal.sectionData || fullData || {}), [appraisal, fullData]);
@@ -3556,6 +3574,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     projectPublications: getFirstPopulatedArray('projectPublications', appraisal.section8Data, appraisal.sectionData, fullData, appraisal),
     hackathonMentoring: getFirstPopulatedArray('hackathonMentoring', appraisal.section8Data, appraisal.sectionData, fullData, appraisal),
     startupSupport: getFirstPopulatedArray('startupSupport', appraisal.section8Data, appraisal.sectionData, fullData, appraisal),
+    studentExhibitions: getFirstPopulatedArray('studentExhibitions', appraisal.section8Data, appraisal.sectionData, fullData, appraisal),
   }), [appraisal, fullData]);
 
   const sec9 = useMemo(() => ({
@@ -3571,7 +3590,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: "3.2 Patents Granted", rows: (sec3.patentsGranted || []).filter(r => !isRowBlank(r)), fields: ["refNumber", "title", "inventors", "dateGranted", "evidenceLink"] },
     { label: "3.3 Transfer of Technology", rows: (sec3.transferOfTechnology || []).filter(r => !isRowBlank(r)), fields: ["title", "industryPartner", "amount", "evidenceLink"] },
     { label: "3.4 Prototypes", rows: (sec3.prototypesDeveloped || []).filter(r => !isRowBlank(r)), fields: ["title", "studentsInvolved", "date", "evidenceLink"] },
-    { label: "3.5 Hackathon Prizes", rows: (sec3.hackathonPrizes || []).filter(r => !isRowBlank(r)), fields: ["eventName", "studentsMentored", "prize", "date", "evidenceLink"] }
+    { label: "3.5 Hackathon Prizes", rows: (sec3.hackathonPrizes || []).filter(r => !isRowBlank(r)), fields: ["eventName", "studentsMentored", "prize", "date", "evidenceLink"] },
+    ...(effectiveScoreObj.isArch ? [
+      { label: "3.6 Design Patents", rows: (sec3.designPatents || []).filter(r => !isRowBlank(r)), fields: ["refNumber", "title", "dateGranted", "evidenceLink"] }
+    ] : [])
   ];
   const isSection3Populated = section3Arrays.some(s => s.rows.length > 0);
 
@@ -3586,7 +3608,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
     { label: "5.2 Visiting Positions", rows: (sec5.visitingPositions || []).filter(r => !isRowBlank(r)), fields: ["institution", "country", "fromDate", "toDate", "duration", "evidenceLink"] },
     { label: "5.3 Foreign Faculty", rows: (sec5.foreignFaculty || []).filter(r => !isRowBlank(r)), fields: ["name", "institution", "period", "engagementType", "evidenceLink"] },
     { label: "5.4 Reputation Survey", rows: (sec5.reputationSurvey || []).filter(r => !isRowBlank(r)), fields: ["surveyName", "contributionDetails", "date", "evidenceLink"] },
-    { label: "5.5 NIRF Survey", rows: (sec5.nirfSurvey || []).filter(r => !isRowBlank(r)), fields: ["nominationDetails", "date", "evidenceLink"] }
+    { label: "5.5 NIRF Survey", rows: (sec5.nirfSurvey || []).filter(r => !isRowBlank(r)), fields: ["nominationDetails", "date", "evidenceLink"] },
+    ...(effectiveScoreObj.isArch ? [
+      { label: "5.6 International Design Studio", rows: (sec5.internationalDesignStudio || []).filter(r => !isRowBlank(r)), fields: ["institution", "nature", "country", "period", "evidenceLink"] }
+    ] : [])
   ];
   const isSection5Populated = section5Arrays.some(s => s.rows.length > 0);
 
@@ -3611,7 +3636,10 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const section8Arrays = [
     { label: "8.1 Project Publications", rows: (sec8.projectPublications || []).filter(r => !isRowBlank(r)), fields: ["title", "students", "journalDetails", "date", "evidenceLink"] },
     { label: "8.2 Hackathon Mentoring", rows: (sec8.hackathonMentoring || []).filter(r => !isRowBlank(r)), fields: ["eventName", "students", "outcome", "dateRange", "evidenceLink"] },
-    { label: "8.3 Startup Support", rows: (sec8.startupSupport || []).filter(r => !isRowBlank(r)), fields: ["startupName", "role", "duration", "evidenceLink"] }
+    { label: "8.3 Startup Support", rows: (sec8.startupSupport || []).filter(r => !isRowBlank(r)), fields: ["startupName", "role", "duration", "evidenceLink"] },
+    ...(effectiveScoreObj.isArch ? [
+      { label: "8.4 Student Exhibitions", rows: (sec8.studentExhibitions || []).filter(r => !isRowBlank(r)), fields: ["title", "venue", "date", "evidenceLink"] }
+    ] : [])
   ];
   const isSection8Populated = section8Arrays.some(s => s.rows.length > 0);
 
@@ -3625,7 +3653,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
   const renderSubTableGroup = (groups) => {
     return groups.map(({ label, rows, fields }) => {
       const subKey = label.split(' ')[0];
-      const maxMark = SUBSECTION_MAX_MARKS[subKey] || 10;
+      const maxMark = activeMaxMarks[subKey] || 10;
       const autoScore = effectiveScoreObj.autoMap[subKey] ?? 0;
       const effScore = effectiveScoreObj.effectiveMap[subKey] ?? autoScore;
       const hasRowMarks = !isIqacView && ['2.1', '2.4', '2.5', '2.7', '2.8'].includes(subKey);
@@ -3969,7 +3997,7 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
                   : (sec1.mentoring ? [sec1.mentoring] : []);
                 const auto1_7 = effectiveScoreObj.autoMap['1.7'] ?? 0;
                 const eff1_7 = effectiveScoreObj.effectiveMap['1.7'] ?? auto1_7;
-                const max1_7 = SUBSECTION_MAX_MARKS['1.7'] || 10;
+                const max1_7 = activeMaxMarks['1.7'] || 10;
                 return (
                   <div className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
                     <div className="flex items-center justify-between mb-1.5">
@@ -4035,9 +4063,9 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
               {/* Citations Summary */}
               {(() => {
                 const eff2_2 = effectiveScoreObj.effectiveMap['2.2'] ?? (effectiveScoreObj.autoMap['2.2'] ?? 0);
-                const max2_2 = SUBSECTION_MAX_MARKS['2.2'] || 10;
+                const max2_2 = activeMaxMarks['2.2'] || 10;
                 const eff2_3 = effectiveScoreObj.effectiveMap['2.3'] ?? (effectiveScoreObj.autoMap['2.3'] ?? 0);
-                const max2_3 = SUBSECTION_MAX_MARKS['2.3'] || 10;
+                const max2_3 = activeMaxMarks['2.3'] || 10;
                 return (
                   <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 mb-2 space-y-2">
                     <div className="flex items-center justify-between">
@@ -5674,6 +5702,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     };
   }, [user?.token, onSignOut]);
 
+  const lastReviewSyncAtRef = useRef(0);
+
   // Watchdog: syncs appraisal records from MongoDB Atlas
   const syncHistoryFromCloud = useCallback(async (currentUser, roleOverride, deptOverride) => {
     if (!currentUser || !currentUser.email) return;
@@ -5685,9 +5715,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       if (userRole === 'HOD' && userDept && userDept !== 'ALL') {
         userDept = normalizeDepartmentCode(userDept);
       }
-      const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+      const headers = activeToken
+        ? { Authorization: `Bearer ${activeToken}`, 'Cache-Control': 'no-cache' }
+        : { 'Cache-Control': 'no-cache' };
       const response = await axios.get(
-        `${API_BASE_URL}/appraisals?email=${encodeURIComponent(currentUser.email.trim())}&role=${encodeURIComponent(userRole)}&department=${encodeURIComponent(userDept)}`, 
+        `${API_BASE_URL}/appraisals?email=${encodeURIComponent(currentUser.email.trim())}&role=${encodeURIComponent(userRole)}&department=${encodeURIComponent(userDept)}&_ts=${Date.now()}`, 
         {
           headers,
           withCredentials: true
@@ -5696,6 +5728,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       
       const remoteData = response.data?.data || response.data;
       if (Array.isArray(remoteData)) {
+        lastReviewSyncAtRef.current = Date.now();
         setAppraisals(remoteData);
       }
     } catch (error) {
@@ -5719,7 +5752,50 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const roleForSync = effectiveRole;
       syncHistoryFromCloud(user, roleForSync, currentDeptParam);
     }
-  }, [user, effectiveRole, hodWorkspaceMode, iqacWorkspaceMode, isIQACUser, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, syncHistoryFromCloud]);
+  }, [user, effectiveRole, hodWorkspaceMode, iqacWorkspaceMode, isIQACUser, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, activeReviewTab, syncHistoryFromCloud]);
+
+  // Live Review Sync: Refresh cloud data on tab focus/visibility resume and every 60s when not editing/reviewing a modal
+  useEffect(() => {
+    if (!user || !isReviewMode) return;
+
+    const getDeptParam = () => {
+      if (isPrincipal || isRegistrar || isIQAC || isMasterUser) return selectedDeptFilter;
+      if (effectiveRole === 'HOD') {
+        const hodMatch = String(user.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
+        const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
+        return (user.department && String(user.department).toUpperCase() !== 'ALL')
+          ? normalizeDepartmentCode(user.department)
+          : (inferredHodDept || 'MCA');
+      }
+      return user.department || 'ALL';
+    };
+
+    const refreshIfStale = () => {
+      if (selectedAppraisal) return;
+      if (Date.now() - lastReviewSyncAtRef.current < 10000) return;
+      syncHistoryFromCloud(user, effectiveRole, getDeptParam());
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        refreshIfStale();
+      }
+    };
+
+    window.addEventListener('focus', refreshIfStale);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    const reviewPollTimer = setInterval(() => {
+      if (!selectedAppraisal) {
+        syncHistoryFromCloud(user, effectiveRole, getDeptParam());
+      }
+    }, 60000);
+
+    return () => {
+      window.removeEventListener('focus', refreshIfStale);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      clearInterval(reviewPollTimer);
+    };
+  }, [user, isReviewMode, effectiveRole, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, selectedAppraisal, syncHistoryFromCloud]);
 
   const isApprovedByActiveAuthority = useCallback((rec) => {
     if (!rec) return false;
@@ -6038,6 +6114,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       if (recEmail && seenKeys.has(uniqueKey)) return;
       if (recEmail) seenKeys.add(uniqueKey);
 
+      const flatForInbox = flattenAppraisalRecord(record);
+      const effForInbox = computeEffectiveScores(
+        flatForInbox,
+        record.hodSubsectionScores || flatForInbox.hodSubsectionScores || {},
+        record.department || flatForInbox.department
+      );
+      const liveInboxScore = typeof effForInbox.grandTotal === 'number'
+        ? effForInbox.grandTotal
+        : (record.convertedScore || 0);
+
       if (!rebuilt[tl]) rebuilt[tl] = [];
       rebuilt[tl].push({
         id: record._id || `${record.email}-${tl}`,
@@ -6066,7 +6152,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         subsectionRemarks: record.subsectionRemarks || {},
         hodSubsectionScores: record.hodSubsectionScores || {},
         submittedAt: record.submittedAt || record.createdAt || record.updatedAt,
-        convertedScore: record.convertedScore || 0,
+        convertedScore: liveInboxScore,
+        totalScore: liveInboxScore,
         designation: record.designation || 'Assistant Professor',
         section1Data: record.section1Data || {},
         section2Data: record.section2Data || {},
@@ -6077,7 +6164,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         section7Data: record.section7Data || {},
         section8Data: record.section8Data || {},
         section9Data: record.section9Data || {},
-        sectionData: flattenAppraisalRecord(record),
+        sectionData: flatForInbox,
       });
     });
     setHodInboxByTimeline(rebuilt);
@@ -6758,7 +6845,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     return rows.map((record) => {
       const flattenedData = flattenAppraisalRecord(record);
-      const fullScores = computeSectionScores(flattenedData, 'Faculty');
+      const hodOverrides = record.hodSubsectionScores || flattenedData.hodSubsectionScores || {};
+      const fullScores = computeEffectiveScores(flattenedData, hodOverrides, record.department || flattenedData.department);
       const calculatedTotalScore = typeof fullScores.grandTotal === 'number'
         ? fullScores.grandTotal
         : (record.convertedScore || (fullScores.total || 0) + (fullScores.section2Total || 0));
@@ -6953,7 +7041,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const rawList = !isReviewMode ? (filtered.length > 0 ? filtered : (isMasterUser ? [] : appraisals)) : filtered;
     return rawList.map((rec) => {
       const flat = flattenAppraisalRecord(rec);
-      const eff = computeSectionScores(flat, 'Faculty');
+      const eff = computeEffectiveScores(flat, rec.hodSubsectionScores || flat.hodSubsectionScores || {}, rec.department || flat.department);
       const score = typeof eff.grandTotal === 'number' ? eff.grandTotal : (rec.convertedScore || 0);
       return {
         ...rec,
@@ -9365,7 +9453,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     )}
           
           {!isHod && activeReviewTab === 'analytics' && (
-            <AnalyticsDashboard data={selectedInboxRows} computeScores={computeSectionScores} />
+            <AnalyticsDashboard
+              data={(isIQAC || isPrincipal) ? selectedInboxRows.filter((r) => !r.iqacExcluded) : selectedInboxRows}
+              computeScores={computeSectionScores}
+            />
           )}
 
           {activeReviewTab === 'section_audit' && (

@@ -2,13 +2,19 @@ import React, { useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import { computeEffectiveScores } from './scoringEngine.js';
+
+const formatScoreVal = (val) => {
+  const num = Number(val) || 0;
+  return Number.isInteger(num) ? String(num) : num.toFixed(1);
+};
 
 export default function AnalyticsDashboard({ data, computeScores }) {
 
   // 1. Data Aggregation & Prep
-  const { kpis, stackedData, scatterData, radarData, deptAverages } = useMemo(() => {
+  const { kpis, stackedData } = useMemo(() => {
     if (!data || data.length === 0) {
-      return { kpis: {}, stackedData: [], scatterData: [], radarData: [], deptAverages: {} };
+      return { kpis: {}, stackedData: [] };
     }
 
     let totalScoreSum = 0;
@@ -17,20 +23,21 @@ export default function AnalyticsDashboard({ data, computeScores }) {
     const deptMap = {};
 
     const processed = data.map(row => {
-      const fullScores = computeScores(row.sectionData || row, 'Faculty');
-      // Replicate the table's total score logic
+      const dept = (row.department || row.dept || row.sectionData?.department || 'CSE').toUpperCase().trim();
+      const hodScores = row.hodSubsectionScores || row.sectionData?.hodSubsectionScores || {};
+      const fullScores = computeEffectiveScores(row.sectionData || row, hodScores, dept);
       const totalScore = typeof fullScores.grandTotal === 'number'
         ? fullScores.grandTotal
-        : (row.totalScore || row.convertedScore || (fullScores.total || 0) + (fullScores.section2Total || 0));
-      const dept = (row.department || row.dept || 'CSE').toUpperCase().trim();
+        : (Number(row.totalScore ?? row.convertedScore) || 0);
 
-      // Extract breakdown (approximate mapping based on typical academic sections)
-      const teaching = (fullScores.section1Total || fullScores.total || 0);
-      const research = (fullScores.section2Total || 0);
-      const admin = (fullScores.section3Total || 0);
-      const other = (fullScores.section4Total || 0) + (fullScores.section5Total || 0) + (fullScores.section6Total || 0);
+      // Partition all 9 sections (max 200) so stacked segments sum cleanly to totalScore
+      const teaching = Number((fullScores.section1Total || 0).toFixed(2));
+      const research = Number((fullScores.section2Total || 0).toFixed(2));
+      const innovationGrants = Number(((fullScores.section3Total || 0) + (fullScores.section4Total || 0) + (fullScores.section5Total || 0)).toFixed(2));
+      const devIndustry = Number(((fullScores.section6Total || 0) + (fullScores.section7Total || 0) + (fullScores.section8Total || 0)).toFixed(2));
+      const institutional = Number((fullScores.section9Total || 0).toFixed(2));
 
-      if (totalScore > maxScore) {
+      if (totalScore >= maxScore) {
         maxScore = totalScore;
         topPerformer = row.facultyName || 'Unknown';
       }
@@ -54,8 +61,9 @@ export default function AnalyticsDashboard({ data, computeScores }) {
         total: totalScore,
         Teaching: teaching,
         Research: research,
-        Admin: admin,
-        Other: other,
+        'Innovation & Grants': innovationGrants,
+        'Dev & Industry': devIndustry,
+        'Institutional / Admin': institutional,
       };
     });
 
@@ -69,42 +77,43 @@ export default function AnalyticsDashboard({ data, computeScores }) {
       count: d.count,
       avg: (d.sum / d.count).toFixed(1),
       topFaculty: d.topFaculty,
-      topScore: d.topScore.toFixed(1)
+      topScore: formatScoreVal(d.topScore)
     })).sort((a, b) => Number(b.topScore) - Number(a.topScore));
 
     const kpiSummary = {
       totalSubmissions: processed.length,
       averageScore: (totalScoreSum / processed.length).toFixed(1),
-      topPerformer: `${topPerformer} (${maxScore.toFixed(1)} pts)`,
+      topPerformer: `${topPerformer} (${formatScoreVal(maxScore)} pts)`,
       deptStatsList
     };
 
     return { 
       kpis: kpiSummary, 
-      stackedData: stacked, 
-      deptAverages: deptMap 
+      stackedData: stacked
     };
   }, [data, computeScores]);
 
   // Custom Tooltip for Stacked Bar
   const CustomBarTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
-      const total = payload.reduce((sum, entry) => sum + entry.value, 0);
+      const rowTotal = payload[0]?.payload?.total;
+      const computedSum = payload.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+      const total = typeof rowTotal === 'number' ? rowTotal : computedSum;
       return (
-        <div className="bg-white border border-slate-200 p-3 shadow-lg rounded-lg shadow-black/10 min-w-[200px] z-50 relative">
+        <div className="bg-white border border-slate-200 p-3 shadow-lg rounded-lg shadow-black/10 min-w-[220px] z-50 relative">
           <p className="font-bold text-slate-800 mb-2 border-b border-slate-100 pb-1">{label}</p>
           {payload.map((entry, index) => (
-            <div key={index} className="flex justify-between items-center text-xs my-1">
+            <div key={index} className="flex justify-between items-center text-xs my-1 gap-4">
               <span className="flex items-center gap-1.5 text-slate-600">
-                <span className="w-2.5 h-2.5 rounded-sm block" style={{ backgroundColor: entry.color }}></span>
+                <span className="w-2.5 h-2.5 rounded-sm block shrink-0" style={{ backgroundColor: entry.color }}></span>
                 {entry.name}:
               </span>
-              <span className="font-semibold text-slate-800">{entry.value.toFixed(1)}</span>
+              <span className="font-semibold text-slate-800">{formatScoreVal(entry.value)}</span>
             </div>
           ))}
           <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-slate-100 font-bold text-maroon-700">
             <span>Total Score:</span>
-            <span>{total.toFixed(1)}</span>
+            <span>{formatScoreVal(total)} / 200</span>
           </div>
         </div>
       );
@@ -205,19 +214,20 @@ export default function AnalyticsDashboard({ data, computeScores }) {
 
       {/* Leaderboard Chart (Full Width) */}
       <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm shadow-black/5 transition-all hover:shadow-md">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-800 mb-6">Top 10 Performers (Contribution Breakdown)</h3>
-        <div className="h-[350px] w-full">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-800 mb-6">Top 10 Performers (Complete 9-Section Score Breakdown / 200)</h3>
+        <div className="h-[380px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stackedData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+            <BarChart data={stackedData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-              <XAxis type="number" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12, fill: '#334155', fontWeight: 600 }} axisLine={false} tickLine={false} />
+              <XAxis type="number" domain={[0, 200]} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis dataKey="name" type="category" width={150} tick={{ fontSize: 12, fill: '#334155', fontWeight: 600 }} axisLine={false} tickLine={false} />
               <RechartsTooltip content={<CustomBarTooltip />} cursor={{fill: '#f8fafc', opacity: 0.6}} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
-              <Bar dataKey="Teaching" stackId="a" fill="#800000" animationDuration={1200} radius={[0, 0, 0, 0]} />
-              <Bar dataKey="Research" stackId="a" fill="#475569" animationDuration={1200} />
-              <Bar dataKey="Admin" stackId="a" fill="#d97706" animationDuration={1200} />
-              <Bar dataKey="Other" stackId="a" fill="#94a3b8" animationDuration={1200} radius={[0, 4, 4, 0]} />
+              <Bar dataKey="Teaching" stackId="a" fill="#800000" animationDuration={800} radius={[0, 0, 0, 0]} />
+              <Bar dataKey="Research" stackId="a" fill="#475569" animationDuration={800} />
+              <Bar dataKey="Innovation & Grants" stackId="a" fill="#d97706" animationDuration={800} />
+              <Bar dataKey="Dev & Industry" stackId="a" fill="#0f766e" animationDuration={800} />
+              <Bar dataKey="Institutional / Admin" stackId="a" fill="#334155" animationDuration={800} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

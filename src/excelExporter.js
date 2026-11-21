@@ -18,7 +18,11 @@ export const exportAppraisalToExcel = async ({
   workbook.creator = 'TCE Appraisal System';
   workbook.created = new Date();
 
-  const effectiveScoreObj = computeEffectiveScores(sectionData, record.hodSubsectionScores || {});
+  const effectiveScoreObj = computeEffectiveScores(
+    sectionData,
+    record.hodSubsectionScores || {},
+    record.department || user?.department || sectionData?.department
+  );
 
   // =========================================================================
   // SHEET 1: THE SUMMARY (PRETTY PRINTABLE FORMAT)

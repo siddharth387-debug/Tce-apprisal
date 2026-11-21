@@ -10,9 +10,57 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { computeEffectiveScores } from '../src/scoringEngine.js';
+import { computeEffectiveScores, calculateInclusiveDays } from '../src/scoringEngine.js';
 import { scheduleDailyAutoBackup, runDatabaseBackup } from './autoBackup.js';
 import { sendRejectionEmail } from './mailer.js';
+
+function buildNormalizedSectionDataForScoring(source = {}) {
+  const raw = source || {};
+  const rawSec = raw.sectionData || {};
+  const ensureCourseSection = (rows) => {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((r) => (r && typeof r === 'object' && r.courseCode && !r.section ? { ...r, section: 'A' } : r));
+  };
+  const s6Raw = { ...(rawSec.section6Data || {}), ...(raw.section6Data || {}) };
+  const s6Fdp = (s6Raw.fdpAttended || raw.fdpAttended || []).map((r) => {
+    if (r && r.dateRange && r.endDate) {
+      const calc = calculateInclusiveDays(r.dateRange, r.endDate);
+      if (calc) return { ...r, duration: calc };
+    }
+    return r;
+  });
+  const s6Prog = (s6Raw.programsOrganized || raw.programsOrganized || []).map((r) => {
+    if (r && r.dateRange && r.endDate) {
+      const calc = calculateInclusiveDays(r.dateRange, r.endDate);
+      if (calc) return { ...r, days: calc };
+    }
+    return r;
+  });
+
+  const merged = {
+    ...rawSec,
+    ...(raw.section1Data || {}),
+    ...(raw.section2Data || {}),
+    ...(raw.section3Data || {}),
+    ...(raw.section4Data || {}),
+    ...(raw.section5Data || {}),
+    ...s6Raw,
+    ...(s6Fdp.length > 0 ? { fdpAttended: s6Fdp } : {}),
+    ...(s6Prog.length > 0 ? { programsOrganized: s6Prog } : {}),
+    ...(raw.section7Data || {}),
+    ...(raw.section8Data || {}),
+    ...(raw.section9Data || {}),
+  };
+
+  if (merged.coursesHandled) merged.coursesHandled = ensureCourseSection(merged.coursesHandled);
+  if (merged.courseFiles) merged.courseFiles = ensureCourseSection(merged.courseFiles);
+  if (merged.innovativeMethods) merged.innovativeMethods = ensureCourseSection(merged.innovativeMethods);
+  if (merged.resultAnalysis) merged.resultAnalysis = ensureCourseSection(merged.resultAnalysis);
+  if (merged.coAttainment) merged.coAttainment = ensureCourseSection(merged.coAttainment);
+  if (raw.department) merged.department = raw.department;
+
+  return merged;
+}
 
 const KNOWN_REGISTRAR_PERSONAL_EMAILS = [
   'rajaram_siva@tce.edu',
@@ -1609,6 +1657,35 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       section9Data: req.body?.section9Data
     });
 
+    const mergedSection1Data = hasMeaningfulSectionData(section1Data) ? section1Data : (existingDoc?.section1Data || section1Data || {});
+    const mergedSection2Data = hasMeaningfulSectionData(section2Data) ? section2Data : (existingDoc?.section2Data || section2Data || {});
+    const mergedSection3Data = hasMeaningfulSectionData(section3Data) ? section3Data : (existingDoc?.section3Data || section3Data || {});
+    const mergedSection4Data = hasMeaningfulSectionData(section4Data) ? section4Data : (existingDoc?.section4Data || section4Data || {});
+    const mergedSection5Data = hasMeaningfulSectionData(section5Data) ? section5Data : (existingDoc?.section5Data || section5Data || {});
+    const mergedSection6Data = hasMeaningfulSectionData(section6Data) ? section6Data : (existingDoc?.section6Data || section6Data || {});
+    const mergedSection7Data = hasMeaningfulSectionData(section7Data) ? section7Data : (existingDoc?.section7Data || section7Data || {});
+    const mergedSection8Data = hasMeaningfulSectionData(section8Data) ? section8Data : (existingDoc?.section8Data || section8Data || {});
+    const mergedSection9Data = hasMeaningfulSectionData(section9Data) ? section9Data : (existingDoc?.section9Data || section9Data || {});
+
+    const incomingHodScores = req.body?.hodSubsectionScores;
+    const mergedHodSubsectionScores = (incomingHodScores && typeof incomingHodScores === 'object' && Object.keys(incomingHodScores).length > 0)
+      ? incomingHodScores
+      : (existingDoc?.hodSubsectionScores || {});
+
+    const mergedSectionsForScoring = buildNormalizedSectionDataForScoring({
+      department: targetDept,
+      section1Data: mergedSection1Data,
+      section2Data: mergedSection2Data,
+      section3Data: mergedSection3Data,
+      section4Data: mergedSection4Data,
+      section5Data: mergedSection5Data,
+      section6Data: mergedSection6Data,
+      section7Data: mergedSection7Data,
+      section8Data: mergedSection8Data,
+      section9Data: mergedSection9Data,
+    });
+    const computedEffectiveScores = computeEffectiveScores(mergedSectionsForScoring, mergedHodSubsectionScores, targetDept);
+
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
     const replacementPayload = {
       timeline: timeline.trim(),
@@ -1623,47 +1700,21 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       submittedAt: req.body?.isSubmitted
         ? (existingDoc?.submittedAt || new Date())
         : (existingDoc?.submittedAt || null),
-      convertedScore: (() => {
-        const fullSectionData = {
-          ...(section1Data || {}),
-          ...(section2Data || {}),
-          ...(section3Data || {}),
-          ...(section4Data || {}),
-          ...(section5Data || {}),
-          ...(section6Data || {}),
-          ...(section7Data || {}),
-          ...(section8Data || {}),
-          ...(section9Data || {}),
-        };
-        const computed = computeEffectiveScores(fullSectionData, req.body?.hodSubsectionScores || {}, targetDept);
-        return typeof computed.grandTotal === 'number' ? computed.grandTotal : (Number(convertedScore) || 0);
-      })(),
-      systemScore: (() => {
-        const fullSectionData = {
-          ...(section1Data || {}),
-          ...(section2Data || {}),
-          ...(section3Data || {}),
-          ...(section4Data || {}),
-          ...(section5Data || {}),
-          ...(section6Data || {}),
-          ...(section7Data || {}),
-          ...(section8Data || {}),
-          ...(section9Data || {}),
-        };
-        const computed = computeEffectiveScores(fullSectionData, req.body?.hodSubsectionScores || {}, targetDept);
-        return typeof computed.grandTotal === 'number' ? computed.grandTotal : (Number(convertedScore) || 0);
-      })(),
-      hodSubsectionScores: req.body?.hodSubsectionScores || {},
-      subsectionRemarks: req.body?.subsectionRemarks || {},
-      section1Data: hasMeaningfulSectionData(section1Data) ? section1Data : (existingDoc?.section1Data || section1Data || {}),
-      section2Data: hasMeaningfulSectionData(section2Data) ? section2Data : (existingDoc?.section2Data || section2Data || {}),
-      section3Data: hasMeaningfulSectionData(section3Data) ? section3Data : (existingDoc?.section3Data || section3Data || {}),
-      section4Data: hasMeaningfulSectionData(section4Data) ? section4Data : (existingDoc?.section4Data || section4Data || {}),
-      section5Data: hasMeaningfulSectionData(section5Data) ? section5Data : (existingDoc?.section5Data || section5Data || {}),
-      section6Data: hasMeaningfulSectionData(section6Data) ? section6Data : (existingDoc?.section6Data || section6Data || {}),
-      section7Data: hasMeaningfulSectionData(section7Data) ? section7Data : (existingDoc?.section7Data || section7Data || {}),
-      section8Data: hasMeaningfulSectionData(section8Data) ? section8Data : (existingDoc?.section8Data || section8Data || {}),
-      section9Data: hasMeaningfulSectionData(section9Data) ? section9Data : (existingDoc?.section9Data || section9Data || {}),
+      convertedScore: typeof computedEffectiveScores.grandTotal === 'number' ? computedEffectiveScores.grandTotal : (Number(convertedScore) || 0),
+      systemScore: typeof computedEffectiveScores.autoGrandTotal === 'number' ? computedEffectiveScores.autoGrandTotal : (Number(convertedScore) || 0),
+      hodSubsectionScores: mergedHodSubsectionScores,
+      subsectionRemarks: (req.body?.subsectionRemarks && typeof req.body.subsectionRemarks === 'object' && Object.keys(req.body.subsectionRemarks).length > 0)
+        ? req.body.subsectionRemarks
+        : (existingDoc?.subsectionRemarks || {}),
+      section1Data: mergedSection1Data,
+      section2Data: mergedSection2Data,
+      section3Data: mergedSection3Data,
+      section4Data: mergedSection4Data,
+      section5Data: mergedSection5Data,
+      section6Data: mergedSection6Data,
+      section7Data: mergedSection7Data,
+      section8Data: mergedSection8Data,
+      section9Data: mergedSection9Data,
       iqacStatus: (req.body?.isSubmitted && String(existingDoc?.iqacStatus || '').toUpperCase().trim() === 'DRAFT') ? 'Pending' : (existingDoc?.iqacStatus || 'Pending'),
       iqacAuditRemarks: existingDoc?.iqacAuditRemarks || '',
       iqacExcluded: Boolean(existingDoc?.iqacExcluded),
@@ -1725,11 +1776,11 @@ app.get('/api/appraisals/:id/export', authenticateToken, async (req, res) => {
     const userRole = (req.query.role || req.user?.role || 'Faculty').trim();
     const facultyName = appraisal.facultyName || appraisal.name || 'Faculty Member';
     const timeline = appraisal.timeline || '2024-2025';
-    const sectionData = appraisal.sectionData || appraisal;
+    const sectionData = buildNormalizedSectionDataForScoring(appraisal);
     const hodScores = appraisal.hodSubsectionScores || {};
 
     // Compute scores using the shared scoring engine
-    const effectiveScoreObj = computeEffectiveScores(sectionData, hodScores);
+    const effectiveScoreObj = computeEffectiveScores(sectionData, hodScores, appraisal.department);
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'TCE Appraisal System';
@@ -2167,6 +2218,15 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
           continue; // HOD & Registrar appraisals bypass HOD review and go directly to IQAC & Principal
         }
       }
+      const liveScores = computeEffectiveScores(
+        buildNormalizedSectionDataForScoring(doc),
+        doc.hodSubsectionScores || {},
+        doc.department
+      );
+      if (typeof liveScores.grandTotal === 'number') {
+        doc.convertedScore = liveScores.grandTotal;
+        doc.systemScore = liveScores.autoGrandTotal;
+      }
       const tlKey = (doc.timeline || '').trim();
       const deptKey = (doc.department || '').toUpperCase() === 'ARCH' ? '_ARCH' : '';
       const compositeKey = `${emailKey}_${tlKey}${deptKey}`;
@@ -2175,6 +2235,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         records.push(doc);
       }
     }
+    res.set('Cache-Control', 'no-store');
     console.log(`✅ Database retrieval sync complete. Total rows returned: ${records.length} (deduplicated from ${rawRecords.length} raw docs) for filter:`, JSON.stringify(queryFilter));
     return res.status(200).json({ success: true, count: records.length, data: records });
 
@@ -2815,19 +2876,28 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
       }
     }
 
-    // Determine evaluated final score
-    const evaluatedConvertedScore = finalScore !== undefined && finalScore !== null
-      ? Number(finalScore)
-      : (req.body.convertedScore !== undefined && req.body.convertedScore !== null
-          ? Number(req.body.convertedScore)
-          : targetRecord.convertedScore);
+    // Determine canonical evaluated final score from shared scoring engine
+    const cleanedHodScores = (typeof hodSubsectionScores === 'object' && hodSubsectionScores !== null) ? hodSubsectionScores : {};
+    const liveScores = computeEffectiveScores(
+      buildNormalizedSectionDataForScoring(targetRecord),
+      cleanedHodScores,
+      targetRecord.department
+    );
+    const evaluatedConvertedScore = typeof liveScores.grandTotal === 'number'
+      ? liveScores.grandTotal
+      : (finalScore !== undefined && finalScore !== null
+          ? Number(finalScore)
+          : (req.body.convertedScore !== undefined && req.body.convertedScore !== null
+              ? Number(req.body.convertedScore)
+              : targetRecord.convertedScore));
 
     const updateFields = { 
       appraisalStatus: appraisalStatus, 
       hodRemarks: hodRemarks || "",
       subsectionRemarks: typeof subsectionRemarks === 'object' && subsectionRemarks !== null ? subsectionRemarks : {},
-      hodSubsectionScores: typeof hodSubsectionScores === 'object' && hodSubsectionScores !== null ? hodSubsectionScores : {},
+      hodSubsectionScores: cleanedHodScores,
       convertedScore: evaluatedConvertedScore,
+      ...(typeof liveScores.autoGrandTotal === 'number' ? { systemScore: liveScores.autoGrandTotal } : {}),
       updatedAt: new Date()
     };
 
