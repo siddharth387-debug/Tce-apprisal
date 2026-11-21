@@ -14,9 +14,41 @@ import { computeEffectiveScores } from '../src/scoringEngine.js';
 import { scheduleDailyAutoBackup, runDatabaseBackup } from './autoBackup.js';
 import { sendRejectionEmail } from './mailer.js';
 
+const KNOWN_REGISTRAR_PERSONAL_EMAILS = [
+  'rajaram_siva@tce.edu',
+  'srrece@tce.edu',
+  'registrar@tce.edu',
+];
+
+export function hasFullRegistrarDesignation(str) {
+  return /\bregistrar\b/i.test(
+    String(str || '').replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
+  );
+}
+
+export function isRegistrarPersonalSubmission(email, record = null) {
+  const clean = String(email || record?.email || record?.facultyEmail || '').toLowerCase().trim();
+  if (clean === 'siddharthk@student.tce.edu' || clean.endsWith('@student.tce.edu') || clean.endsWith('@gmail.com')) {
+    return false;
+  }
+  if (clean && KNOWN_REGISTRAR_PERSONAL_EMAILS.includes(clean)) return true;
+  if (record?.isRegistrarSubmission === true) return true;
+  if (hasFullRegistrarDesignation(record?.designation)) return true;
+  const adminRows = record?.section9Data?.adminResponsibilities || [];
+  if (Array.isArray(adminRows) && adminRows.some((a) => hasFullRegistrarDesignation(a?.role || ''))) {
+    return true;
+  }
+  return false;
+}
+
 export const isHodApprovedOrLater = (recordOrStatus) => {
   if (!recordOrStatus) return false;
-  if (typeof recordOrStatus === 'object' && recordOrStatus.isHodSubmission === true) {
+  if (
+    typeof recordOrStatus === 'object' &&
+    (recordOrStatus.isHodSubmission === true ||
+      recordOrStatus.isRegistrarSubmission === true ||
+      isRegistrarPersonalSubmission(recordOrStatus.email || recordOrStatus.facultyEmail, recordOrStatus))
+  ) {
     return true;
   }
   const status = typeof recordOrStatus === 'string'
@@ -73,12 +105,53 @@ export const isIqacPendingRecord = (row) => {
   return !isIqacApprovedRecord(row);
 };
 
-export function applyLeadershipDecision({ targetRecord, decision, evaluatorRole, remarks = '', excluded = undefined }) {
+export function applyLeadershipDecision({ targetRecord, decision, evaluatorRole, remarks = '', excluded = undefined, isRegistrarRecord = false }) {
   const normDecision = String(decision || '').toUpperCase().trim();
   const isPendingOrLegacyNotApproved = normDecision === 'PENDING' || ['NEEDS CLARIFICATION', 'NOT APPROVED', 'REJECTED', 'NOT APPROVED BY IQAC'].includes(normDecision) || normDecision.includes('NOT');
   const finalStatus = isPendingOrLegacyNotApproved ? 'Pending' : 'Approved';
-
   const now = new Date();
+
+  const resolvedIsRegistrar = Boolean(
+    isRegistrarRecord ||
+    isRegistrarPersonalSubmission(targetRecord?.email || targetRecord?.facultyEmail, targetRecord)
+  );
+
+  if (resolvedIsRegistrar) {
+    const isPrincipalEval = String(evaluatorRole || '').toUpperCase().trim() === 'PRINCIPAL';
+    const currentIqacApproved = ['APPROVED', 'IQAC APPROVED'].includes(String(targetRecord?.iqacStatus || '').toUpperCase().trim());
+    const currentPrincipalApproved = ['APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(String(targetRecord?.principalApprovalStatus || '').toUpperCase().trim());
+    const nextIqacApproved = isPrincipalEval ? currentIqacApproved : (finalStatus === 'Approved');
+    const nextPrincipalApproved = isPrincipalEval ? (finalStatus === 'Approved') : currentPrincipalApproved;
+
+    const regUpdateFields = {
+      isRegistrarSubmission: true,
+      ...(excluded !== undefined ? { iqacExcluded: Boolean(excluded) } : {}),
+      updatedAt: now
+    };
+
+    if (isPrincipalEval) {
+      regUpdateFields.principalApprovalStatus = finalStatus === 'Approved'
+        ? (targetRecord?.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved')
+        : 'Pending';
+      regUpdateFields.principalEndorsedAt = finalStatus === 'Approved' ? now : null;
+      if (remarks !== undefined && remarks !== null && String(remarks).trim() !== '') {
+        regUpdateFields.principalRemarks = String(remarks).trim();
+      } else if (finalStatus === 'Pending' && remarks === '') {
+        regUpdateFields.principalRemarks = '';
+      }
+    } else {
+      regUpdateFields.iqacStatus = finalStatus;
+      regUpdateFields.iqacEvaluatedAt = finalStatus === 'Approved' ? now : null;
+      regUpdateFields.iqacEvaluatedBy = finalStatus === 'Approved' ? 'IQAC' : '';
+      regUpdateFields.iqacAuditRemarks = remarks !== undefined && remarks !== null
+        ? String(remarks)
+        : (targetRecord?.iqacAuditRemarks || '');
+    }
+
+    regUpdateFields.appraisalStatus = (nextIqacApproved && nextPrincipalApproved) ? 'Approved' : 'Pending';
+    return { updateFields: regUpdateFields, finalStatus };
+  }
+
   const updateFields = {
     iqacStatus: finalStatus,
     iqacAuditRemarks: remarks !== undefined && remarks !== null ? String(remarks) : (targetRecord?.iqacAuditRemarks || ''),
@@ -105,6 +178,30 @@ export function normalizeAppraisalLeadershipDecision(doc) {
   const rawIq = String(doc.iqacStatus || '').toUpperCase().trim();
   const rawPr = String(doc.principalApprovalStatus || '').toUpperCase().trim();
   const rawAp = String(doc.appraisalStatus || '').toUpperCase().trim();
+
+  if (isRegistrarPersonalSubmission(doc.email || doc.facultyEmail, doc)) {
+    if (rawIq === 'APPROVED' || rawIq === 'IQAC APPROVED') {
+      doc.iqacStatus = 'Approved';
+      if (!doc.iqacEvaluatedBy) doc.iqacEvaluatedBy = 'IQAC';
+    } else if (['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(rawIq)) {
+      doc.iqacStatus = 'Pending';
+      doc.iqacEvaluatedBy = '';
+      doc.iqacEvaluatedAt = null;
+    }
+
+    if (rawPr === 'RATIFIED') {
+      doc.principalApprovalStatus = 'Ratified';
+    } else if (['APPROVED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(rawPr)) {
+      doc.principalApprovalStatus = 'Approved';
+    } else if (['NOT APPROVED', 'REJECTED', 'NEEDS CLARIFICATION'].includes(rawPr)) {
+      doc.principalApprovalStatus = 'Pending';
+    }
+
+    if (['NOT APPROVED', 'FIX NEEDED', 'REJECTED', 'NOT APPROVED BY IQAC'].includes(rawAp)) {
+      doc.appraisalStatus = 'Pending';
+    }
+    return doc;
+  }
 
   if (rawIq === 'APPROVED' || rawIq === 'IQAC APPROVED') {
     doc.iqacStatus = 'Approved';
@@ -326,6 +423,7 @@ const AppraisalSchema = new mongoose.Schema({
   iqacEvaluatedBy: { type: String, default: '' },
   isLocked: { type: Boolean, default: false },
   isHodSubmission: { type: Boolean, default: false },
+  isRegistrarSubmission: { type: Boolean, default: false },
   unlockedReleaseTag: { type: String, default: '' },
   section1Data: {
     coursesHandled: { type: Array, default: [] },
@@ -1504,16 +1602,23 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       /^hod[a-z]{2,6}@tce\.edu$/i.test(canonicalEmail) ||
       /^hod[a-z]{2,6}@tce\.edu$/i.test(verifiedEmail)
     );
+    const resolvedDesignation = facultyRecord?.designation || req.user?.designation || (req.user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
+    const submitterIsRegistrar = !submitterIsHod && isRegistrarPersonalSubmission(canonicalEmail, {
+      email: verifiedEmail,
+      designation: resolvedDesignation,
+      section9Data: req.body?.section9Data
+    });
 
     // ── 2. Atomic upsert — overwrites historical entries instead of crashing on E11000 ──
     const replacementPayload = {
       timeline: timeline.trim(),
       facultyName: facultyName || facultyRecord?.name || req.user.name || 'Faculty Member',
-      designation: facultyRecord?.designation || req.user?.designation || (req.user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor'),
+      designation: resolvedDesignation,
       email: canonicalEmail,
       department: targetDept,
       departmentName: targetDeptName,
       isHodSubmission: submitterIsHod,
+      isRegistrarSubmission: submitterIsRegistrar,
       isSubmitted: Boolean(req.body?.isSubmitted || (existingDoc?.isSubmitted && existingStatus !== 'DRAFT')),
       submittedAt: req.body?.isSubmitted
         ? (existingDoc?.submittedAt || new Date())
@@ -1559,15 +1664,15 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       section7Data: hasMeaningfulSectionData(section7Data) ? section7Data : (existingDoc?.section7Data || section7Data || {}),
       section8Data: hasMeaningfulSectionData(section8Data) ? section8Data : (existingDoc?.section8Data || section8Data || {}),
       section9Data: hasMeaningfulSectionData(section9Data) ? section9Data : (existingDoc?.section9Data || section9Data || {}),
-      iqacStatus: existingDoc?.iqacStatus || 'Pending',
+      iqacStatus: (req.body?.isSubmitted && String(existingDoc?.iqacStatus || '').toUpperCase().trim() === 'DRAFT') ? 'Pending' : (existingDoc?.iqacStatus || 'Pending'),
       iqacAuditRemarks: existingDoc?.iqacAuditRemarks || '',
       iqacExcluded: Boolean(existingDoc?.iqacExcluded),
       iqacEvaluatedAt: existingDoc?.iqacEvaluatedAt || null,
       iqacEvaluatedBy: existingDoc?.iqacEvaluatedBy || '',
-      principalApprovalStatus: existingDoc?.principalApprovalStatus || 'Pending',
+      principalApprovalStatus: (req.body?.isSubmitted && String(existingDoc?.principalApprovalStatus || '').toUpperCase().trim() === 'DRAFT') ? 'Pending' : (existingDoc?.principalApprovalStatus || 'Pending'),
       principalRemarks: existingDoc?.principalRemarks || '',
       principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
-      appraisalStatus: isIqacApprovedRecord(existingDoc) ? 'IQAC Approved' : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft'),
+      appraisalStatus: (!submitterIsRegistrar && isIqacApprovedRecord(existingDoc)) ? 'IQAC Approved' : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft'),
     };
 
     const options = { upsert: true, new: true, runValidators: false, setDefaultsOnInsert: true };
@@ -2044,6 +2149,10 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       if (recordIsHodSubmission && !doc.isHodSubmission) {
         doc.isHodSubmission = true;
       }
+      const recordIsRegistrarSubmission = !recordIsHodSubmission && isRegistrarPersonalSubmission(emailKey, doc);
+      if (recordIsRegistrarSubmission && !doc.isRegistrarSubmission) {
+        doc.isRegistrarSubmission = true;
+      }
       if (isElevated) {
         if (
           emailKey === 'deansiddharth@gmail.com' ||
@@ -2054,8 +2163,8 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         ) {
           continue; // Purely for testing — never return test accounts to HoD or higher authorities
         }
-        if (isCallerOnlyHod && recordIsHodSubmission) {
-          continue; // HOD appraisals bypass HOD review and go directly to IQAC & Principal
+        if (isCallerOnlyHod && (recordIsHodSubmission || recordIsRegistrarSubmission)) {
+          continue; // HOD & Registrar appraisals bypass HOD review and go directly to IQAC & Principal
         }
       }
       const tlKey = (doc.timeline || '').trim();
@@ -2698,6 +2807,12 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
           message: "Forbidden: HOD appraisals cannot be reviewed or approved by an HOD. They are routed directly to IQAC and Principal."
         });
       }
+      if (isRegistrarPersonalSubmission(targetEmailCheck, targetRecord)) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden: Registrar appraisals cannot be reviewed or approved by an HOD. They must be approved by IQAC and Principal."
+        });
+      }
     }
 
     // Determine evaluated final score
@@ -2885,13 +3000,15 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticat
       return res.status(404).json({ success: false, message: "No matching appraisal record found." });
     }
 
-    const evaluatorRole = req.body.evaluatorRole || req.body.evaluatedBy || (req.user?.role === 'Principal' ? 'Principal' : 'IQAC');
+    const evaluatorRole = req.body.evaluatorRole || req.body.evaluatedBy || ((req.user?.role === 'Principal' || isPrincipalEmail(callerEmail)) ? 'Principal' : 'IQAC');
+    const isRegistrarRecord = isRegistrarPersonalSubmission(targetRecord.email || targetRecord.facultyEmail || email, targetRecord);
     const { updateFields, finalStatus } = applyLeadershipDecision({
       targetRecord,
       decision: iqacStatus,
       evaluatorRole,
       remarks: iqacAuditRemarks,
-      excluded: iqacExcluded
+      excluded: iqacExcluded,
+      isRegistrarRecord
     });
 
     const updatedRecord = await Appraisal.findByIdAndUpdate(

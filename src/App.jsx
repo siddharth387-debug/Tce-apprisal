@@ -46,9 +46,91 @@ const STATS = [
   { value: '350+', label: 'Faculty' },
 ];
 
+export const KNOWN_HOD_EMAIL_SET = new Set([
+  'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
+  'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
+  'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
+  'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
+  'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
+]);
+
+export const KNOWN_DEAN_EMAIL_SET = new Set([
+  'gbarch@tce.edu', 'deaneca@tce.edu', 'rvchem@tce.edu', 'khh@tce.edu',
+  'khhece@tce.edu', 'smmroomi@tce.edu', 'smmrece@tce.edu', 'sbeee@tce.edu',
+]);
+
+export const KNOWN_REGISTRAR_EMAIL_SET = new Set([
+  'rajaram_siva@tce.edu', 'srrece@tce.edu', 'registrar@tce.edu',
+]);
+
+export const hasFullDeanTitle = (str) =>
+  /\bdean\b/i.test(
+    String(str || '').replace(/\b(?:associate|assoc|asst|assistant|deputy|dy)\s*\.?\s*deans?\b/gi, '')
+  );
+
+export const hasFullRegistrarTitle = (str) =>
+  /\bregistrar\b/i.test(
+    String(str || '').replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
+  );
+
+export const isHodSubmissionRecord = (r) => {
+  if (!r || typeof r !== 'object') return false;
+  const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+  const desig = String(r.designation || '');
+  const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
+  return (
+    Boolean(r.isHodSubmission) ||
+    KNOWN_HOD_EMAIL_SET.has(em) ||
+    /^hod[a-z]{2,6}@tce\.edu$/i.test(em) ||
+    /\b(head|hod)\b/i.test(desig) ||
+    (Array.isArray(adminRows) && adminRows.some((a) => /\bhod\b/i.test(a?.role || '')))
+  );
+};
+
+export const isRegistrarSubmissionRecord = (r) => {
+  if (!r || typeof r !== 'object' || isHodSubmissionRecord(r)) return false;
+  const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+  if (em === 'siddharthk@student.tce.edu' || em.endsWith('@student.tce.edu') || em.endsWith('@gmail.com')) {
+    return false;
+  }
+  const desig = String(r.designation || '');
+  const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
+  return (
+    Boolean(r.isRegistrarSubmission) ||
+    KNOWN_REGISTRAR_EMAIL_SET.has(em) ||
+    hasFullRegistrarTitle(desig) ||
+    (Array.isArray(adminRows) && adminRows.some((a) => hasFullRegistrarTitle(a?.role || '')))
+  );
+};
+
+export const isDeanSubmissionRecord = (r) => {
+  if (!r || typeof r !== 'object' || isHodSubmissionRecord(r) || isRegistrarSubmissionRecord(r)) return false;
+  const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+  const desig = String(r.designation || '');
+  // Note: Do NOT check section9Data.adminResponsibilities here — Associate Deans often select "Dean" in 9.3,
+  // but must remain under Normal Faculty submissions rather than the Dean category.
+  return KNOWN_DEAN_EMAIL_SET.has(em) || hasFullDeanTitle(desig);
+};
+
+export const isRegistrarIqacApproved = (row) => {
+  const iqStatus = String(row?.iqacStatus || '').toUpperCase().trim();
+  return iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED';
+};
+
+export const isRegistrarPrincipalApproved = (row) => {
+  const prStatus = String(row?.principalApprovalStatus || '').toUpperCase().trim();
+  const apStatus = String(row?.appraisalStatus || '').toUpperCase().trim();
+  return ['APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(prStatus) || apStatus === 'RATIFIED';
+};
+
 export const isHodApprovedOrLater = (recordOrStatus) => {
   if (!recordOrStatus) return false;
-  if (typeof recordOrStatus === 'object' && recordOrStatus.isHodSubmission === true) {
+  if (
+    typeof recordOrStatus === 'object' &&
+    (recordOrStatus.isHodSubmission === true ||
+      recordOrStatus.isRegistrarSubmission === true ||
+      isRegistrarSubmissionRecord(recordOrStatus))
+  ) {
     return true;
   }
   const status = typeof recordOrStatus === 'string'
@@ -881,24 +963,47 @@ function flattenAppraisalRecord(record) {
   }
   let effectiveIqacStatus = record.iqacStatus || 'Pending';
   let effectiveAppraisalStatus = record.appraisalStatus || 'Pending';
+  let effectivePrincipalStatus = record.principalApprovalStatus || 'Pending';
   const normIq = String(effectiveIqacStatus).toUpperCase().trim();
-  const normPr = String(record.principalApprovalStatus || '').toUpperCase().trim();
+  const normPr = String(effectivePrincipalStatus).toUpperCase().trim();
   const normAp = String(effectiveAppraisalStatus).toUpperCase().trim();
+  const isRegDoc = isRegistrarSubmissionRecord(record);
 
-  if (normIq === 'APPROVED' || normIq === 'IQAC APPROVED') {
-    effectiveIqacStatus = 'Approved';
-  } else if (normIq === 'NOT APPROVED' || normIq === 'NOT APPROVED BY IQAC' || normIq === 'REJECTED' || normIq === 'NEEDS CLARIFICATION') {
-    effectiveIqacStatus = 'Pending';
-  } else if (['RATIFIED', 'ENDORSED', 'APPROVED', 'PRINCIPAL APPROVED'].includes(normPr) || ['RATIFIED', 'ENDORSED', 'IQAC APPROVED', 'PRINCIPAL APPROVED'].includes(normAp)) {
-    effectiveIqacStatus = 'Approved';
-  } else if (normAp === 'NOT APPROVED BY IQAC' || normPr === 'NOT APPROVED') {
-    effectiveIqacStatus = 'Pending';
-  }
+  if (isRegDoc) {
+    if (normIq === 'APPROVED' || normIq === 'IQAC APPROVED') {
+      effectiveIqacStatus = 'Approved';
+    } else if (['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(normIq)) {
+      effectiveIqacStatus = 'Pending';
+    }
+    if (['NOT APPROVED', 'REJECTED', 'NEEDS CLARIFICATION'].includes(normPr)) {
+      effectivePrincipalStatus = 'Pending';
+    } else if (['APPROVED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(normPr)) {
+      effectivePrincipalStatus = 'Approved';
+    } else if (normPr === 'RATIFIED') {
+      effectivePrincipalStatus = 'Ratified';
+    } else if (!record.principalApprovalStatus) {
+      effectivePrincipalStatus = 'Pending';
+    }
+    if (['NOT APPROVED', 'FIX NEEDED', 'REJECTED', 'NOT APPROVED BY IQAC'].includes(normAp)) {
+      effectiveAppraisalStatus = 'Pending';
+    }
+  } else {
+    if (normIq === 'APPROVED' || normIq === 'IQAC APPROVED') {
+      effectiveIqacStatus = 'Approved';
+    } else if (normIq === 'NOT APPROVED' || normIq === 'NOT APPROVED BY IQAC' || normIq === 'REJECTED' || normIq === 'NEEDS CLARIFICATION') {
+      effectiveIqacStatus = 'Pending';
+    } else if (['RATIFIED', 'ENDORSED', 'APPROVED', 'PRINCIPAL APPROVED'].includes(normPr) || ['RATIFIED', 'ENDORSED', 'IQAC APPROVED', 'PRINCIPAL APPROVED'].includes(normAp)) {
+      effectiveIqacStatus = 'Approved';
+    } else if (normAp === 'NOT APPROVED BY IQAC' || normPr === 'NOT APPROVED') {
+      effectiveIqacStatus = 'Pending';
+    }
 
-  if (normAp === 'NOT APPROVED BY IQAC') {
-    effectiveAppraisalStatus = 'Approved';
-  } else if (normAp === 'NOT APPROVED' || normAp === 'FIX NEEDED' || normAp === 'REJECTED') {
-    effectiveAppraisalStatus = 'Pending';
+    if (normAp === 'NOT APPROVED BY IQAC') {
+      effectiveAppraisalStatus = 'Approved';
+    } else if (normAp === 'NOT APPROVED' || normAp === 'FIX NEEDED' || normAp === 'REJECTED') {
+      effectiveAppraisalStatus = 'Pending';
+    }
+    effectivePrincipalStatus = record.principalApprovalStatus || (effectiveIqacStatus === 'Approved' ? 'Approved' : 'Pending');
   }
 
   return {
@@ -916,7 +1021,7 @@ function flattenAppraisalRecord(record) {
     iqacEvaluatedAt: record.iqacEvaluatedAt || null,
     iqacEvaluatedBy: record.iqacEvaluatedBy || '',
     principalRemarks: record.principalRemarks || '',
-    principalApprovalStatus: record.principalApprovalStatus || (effectiveIqacStatus === 'Approved' ? 'Approved' : 'Pending'),
+    principalApprovalStatus: effectivePrincipalStatus,
     principalEndorsedAt: record.principalEndorsedAt || null,
   };
 }
@@ -4234,11 +4339,57 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
       {/* Interactive IQAC Quality Audit & Scoring Evaluation Controls */}
       {iqacControls && (
         <div className="mt-4 border-t border-slate-200 pt-4 print-hidden bg-gradient-to-br from-blue-50/60 via-indigo-50/40 to-sky-50/60 rounded-xl p-4 border border-blue-200 shadow-sm space-y-3">
-          {iqacControls.isVerified && (
+          {isRegistrarSubmissionRecord(appraisal) ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Dual Governance Sign-Off Status (Principal &amp; IQAC)
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border shadow-xs flex items-center gap-1 ${
+                  isRegistrarIqacApproved(appraisal)
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                }`}>
+                  <span>{isRegistrarIqacApproved(appraisal) ? '✔' : '⏳'}</span>
+                  <span>{isRegistrarIqacApproved(appraisal) ? 'IQAC Approved' : 'IQAC Pending'}</span>
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border shadow-xs flex items-center gap-1 ${
+                  isRegistrarPrincipalApproved(appraisal)
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                }`}>
+                  <span>{isRegistrarPrincipalApproved(appraisal) ? '✔' : '⏳'}</span>
+                  <span>{isRegistrarPrincipalApproved(appraisal) ? 'Principal Approved' : 'Principal Pending'}</span>
+                </span>
+              </div>
+            </div>
+          ) : iqacControls.isVerified && (
             <div className="flex items-center justify-end">
               <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-xs flex items-center gap-1">
                 <span>✔</span> Quality Verified
               </span>
+            </div>
+          )}
+
+          {isRegistrarSubmissionRecord(appraisal) && appraisal.iqacAuditRemarks && iqacControls.viewerRole === 'Principal' && (
+            <div className="bg-blue-50/90 border border-blue-200 rounded-lg p-3 text-xs text-blue-950 space-y-1">
+              <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                <span>📊</span> IQAC Submitted Remarks:
+              </span>
+              <p className="italic text-slate-800 bg-white/80 border border-blue-200/60 rounded-md p-2">
+                "{appraisal.iqacAuditRemarks}"
+              </p>
+            </div>
+          )}
+
+          {isRegistrarSubmissionRecord(appraisal) && appraisal.principalRemarks && iqacControls.viewerRole !== 'Principal' && (
+            <div className="bg-emerald-50/90 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-950 space-y-1">
+              <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                <span>🎓</span> Principal Submitted Remarks:
+              </span>
+              <p className="italic text-slate-800 bg-white/80 border border-emerald-200/60 rounded-md p-2">
+                "{appraisal.principalRemarks}"
+              </p>
             </div>
           )}
 
@@ -4279,7 +4430,11 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
               )}
               {iqacControls.isViewOnly && (
                 <span className="text-xs text-slate-500 font-semibold italic flex items-center gap-1">
-                  <span>👁️</span> View-Only Mode (Auditing HOD Record)
+                  <span>👁️</span> {
+                    (String(appraisal.appraisalStatus || '').toUpperCase().trim() === 'DRAFT' || Boolean(appraisal.isDraft))
+                      ? 'View-Only Mode (Draft Not Yet Submitted)'
+                      : 'View-Only Mode (Auditing HOD Record)'
+                  }
                 </span>
               )}
             </div>
@@ -5566,6 +5721,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [user, effectiveRole, hodWorkspaceMode, iqacWorkspaceMode, isIQACUser, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, syncHistoryFromCloud]);
 
+  const isApprovedByActiveAuthority = useCallback((rec) => {
+    if (!rec) return false;
+    if (isRegistrarSubmissionRecord(rec)) {
+      return isPrincipal ? isRegistrarPrincipalApproved(rec) : isRegistrarIqacApproved(rec);
+    }
+    return isIqacApprovedRecord(rec);
+  }, [isPrincipal]);
+
   const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, _customStatus = 'Approved') => {
     try {
       const cleanId = extractStringId(recordId);
@@ -5585,6 +5748,26 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         const isMatch = (cleanId && recIdStr === cleanId) || 
                         (targetEmail && recEmail === targetEmail && (!recordTimeline || rec.timeline === recordTimeline));
         if (isMatch) {
+          if (isRegistrarSubmissionRecord(rec)) {
+            if (roleTitle === 'Principal') {
+              const nextPrincipalStatus = rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved';
+              return {
+                ...rec,
+                principalApprovalStatus: nextPrincipalStatus,
+                principalEndorsedAt: new Date().toISOString(),
+                ...(trimmedRemarks ? { principalRemarks: trimmedRemarks } : {}),
+                appraisalStatus: isRegistrarIqacApproved(rec) ? 'Approved' : 'Pending',
+              };
+            }
+            return {
+              ...rec,
+              iqacStatus: 'Approved',
+              iqacEvaluatedAt: new Date().toISOString(),
+              iqacEvaluatedBy: 'IQAC',
+              ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
+              appraisalStatus: isRegistrarPrincipalApproved(rec) ? 'Approved' : 'Pending',
+            };
+          }
           return {
             ...rec,
             iqacStatus: 'Approved',
@@ -5634,7 +5817,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const handleOpenBulkApproveConfirm = useCallback(() => {
     if (!selectedIqacRowIds || selectedIqacRowIds.length === 0) return;
     const selectedIdSet = new Set(selectedIqacRowIds.map(String));
-    const selectedRecords = appraisals.filter(rec => (selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id)))) && isIqacPendingRecord(rec));
+    const selectedRecords = appraisals.filter(rec =>
+      (selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id)))) &&
+      String(rec.appraisalStatus || '').toUpperCase().trim() !== 'DRAFT' &&
+      !rec.isDraft &&
+      !isApprovedByActiveAuthority(rec)
+    );
     if (selectedRecords.length === 0) return;
 
     const count = selectedRecords.length;
@@ -5649,12 +5837,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       confirmButtonClass: 'bg-emerald-700 hover:bg-emerald-800 text-white',
       records: selectedRecords
     });
-  }, [selectedIqacRowIds, appraisals]);
+  }, [selectedIqacRowIds, appraisals, isApprovedByActiveAuthority]);
 
   const handleOpenMoveToPendingConfirm = useCallback(() => {
     if (!selectedIqacRowIds || selectedIqacRowIds.length === 0) return;
     const selectedIdSet = new Set(selectedIqacRowIds.map(String));
-    const selectedRecords = appraisals.filter(rec => (selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id)))) && isIqacApprovedRecord(rec));
+    const selectedRecords = appraisals.filter(rec =>
+      (selectedIdSet.has(String(rec._id || rec.id)) || (rec._id && selectedIdSet.has(String(rec._id)))) &&
+      String(rec.appraisalStatus || '').toUpperCase().trim() !== 'DRAFT' &&
+      !rec.isDraft &&
+      isApprovedByActiveAuthority(rec)
+    );
     if (selectedRecords.length === 0) return;
 
     const count = selectedRecords.length;
@@ -5669,7 +5862,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       confirmButtonClass: 'bg-amber-600 hover:bg-amber-700 text-white',
       records: selectedRecords
     });
-  }, [selectedIqacRowIds, appraisals]);
+  }, [selectedIqacRowIds, appraisals, isApprovedByActiveAuthority]);
 
   const handleExecuteLeadershipConfirm = useCallback(async () => {
     if (!leadershipConfirmModal || isSubmitting) return;
@@ -5838,8 +6031,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const tl = record.timeline;
       if (!tl) return;
       const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
-      if (isOnlyHodReviewer && (record.isHodSubmission || (currentUserEmail && recEmail === currentUserEmail))) {
-        return; // HOD submissions bypass HOD review and go directly to IQAC & Principal
+      if (isOnlyHodReviewer && (record.isHodSubmission || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
+        return; // HOD & Registrar submissions bypass HOD review and go directly to IQAC & Principal
       }
       const uniqueKey = `${recEmail}_${tl}`;
       if (recEmail && seenKeys.has(uniqueKey)) return;
@@ -5855,6 +6048,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         department: record.department || 'CSE',
         departmentName: record.departmentName || '',
         isHodSubmission: Boolean(record.isHodSubmission),
+        isRegistrarSubmission: Boolean(record.isRegistrarSubmission || isRegistrarSubmissionRecord(record)),
         appraisalStatus: ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(String(record.appraisalStatus || '').toUpperCase().trim())
           ? 'Pending'
           : (String(record.appraisalStatus || '').toUpperCase().trim() === 'NOT APPROVED BY IQAC' ? 'Approved' : (record.appraisalStatus || 'Pending')),
@@ -6542,6 +6736,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       if (hodDept && hodDept !== 'ALL') {
         rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === hodDept);
       }
+      rows = rows.filter(r => !r.isHodSubmission && !isRegistrarSubmissionRecord(r));
     }
 
     // HoD, Leadership & Institutional queues must NEVER include test accounts (purely for testing) or student accounts
@@ -6578,7 +6773,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         department: record.department || 'CSE',
         departmentName: record.departmentName || '',
         designation: record.designation || 'Assistant Professor',
-        appraisalStatus: record.appraisalStatus || 'Pending',
+        isHodSubmission: Boolean(record.isHodSubmission),
+        isRegistrarSubmission: Boolean(record.isRegistrarSubmission || isRegistrarSubmissionRecord(record)),
+        appraisalStatus: flattenedData.appraisalStatus || record.appraisalStatus || 'Pending',
         iqacStatus: flattenedData.iqacStatus || record.iqacStatus || 'Pending',
         iqacExcluded: Boolean(record.iqacExcluded),
         iqacAuditRemarks: record.iqacAuditRemarks || '',
@@ -7421,10 +7618,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         return;
       }
 
+      const isRegistrarUser = isRegistrarSubmissionRecord(user);
       setSubmitModalState({
         type: 'success',
         title: 'Appraisal Submitted Successfully! 🎉',
-        message: `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to your Head of Department. Your submission is now officially recorded and locked for review.`,
+        message: isRegistrarUser
+          ? `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to IQAC and the Principal for approval.`
+          : `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to your Head of Department. Your submission is now officially recorded and locked for review.`,
         errorList: [],
       });
       localStorage.removeItem(`draft_${draftUserKey}_${selectedTimeline}`);
@@ -7832,51 +8032,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const statusCounts = { ALL: 0, DRAFT: 0, PENDING: 0, APPROVED: 0, IQAC_APPROVED: 0, RATIFIED: 0 };
     
     // Two-level classification helpers for IQAC & Principal
-    const KNOWN_HOD_EMAIL_SET = new Set([
-      'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
-      'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
-      'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
-      'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
-      'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
-    ]);
-    const KNOWN_DEAN_EMAIL_SET = new Set([
-      'gbarch@tce.edu', 'deaneca@tce.edu', 'rvchem@tce.edu', 'khh@tce.edu',
-      'khhece@tce.edu', 'smmroomi@tce.edu', 'smmrece@tce.edu', 'sbeee@tce.edu',
-    ]);
     const isDraftRecord = (r) => String(r.appraisalStatus || '').toUpperCase().trim() === 'DRAFT' || Boolean(r.isDraft);
-    const isHodSubmissionRow = (r) => {
-      const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
-      const desig = String(r.designation || '');
-      const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
-      return (
-        Boolean(r.isHodSubmission) ||
-        KNOWN_HOD_EMAIL_SET.has(em) ||
-        /^hod[a-z]{2,6}@tce\.edu$/i.test(em) ||
-        /\b(head|hod)\b/i.test(desig) ||
-        (Array.isArray(adminRows) && adminRows.some((a) => /\bhod\b/i.test(a?.role || '')))
-      );
-    };
-    const isDeanSubmissionRow = (r) => {
-      if (isHodSubmissionRow(r)) return false;
-      const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
-      const desig = String(r.designation || '');
-      const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
-      return (
-        KNOWN_DEAN_EMAIL_SET.has(em) ||
-        /\bdean\b/i.test(desig) ||
-        (Array.isArray(adminRows) && adminRows.some((a) => /\bdean\b/i.test(a?.role || '')))
-      );
-    };
-    const isRegularFacultyRow = (r) => !isHodSubmissionRow(r) && !isDeanSubmissionRow(r);
+    const isHodSubmissionRow = isHodSubmissionRecord;
+    const isRegistrarSubmissionRow = isRegistrarSubmissionRecord;
+    const isDeanSubmissionRow = isDeanSubmissionRecord;
+    const isRegularFacultyRow = (r) => !isHodSubmissionRow(r) && !isDeanSubmissionRow(r) && !isRegistrarSubmissionRow(r);
     const isRegularDraftRecord = (r) => isDraftRecord(r) && isRegularFacultyRow(r);
     const isApprovedByHod = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && isHodApprovedOrLater(r);
     const isPendingByHod = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && !isHodApprovedOrLater(r);
     const isLeadershipApproved = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && isIqacApprovedRecord(r);
     const isLeadershipPending = (r) => !isDraftRecord(r) && isRegularFacultyRow(r) && isHodApprovedOrLater(r) && !isIqacApprovedRecord(r);
-    const isHodDirectPending = (r) => !isDraftRecord(r) && isHodSubmissionRow(r) && !isIqacApprovedRecord(r);
-    const isHodDirectApproved = (r) => !isDraftRecord(r) && isHodSubmissionRow(r) && isIqacApprovedRecord(r);
-    const isDeanDirectPending = (r) => !isDraftRecord(r) && isDeanSubmissionRow(r) && !isIqacApprovedRecord(r);
-    const isDeanDirectApproved = (r) => !isDraftRecord(r) && isDeanSubmissionRow(r) && isIqacApprovedRecord(r);
+    const isHodDirectPending = (r) => !isDraftRecord(r) && isHodSubmissionRow(r) && !isApprovedByActiveAuthority(r);
+    const isHodDirectApproved = (r) => !isDraftRecord(r) && isHodSubmissionRow(r) && isApprovedByActiveAuthority(r);
+    const isHodDirectDraft = (r) => isDraftRecord(r) && isHodSubmissionRow(r);
+    const isDeanDirectPending = (r) => !isDraftRecord(r) && isDeanSubmissionRow(r) && !isApprovedByActiveAuthority(r);
+    const isDeanDirectApproved = (r) => !isDraftRecord(r) && isDeanSubmissionRow(r) && isApprovedByActiveAuthority(r);
+    const isDeanDirectDraft = (r) => isDraftRecord(r) && isDeanSubmissionRow(r);
+    const isRegistrarDirectPending = (r) => !isDraftRecord(r) && isRegistrarSubmissionRow(r) && !isApprovedByActiveAuthority(r);
+    const isRegistrarDirectApproved = (r) => !isDraftRecord(r) && isRegistrarSubmissionRow(r) && isApprovedByActiveAuthority(r);
+    const isRegistrarDirectDraft = (r) => isDraftRecord(r) && isRegistrarSubmissionRow(r);
 
     const hodCounts = {
       HOD_APPROVED: 0,
@@ -7892,33 +8066,51 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const hodSubmissionCounts = {
       PENDING_REVIEW: 0,
       APPROVED: 0,
+      DRAFT: 0,
       TOTAL: 0
     };
     const deanSubmissionCounts = {
       PENDING_REVIEW: 0,
       APPROVED: 0,
+      DRAFT: 0,
+      TOTAL: 0
+    };
+    const registrarSubmissionCounts = {
+      PENDING_REVIEW: 0,
+      APPROVED: 0,
+      DRAFT: 0,
       TOTAL: 0
     };
 
     if (isIQAC || isPrincipal) {
       selectedInboxRows.forEach((row) => {
         if (isHodSubmissionRow(row)) {
-          if (!isDraftRecord(row)) {
-            if (isIqacApprovedRecord(row)) {
-              hodSubmissionCounts.APPROVED++;
-            } else {
-              hodSubmissionCounts.PENDING_REVIEW++;
-            }
+          if (isDraftRecord(row)) {
+            hodSubmissionCounts.DRAFT++;
+          } else if (isApprovedByActiveAuthority(row)) {
+            hodSubmissionCounts.APPROVED++;
+          } else {
+            hodSubmissionCounts.PENDING_REVIEW++;
+          }
+          return;
+        }
+        if (isRegistrarSubmissionRow(row)) {
+          if (isDraftRecord(row)) {
+            registrarSubmissionCounts.DRAFT++;
+          } else if (isApprovedByActiveAuthority(row)) {
+            registrarSubmissionCounts.APPROVED++;
+          } else {
+            registrarSubmissionCounts.PENDING_REVIEW++;
           }
           return;
         }
         if (isDeanSubmissionRow(row)) {
-          if (!isDraftRecord(row)) {
-            if (isIqacApprovedRecord(row)) {
-              deanSubmissionCounts.APPROVED++;
-            } else {
-              deanSubmissionCounts.PENDING_REVIEW++;
-            }
+          if (isDraftRecord(row)) {
+            deanSubmissionCounts.DRAFT++;
+          } else if (isApprovedByActiveAuthority(row)) {
+            deanSubmissionCounts.APPROVED++;
+          } else {
+            deanSubmissionCounts.PENDING_REVIEW++;
           }
           return;
         }
@@ -7939,8 +8131,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       });
       hodCounts.TOTAL = hodCounts.HOD_APPROVED + hodCounts.HOD_PENDING + hodCounts.DRAFT;
       yourCounts.TOTAL = yourCounts.PENDING_REVIEW + yourCounts.APPROVED;
-      hodSubmissionCounts.TOTAL = hodSubmissionCounts.PENDING_REVIEW + hodSubmissionCounts.APPROVED;
-      deanSubmissionCounts.TOTAL = deanSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.APPROVED;
+      hodSubmissionCounts.TOTAL = hodSubmissionCounts.PENDING_REVIEW + hodSubmissionCounts.APPROVED + hodSubmissionCounts.DRAFT;
+      deanSubmissionCounts.TOTAL = deanSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.APPROVED + deanSubmissionCounts.DRAFT;
+      registrarSubmissionCounts.TOTAL = registrarSubmissionCounts.PENDING_REVIEW + registrarSubmissionCounts.APPROVED + registrarSubmissionCounts.DRAFT;
 
       // Populate statusCounts for live summary cards
       statusCounts.ALL = selectedInboxRows.filter(r => !isDraftRecord(r) && isRegularFacultyRow(r)).length;
@@ -7987,12 +8180,24 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           displayInboxRows = displayInboxRows.filter(isHodDirectPending);
         } else if (yourApprovalsTab === 'APPROVED') {
           displayInboxRows = displayInboxRows.filter(isHodDirectApproved);
+        } else if (yourApprovalsTab === 'DRAFT') {
+          displayInboxRows = displayInboxRows.filter(isHodDirectDraft);
         }
       } else if (leadershipTopBox === 'DEAN_SUBMISSIONS') {
         if (yourApprovalsTab === 'PENDING_REVIEW') {
           displayInboxRows = displayInboxRows.filter(isDeanDirectPending);
         } else if (yourApprovalsTab === 'APPROVED') {
           displayInboxRows = displayInboxRows.filter(isDeanDirectApproved);
+        } else if (yourApprovalsTab === 'DRAFT') {
+          displayInboxRows = displayInboxRows.filter(isDeanDirectDraft);
+        }
+      } else if (leadershipTopBox === 'REGISTRAR_SUBMISSIONS') {
+        if (yourApprovalsTab === 'PENDING_REVIEW') {
+          displayInboxRows = displayInboxRows.filter(isRegistrarDirectPending);
+        } else if (yourApprovalsTab === 'APPROVED') {
+          displayInboxRows = displayInboxRows.filter(isRegistrarDirectApproved);
+        } else if (yourApprovalsTab === 'DRAFT') {
+          displayInboxRows = displayInboxRows.filter(isRegistrarDirectDraft);
         }
       } else {
         displayInboxRows = [];
@@ -8050,15 +8255,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       displayInboxRows = displayInboxRows.filter((row) => !row.iqacExcluded);
     }
 
-    const isDirectApprovalBox = ['YOUR_APPROVALS', 'HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS'].includes(leadershipTopBox);
+    const isDirectApprovalBox = ['YOUR_APPROVALS', 'HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS', 'REGISTRAR_SUBMISSIONS'].includes(leadershipTopBox);
     const isBulkSelectAllowed = (isIQAC || isPrincipal)
       ? (isDirectApprovalBox && ['PENDING_REVIEW', 'APPROVED'].includes(yourApprovalsTab))
       : false;
     const isRowSelectable = (row) => {
       if (isIQAC || isPrincipal) {
         if (!isDirectApprovalBox) return false;
-        if (yourApprovalsTab === 'PENDING_REVIEW') return !isDraftRecord(row) && !isIqacApprovedRecord(row);
-        if (yourApprovalsTab === 'APPROVED') return !isDraftRecord(row) && isIqacApprovedRecord(row);
+        if (yourApprovalsTab === 'PENDING_REVIEW') return !isDraftRecord(row) && !isApprovedByActiveAuthority(row);
+        if (yourApprovalsTab === 'APPROVED') return !isDraftRecord(row) && isApprovedByActiveAuthority(row);
         return false;
       }
       return false;
@@ -8111,7 +8316,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   value={selectedDeptFilter}
                   onChange={(e) => {
                     setSelectedDeptFilter(e.target.value);
-                    if (leadershipTopBox === 'HOD_SUBMISSIONS' || leadershipTopBox === 'DEAN_SUBMISSIONS') {
+                    if (['HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS', 'REGISTRAR_SUBMISSIONS'].includes(leadershipTopBox)) {
                       setLeadershipTopBox('HOD_APPROVALS');
                       setHodApprovalsTab('HOD_APPROVED');
                     }
@@ -8128,63 +8333,49 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             )}
 
             {(isIQAC || isPrincipal) && (
-              <div className="flex items-center gap-1.5 h-8 bg-slate-100 p-0.5 rounded-md border border-slate-300">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveReviewTab('inbox');
-                    if (leadershipTopBox === 'HOD_SUBMISSIONS') {
-                      setLeadershipTopBox('HOD_APPROVALS');
-                      setHodApprovalsTab('HOD_APPROVED');
-                    } else {
-                      setLeadershipTopBox('HOD_SUBMISSIONS');
-                      setYourApprovalsTab('PENDING_REVIEW');
-                    }
-                    setIsIqacSelectMode(false);
-                    setSelectedIqacRowIds([]);
-                  }}
-                  className={`h-full px-2.5 text-xs font-semibold rounded transition cursor-pointer flex items-center gap-1.5 ${
-                    leadershipTopBox === 'HOD_SUBMISSIONS'
-                      ? 'bg-[#4A1519] text-white shadow-sm font-bold'
-                      : 'text-slate-700 hover:text-[#4A1519] hover:bg-white'
-                  }`}
-                  title="View HOD Personal Appraisals"
-                >
-                  <span>HOD</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                    leadershipTopBox === 'HOD_SUBMISSIONS' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    {hodSubmissionCounts.TOTAL}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveReviewTab('inbox');
-                    if (leadershipTopBox === 'DEAN_SUBMISSIONS') {
-                      setLeadershipTopBox('HOD_APPROVALS');
-                      setHodApprovalsTab('HOD_APPROVED');
-                    } else {
-                      setLeadershipTopBox('DEAN_SUBMISSIONS');
-                      setYourApprovalsTab('PENDING_REVIEW');
-                    }
-                    setIsIqacSelectMode(false);
-                    setSelectedIqacRowIds([]);
-                  }}
-                  className={`h-full px-2.5 text-xs font-semibold rounded transition cursor-pointer flex items-center gap-1.5 ${
-                    leadershipTopBox === 'DEAN_SUBMISSIONS'
-                      ? 'bg-[#4A1519] text-white shadow-sm font-bold'
-                      : 'text-slate-700 hover:text-[#4A1519] hover:bg-white'
-                  }`}
-                  title="View Dean Personal Appraisals"
-                >
-                  <span>Dean</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                    leadershipTopBox === 'DEAN_SUBMISSIONS' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    {deanSubmissionCounts.TOTAL}
-                  </span>
-                </button>
+              <div className="flex items-center gap-1 h-8 bg-slate-100 p-0.5 rounded-md border border-slate-300">
+                {[
+                  { key: 'HOD_SUBMISSIONS', label: 'HOD', counts: hodSubmissionCounts, title: 'View HOD Personal Appraisals' },
+                  { key: 'DEAN_SUBMISSIONS', label: 'Dean', counts: deanSubmissionCounts, title: 'View Dean Personal Appraisals' },
+                  { key: 'REGISTRAR_SUBMISSIONS', label: 'Registrar', counts: registrarSubmissionCounts, title: 'View Registrar Personal Appraisals' },
+                ].map((sector) => {
+                  const isActiveSector = leadershipTopBox === sector.key;
+                  const nextSubTab = sector.counts.PENDING_REVIEW > 0
+                    ? 'PENDING_REVIEW'
+                    : (sector.counts.APPROVED > 0 ? 'APPROVED' : (sector.counts.DRAFT > 0 ? 'DRAFT' : 'PENDING_REVIEW'));
+                  return (
+                    <button
+                      key={sector.key}
+                      type="button"
+                      onClick={() => {
+                        setActiveReviewTab('inbox');
+                        if (isActiveSector) {
+                          setLeadershipTopBox('HOD_APPROVALS');
+                          setHodApprovalsTab('HOD_APPROVED');
+                        } else {
+                          setSelectedDeptFilter('ALL');
+                          setLeadershipTopBox(sector.key);
+                          setYourApprovalsTab(nextSubTab);
+                        }
+                        setIsIqacSelectMode(false);
+                        setSelectedIqacRowIds([]);
+                      }}
+                      className={`h-full px-2.5 text-xs font-semibold rounded transition cursor-pointer flex items-center gap-1.5 ${
+                        isActiveSector
+                          ? 'bg-[#4A1519] text-white shadow-sm font-bold'
+                          : 'text-slate-700 hover:text-[#4A1519] hover:bg-white'
+                      }`}
+                      title={sector.title}
+                    >
+                      <span>{sector.label}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                        isActiveSector ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {sector.counts.TOTAL}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
@@ -8513,7 +8704,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           {activeReviewTab === 'inbox' && (
           <div className="space-y-3">
             {/* Task 3: ROW A - Compact segmented toggle */}
-            {(isIQAC || isPrincipal) && !['HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS'].includes(leadershipTopBox) && (
+            {(isIQAC || isPrincipal) && !['HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS', 'REGISTRAR_SUBMISSIONS'].includes(leadershipTopBox) && (
               <div className="flex flex-wrap items-center">
                 <div className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-slate-100 p-0.5 gap-0.5">
                   <button
@@ -8595,15 +8786,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         ))
                       ) : (
                         (() => {
+                          const isLeadershipSector = ['HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS', 'REGISTRAR_SUBMISSIONS'].includes(leadershipTopBox);
                           const activeBoxCounts = leadershipTopBox === 'HOD_SUBMISSIONS'
                             ? hodSubmissionCounts
                             : leadershipTopBox === 'DEAN_SUBMISSIONS'
                               ? deanSubmissionCounts
-                              : yourCounts;
-                          return [
+                              : leadershipTopBox === 'REGISTRAR_SUBMISSIONS'
+                                ? registrarSubmissionCounts
+                                : yourCounts;
+                          const tabs = [
                             { key: 'PENDING_REVIEW', label: '⏳ Pending Review', count: activeBoxCounts.PENDING_REVIEW, color: 'bg-amber-600 text-white' },
                             { key: 'APPROVED', label: '✔ Approved', count: activeBoxCounts.APPROVED, color: 'bg-green-600 text-white' },
                           ];
+                          if (isLeadershipSector) {
+                            tabs.push({ key: 'DRAFT', label: '📝 Draft', count: activeBoxCounts.DRAFT || 0, color: 'bg-slate-600 text-white' });
+                          }
+                          return tabs;
                         })().map((tab) => (
                           <button
                             key={tab.key}
@@ -8901,8 +9099,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 {displayInboxRows.length === 0 ? (
                   <tr>
                     <td colSpan={isBulkSelectAllowed && isIqacSelectMode ? 10 : 9} className="py-6 px-3 text-center text-xs text-slate-500 italic">
-                      {(isIQAC || isPrincipal) 
-                        ? `No faculty submissions found matching Score ${hodScoreFilterMode === 'min' ? `≥ ${hodScoreSliderValue}` : hodScoreFilterMode === 'exact' ? `== ${hodScoreSliderValue}` : (hodScoreFilterMode === 'default' && hodScoreSliderValue < 200) ? `0 – ${hodScoreSliderValue}` : ''}.`
+                      {(isIQAC || isPrincipal)
+                        ? (() => {
+                            const sFrom = iqacScoreFrom === '' ? 0 : Number(iqacScoreFrom);
+                            const sTo = iqacScoreTo === '' ? 200 : Number(iqacScoreTo);
+                            const hasScoreFilter = (!isNaN(sFrom) && sFrom > 0) || (!isNaN(sTo) && sTo < 200);
+                            return hasScoreFilter
+                              ? `No submissions found matching Score Range ${Math.min(sFrom || 0, sTo || 200)} – ${Math.max(sFrom || 0, sTo || 200)}.`
+                              : `No submissions found in this view for ${selectedTimeline === 'All' ? 'all academic years' : selectedTimeline}.`;
+                          })()
                         : `No faculty submissions available ${selectedTimeline === 'All' ? 'in the database' : `for ${selectedTimeline}`}.`}
                     </td>
                   </tr>
@@ -8983,7 +9188,45 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   </span>
                                 );
                               }
-                              if (!isHodApprovedOrLater(row) && !isHodSubmissionRow(row) && !isDeanSubmissionRow(row)) {
+                              if (isRegistrarSubmissionRow(row)) {
+                                const iqDone = isRegistrarIqacApproved(row);
+                                const prDone = isRegistrarPrincipalApproved(row);
+                                if (iqDone && prDone) {
+                                  return (
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
+                                      <span>✔</span> Approved (IQAC &amp; Principal)
+                                    </span>
+                                  );
+                                }
+                                if (iqDone && !prDone) {
+                                  return (
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border shadow-sm flex items-center gap-1 w-fit ${
+                                      isPrincipal
+                                        ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                        : 'bg-blue-100 text-blue-900 border-blue-300'
+                                    }`}>
+                                      <span>✔ IQAC Approved · ⏳ Pending Principal</span>
+                                    </span>
+                                  );
+                                }
+                                if (!iqDone && prDone) {
+                                  return (
+                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border shadow-sm flex items-center gap-1 w-fit ${
+                                      isPrincipal
+                                        ? 'bg-blue-100 text-blue-900 border-blue-300'
+                                        : 'bg-amber-50 text-amber-800 border-amber-300'
+                                    }`}>
+                                      <span>✔ Principal Approved · ⏳ Pending IQAC</span>
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
+                                    <span>⏳</span> Pending IQAC &amp; Principal
+                                  </span>
+                                );
+                              }
+                              if (!isHodApprovedOrLater(row) && !isHodSubmissionRow(row) && !isDeanSubmissionRow(row) && !isRegistrarSubmissionRow(row)) {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm flex items-center gap-1 w-fit">
                                     <span>⏳</span> Pending HoD Review
@@ -9006,6 +9249,30 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             }
 
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
+
+                            if (isRegistrarSubmissionRecord(row) && activeStatus !== 'DRAFT' && !isRatified) {
+                              const iqDone = isRegistrarIqacApproved(row);
+                              const prDone = isRegistrarPrincipalApproved(row);
+                              if (iqDone && prDone) {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
+                                    <span>✔</span> Approved by IQAC &amp; Principal
+                                  </span>
+                                );
+                              }
+                              if (iqDone || prDone) {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
+                                    <span>{iqDone ? '✔ IQAC Approved · ⏳ Pending Principal' : '✔ Principal Approved · ⏳ Pending IQAC'}</span>
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
+                                  <span>⏳</span> Pending IQAC &amp; Principal
+                                </span>
+                              );
+                            }
 
                             if (isRatified && isIqacApproved) {
                               return (
@@ -9045,7 +9312,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                  <span>⏳</span> {row.isHodSubmission ? 'Pending IQAC Review' : (isHod ? 'Pending Review' : 'Pending HoD Review')}
+                                  <span>⏳</span> {row.isHodSubmission ? 'Pending IQAC Review' : (isRegistrarSubmissionRecord(row) ? 'Pending IQAC & Principal' : (isHod ? 'Pending Review' : 'Pending HoD Review'))}
                                 </span>
                               );
                             }
@@ -9064,7 +9331,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                   setHodRemarksInput(row.hodRemarks || '');
                                   setHodSubsectionRemarks(row.subsectionRemarks || {});
                                   setHodSubsectionScores(row.hodSubsectionScores || {});
-                                  setIqacRemarksInput(row.iqacAuditRemarks || '');
+                                  setIqacRemarksInput((isPrincipal && isRegistrarSubmissionRecord(row)) ? (row.principalRemarks || '') : (row.iqacAuditRemarks || ''));
                                 } catch (err) {
                                   console.error("Error opening appraisal record:", err);
                                 }
@@ -9333,6 +9600,43 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         <td className="py-3 px-3">
                           {(() => {
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
+                            if (activeStatus === 'DRAFT') {
+                              return (
+                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-100 text-slate-700 border border-slate-300 shadow-sm">
+                                  📝 Draft
+                                </span>
+                              );
+                            }
+                            if (isRegistrarSubmissionRecord(row) && !isRatified) {
+                              const iqDone = isRegistrarIqacApproved(row);
+                              const prDone = isRegistrarPrincipalApproved(row);
+                              if (iqDone && prDone) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">
+                                    <span>✔</span> Approved by IQAC &amp; Principal
+                                  </span>
+                                );
+                              }
+                              if (iqDone) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm">
+                                    <span>✔ IQAC Approved · ⏳ Pending Principal</span>
+                                  </span>
+                                );
+                              }
+                              if (prDone) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm">
+                                    <span>✔ Principal Approved · ⏳ Pending IQAC</span>
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 shadow-sm">
+                                  ⏳ Pending IQAC &amp; Principal
+                                </span>
+                              );
+                            }
                             if (isRatified && isIqacVerifiedHistory) {
                               return (
                                 <div className="flex flex-col gap-1 items-start">
@@ -9505,9 +9809,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             onRemarksChange: setIqacRemarksInput,
             onVerify: (targetStatus) => handleIqacVerifySubmission(selectedAppraisal._id || selectedAppraisal.id, selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline, iqacRemarksInput, targetStatus),
             onToggleExclusion: () => handleIqacToggleExclusion(selectedAppraisal._id || selectedAppraisal.id, Boolean(selectedAppraisal.iqacExcluded), selectedAppraisal.facultyEmail || selectedAppraisal.email, selectedAppraisal.timeline),
-            isVerified: isIqacApprovedRecord(selectedAppraisal),
+            isVerified: isApprovedByActiveAuthority(selectedAppraisal),
             isExcluded: Boolean(selectedAppraisal.iqacExcluded),
-            isViewOnly: Boolean((isIQAC || isPrincipal) && leadershipTopBox === 'HOD_APPROVALS')
+            isViewOnly: Boolean((isIQAC || isPrincipal) && (leadershipTopBox === 'HOD_APPROVALS' || String(selectedAppraisal.appraisalStatus || '').toUpperCase().trim() === 'DRAFT' || Boolean(selectedAppraisal.isDraft))),
+            viewerRole: isPrincipal ? 'Principal' : 'IQAC'
           } : null}
         />
       )}
@@ -10829,7 +11134,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-medium text-slate-700">
-                Submit this Section I to IX appraisal to the HoD when your added rows are complete.
+                {isRegistrarSubmissionRecord(user)
+                  ? 'Submit this Section I to IX appraisal to IQAC & Principal when your added rows are complete.'
+                  : 'Submit this Section I to IX appraisal to the HoD when your added rows are complete.'}
               </p>
               <p className="mt-1 text-[11px] text-slate-500">
                 Empty sections are allowed and will be ignored automatically.
@@ -10845,7 +11152,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 disabled={isSubmitting || !isEditable}
                 className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
-                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : 'Submit to HOD'}
+                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : (isRegistrarSubmissionRecord(user) ? 'Submit to IQAC & Principal' : 'Submit to HOD')}
               </button>
             </div>
           </div>
@@ -11536,7 +11843,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 </div>
                 <div className="flex items-start gap-2 pt-1 text-[11px] text-amber-900 bg-amber-50/80 p-2.5 rounded-lg border border-amber-200 font-medium">
                   <span className="text-sm">🔒</span>
-                  <span><strong>Important:</strong> Submitting will lock your form and forward your dossier to the Head of Department (HOD) for official review. Ensure all Google Drive evidence links are accessible.</span>
+                  <span>
+                    <strong>Important:</strong> Submitting will lock your form and forward your dossier to{' '}
+                    {isRegistrarSubmissionRecord(user)
+                      ? 'IQAC and the Principal for official approval'
+                      : 'the Head of Department (HOD) for official review'}. Ensure all Google Drive evidence links are accessible.
+                  </span>
                 </div>
               </div>
             )}
@@ -11547,7 +11859,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <div className="flex items-center justify-between">
                   <span className="text-emerald-800 font-semibold">Official Status:</span>
                   <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    {(user?.role === 'HOD' || /^hod[a-z]{2,6}@tce\.edu$/i.test(user?.email || '')) ? 'Pending IQAC Review' : 'Pending HoD Review'}
+                    {isRegistrarSubmissionRecord(user)
+                      ? 'Pending IQAC & Principal Review'
+                      : ((user?.role === 'HOD' || /^hod[a-z]{2,6}@tce\.edu$/i.test(user?.email || '')) ? 'Pending IQAC Review' : 'Pending HoD Review')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">

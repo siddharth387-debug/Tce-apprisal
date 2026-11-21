@@ -173,6 +173,9 @@ export const exportAppraisalToPDF = ({
     'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
     'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
   ]);
+  const hasFullRegistrarTitle = /\bregistrar\b/i.test(
+    targetDesig.replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
+  );
   const isHodRecord = Boolean(
     record?.isHodSubmission ||
     KNOWN_HOD_PERSONAL_EMAILS.has(targetEmailLower) ||
@@ -180,19 +183,48 @@ export const exportAppraisalToPDF = ({
     /\b(head|hod)\b/i.test(targetDesig) ||
     (String(user?.role || '').toUpperCase() === 'HOD' && targetEmailLower === String(user?.email || '').toLowerCase().trim())
   );
+  const isRegistrarRecord = !isHodRecord && Boolean(
+    record?.isRegistrarSubmission ||
+    ['rajaram_siva@tce.edu', 'srrece@tce.edu', 'registrar@tce.edu'].includes(targetEmailLower) ||
+    hasFullRegistrarTitle
+  );
   const iqacStatusUpper = String(record?.iqacStatus || '').toUpperCase().trim();
+  const principalStatusUpper = String(record?.principalApprovalStatus || '').toUpperCase().trim();
   const isIqacApproved = iqacStatusUpper === 'APPROVED' || iqacStatusUpper === 'IQAC APPROVED';
+  const isPrincipalApproved = ['APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(principalStatusUpper);
 
   let badgeBg = [254, 243, 199];
   let badgeBorder = [252, 211, 77];
   let badgeText = [146, 64, 14];
-  let badgeLabel = isHodRecord ? 'PENDING IQAC APPROVAL' : 'PENDING HOD APPROVAL';
+  let badgeLabel = isRegistrarRecord ? 'PENDING IQAC & PRINCIPAL APPROVAL' : (isHodRecord ? 'PENDING IQAC APPROVAL' : 'PENDING HOD APPROVAL');
 
   if (isRatified) {
     badgeBg = [209, 250, 229];
     badgeBorder = [52, 211, 153];
     badgeText = [6, 95, 70];
     badgeLabel = 'RATIFIED & LOCKED';
+  } else if (isRegistrarRecord) {
+    if (isIqacApproved && isPrincipalApproved) {
+      badgeBg = [220, 252, 231];
+      badgeBorder = [134, 239, 172];
+      badgeText = [22, 101, 52];
+      badgeLabel = 'APPROVED BY IQAC & PRINCIPAL';
+    } else if (isIqacApproved) {
+      badgeBg = [254, 243, 199];
+      badgeBorder = [252, 211, 77];
+      badgeText = [146, 64, 14];
+      badgeLabel = 'IQAC APPROVED (PENDING PRINCIPAL)';
+    } else if (isPrincipalApproved) {
+      badgeBg = [254, 243, 199];
+      badgeBorder = [252, 211, 77];
+      badgeText = [146, 64, 14];
+      badgeLabel = 'PRINCIPAL APPROVED (PENDING IQAC)';
+    } else {
+      badgeBg = [254, 243, 199];
+      badgeBorder = [252, 211, 77];
+      badgeText = [146, 64, 14];
+      badgeLabel = 'PENDING IQAC & PRINCIPAL APPROVAL';
+    }
   } else if (isHodRecord) {
     if (isIqacApproved) {
       badgeBg = [220, 252, 231];

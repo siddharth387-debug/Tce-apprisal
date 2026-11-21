@@ -215,6 +215,9 @@ export default function AppraisalPrintDocument({
             {(() => {
               const targetEmailLower = String(record?.email || record?.facultyEmail || user?.email || '').toLowerCase().trim();
               const targetDesig = String(record?.designation || user?.designation || '');
+              const hasFullRegistrarTitle = /\bregistrar\b/i.test(
+                targetDesig.replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
+              );
               const isHodRecord = Boolean(
                 record?.isHodSubmission ||
                 ['spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu', 'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu', 'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu'].includes(targetEmailLower) ||
@@ -222,8 +225,14 @@ export default function AppraisalPrintDocument({
                 /\b(head|hod)\b/i.test(targetDesig) ||
                 (String(user?.role || '').toUpperCase() === 'HOD' && targetEmailLower === String(user?.email || '').toLowerCase().trim())
               );
+              const isRegistrarRecord = !isHodRecord && Boolean(
+                record?.isRegistrarSubmission ||
+                ['rajaram_siva@tce.edu', 'srrece@tce.edu', 'registrar@tce.edu'].includes(targetEmailLower) ||
+                hasFullRegistrarTitle
+              );
               const isRatified = (record.appraisalStatus || '').toUpperCase() === 'RATIFIED' || (record.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
               const isIqacApp = ['APPROVED', 'IQAC APPROVED'].includes(String(record?.iqacStatus || '').toUpperCase().trim());
+              const isPrincipalApp = ['APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(String(record?.principalApprovalStatus || '').toUpperCase().trim());
               const isApproved = (record.appraisalStatus || '').toUpperCase() === 'APPROVED';
               const isRejected = (record.appraisalStatus || '').toUpperCase() === 'FIX NEEDED' || (record.appraisalStatus || '').toUpperCase() === 'NOT APPROVED';
               return (
@@ -231,6 +240,10 @@ export default function AppraisalPrintDocument({
                   className={`font-black uppercase px-2 py-0.2 rounded text-[10px] ${
                     isRatified
                       ? 'bg-emerald-100 text-emerald-900 border border-emerald-400'
+                      : isRegistrarRecord
+                      ? (isIqacApp && isPrincipalApp
+                          ? 'bg-green-100 text-green-800 border border-green-300'
+                          : 'bg-amber-100 text-amber-800 border border-amber-300')
                       : (isHodRecord ? isIqacApp : isApproved)
                       ? 'bg-green-100 text-green-800 border border-green-300'
                       : (!isHodRecord && isRejected)
@@ -240,6 +253,14 @@ export default function AppraisalPrintDocument({
                 >
                   {isRatified
                     ? '🔒 Ratified & Locked'
+                    : isRegistrarRecord
+                    ? (isIqacApp && isPrincipalApp
+                        ? '✔ Approved by IQAC & Principal'
+                        : isIqacApp
+                        ? '✔ IQAC Approved · ⏳ Pending Principal'
+                        : isPrincipalApp
+                        ? '✔ Principal Approved · ⏳ Pending IQAC'
+                        : '⏳ Pending IQAC & Principal Approval')
                     : isHodRecord
                     ? (isIqacApp ? '✔ Approved by IQAC' : '⏳ Pending IQAC Approval')
                     : isApproved
