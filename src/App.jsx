@@ -1036,7 +1036,8 @@ function getUnauthorizedPortalMessage(email) {
   if (!userEmail) return null;
   if (
     (userEmail.endsWith('@gmail.com') || userEmail.endsWith('@googlemail.com')) &&
-    userEmail !== 'deansiddharth@gmail.com'
+    userEmail !== 'deansiddharth@gmail.com' &&
+    userEmail !== 'tcetestingmail@gmail.com'
   ) {
     return 'Personal @gmail.com accounts are not authorized to access the TCE Faculty Appraisal Portal. Please sign in with your official institutional email (@tce.edu).';
   }
@@ -1058,7 +1059,7 @@ function getRoleFromEmail(email) {
   if (userEmail === 'principal@tce.edu') {
     return 'Principal';
   }
-  if (userEmail === 'iqac@tce.edu' || userEmail === 'headiqac@tce.edu' || userEmail.includes('iqac') || userEmail === 'pccse@tce.edu' || userEmail === 'pchitracse@tce.edu') {
+  if (userEmail === 'iqac@tce.edu' || userEmail === 'headiqac@tce.edu' || userEmail === 'tcetestingmail@gmail.com' || userEmail.includes('iqac') || userEmail === 'pccse@tce.edu' || userEmail === 'pchitracse@tce.edu') {
     return 'IQAC';
   }
   if (
@@ -4504,6 +4505,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     user?.role === 'IQAC' ||
     userEmailLower === 'iqac@tce.edu' ||
     userEmailLower === 'headiqac@tce.edu' ||
+    userEmailLower === 'tcetestingmail@gmail.com' ||
     userEmailLower.includes('iqac') ||
     userEmailLower === 'pccse@tce.edu' ||
     userEmailLower === 'pchitracse@tce.edu' ||

@@ -700,7 +700,7 @@ async function isSessionActive(sessionId, email) {
   }
 }
 
-const ALLOWED_GMAIL_EXCEPTION = 'deansiddharth@gmail.com';
+const ALLOWED_GMAIL_EXCEPTIONS = new Set(['deansiddharth@gmail.com', 'tcetestingmail@gmail.com']);
 const ALLOWED_STUDENT_EXCEPTION = 'siddharthk@student.tce.edu';
 
 function getUnauthorizedDomainMessage(email) {
@@ -708,7 +708,7 @@ function getUnauthorizedDomainMessage(email) {
   if (!em) return 'Email address is required.';
 
   // Whitelisted exceptions for developer / master admin accounts
-  if (em === ALLOWED_GMAIL_EXCEPTION || em === ALLOWED_STUDENT_EXCEPTION) {
+  if (ALLOWED_GMAIL_EXCEPTIONS.has(em) || em === ALLOWED_STUDENT_EXCEPTION) {
     return null;
   }
 
@@ -850,7 +850,7 @@ export function isIqacAccount(email, record = null) {
   }
 
   // Generic / institutional IQAC accounts
-  if (em === 'iqac@tce.edu' || em === 'headiqac@tce.edu' || em.includes('iqac')) {
+  if (em === 'iqac@tce.edu' || em === 'headiqac@tce.edu' || em === 'tcetestingmail@gmail.com' || em.includes('iqac')) {
     return true;
   }
 
@@ -904,7 +904,8 @@ const PROTECTED_LEADERSHIP_EMAILS = new Set([
   'headiqac@tce.edu',
   'pccse@tce.edu',
   'siddharthk@student.tce.edu',
-  'deansiddharth@gmail.com'
+  'deansiddharth@gmail.com',
+  'tcetestingmail@gmail.com'
 ]);
 
 // ── Secure Enterprise ERP Webhook Endpoint (Zero-Trust Hardened) ─────────────
@@ -3468,7 +3469,7 @@ async function enforceDomainSecurityPolicy() {
 
     // 3. Purge sessions
     const sessDel = await UserSession.deleteMany({
-      email: { $regex: /@gmail\.com$/i, $ne: 'deansiddharth@gmail.com' }
+      email: { $regex: /@gmail\.com$/i, $nin: ['deansiddharth@gmail.com', 'tcetestingmail@gmail.com'] }
     });
     if (sessDel.deletedCount > 0) {
       console.log(`🧹 Enforce Security Policy: Purged ${sessDel.deletedCount} unauthorized @gmail.com session(s).`);
