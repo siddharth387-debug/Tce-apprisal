@@ -839,7 +839,12 @@ const DEPARTMENT_NAME_MAP = {
   ALL: 'All Academic Departments'
 };
 
-// ── Helper to detect IQAC accounts and leadership emails ─────────────────────
+// ── Helper to detect Principal, IQAC accounts and leadership emails ──────────
+export function isPrincipalEmail(email) {
+  const em = String(email || '').toLowerCase().trim();
+  return em === 'principal@tce.edu' || em === 'tcetestingmail@gmail.com';
+}
+
 export function isIqacAccount(email, record = null) {
   if (!email && !record) return false;
   const em = String(email || '').toLowerCase().trim();
@@ -850,7 +855,7 @@ export function isIqacAccount(email, record = null) {
   }
 
   // Generic / institutional IQAC accounts
-  if (em === 'iqac@tce.edu' || em === 'headiqac@tce.edu' || em === 'tcetestingmail@gmail.com' || em.includes('iqac')) {
+  if (em === 'iqac@tce.edu' || em === 'headiqac@tce.edu' || em.includes('iqac')) {
     return true;
   }
 
@@ -1214,7 +1219,7 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = 'Registrar / Master Admin';
-    } else if (verifiedEmail === 'principal@tce.edu') {
+    } else if (isPrincipalEmail(verifiedEmail)) {
       assignedRole = 'Principal';
       assignedDept = 'ALL';
       assignedDeptName = 'All Academic Departments';
@@ -1414,7 +1419,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const userRole = (req.user?.role || '').toUpperCase().trim();
 
     // Institutional Governance Guard: Principal is an apex executive role and never submits self-appraisals
-    if (userRole === 'PRINCIPAL' || verifiedEmail === 'principal@tce.edu') {
+    if (userRole === 'PRINCIPAL' || isPrincipalEmail(verifiedEmail)) {
       console.log('⛔ Principal account is an apex administrative role and does not submit self-appraisals.');
       return res.status(403).json({ success: false, message: 'Principal account is for institutional review and governance only. Self-appraisal submission is disabled.' });
     }
@@ -1885,7 +1890,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       isIqacAccount(requestEmail, masterRecord) ||
       requestEmail === 'siddharthk@student.tce.edu' || 
       requestEmail === 'registrar@tce.edu' ||
-      requestEmail === 'principal@tce.edu' ||
+      isPrincipalEmail(requestEmail) ||
       /^hod[a-z]{2,6}@tce\.edu$/i.test(requestEmail)
     );
 
@@ -1912,7 +1917,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       const isSuperAdminOrRegistrar = !isExplicitHodRequest && (
                                      requestEmail === 'siddharthk@student.tce.edu' ||
                                      requestEmail === 'registrar@tce.edu' ||
-                                     requestEmail === 'principal@tce.edu' ||
+                                     isPrincipalEmail(requestEmail) ||
                                      isIqacAccount(requestEmail, masterRecord) ||
                                      requestRole === 'REGISTRAR' ||
                                      requestRole === 'PRINCIPAL' ||
@@ -1974,7 +1979,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     }
 
     const isIQACUser = !isExplicitHodRequest && (tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || isIqacAccount(requestEmail, masterRecord));
-    const isPrincipalUser = !isExplicitHodRequest && (tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || requestEmail === 'principal@tce.edu');
+    const isPrincipalUser = !isExplicitHodRequest && (tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || isPrincipalEmail(requestEmail));
 
     if (isIQACUser || isPrincipalUser) {
       const allowedStatuses = [
@@ -2021,7 +2026,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     const isCallerOnlyHod = isExplicitHodRequest || (isElevated && !(
       requestEmail === 'siddharthk@student.tce.edu' ||
       requestEmail === 'registrar@tce.edu' ||
-      requestEmail === 'principal@tce.edu' ||
+      isPrincipalEmail(requestEmail) ||
       isIqacAccount(requestEmail, masterRecord) ||
       requestRole === 'REGISTRAR' ||
       requestRole === 'PRINCIPAL' ||
@@ -2365,7 +2370,7 @@ app.post('/api/directory/change-hod', authenticateToken, async (req, res) => {
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const isAuthorized = ['REGISTRAR', 'ADMIN', 'PRINCIPAL'].includes(callerRole) ||
-      callerEmail === 'registrar@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+      callerEmail === 'registrar@tce.edu' || isPrincipalEmail(callerEmail) || callerEmail === 'siddharthk@student.tce.edu';
     if (!isAuthorized) {
       return res.status(403).json({
         success: false,
@@ -2491,7 +2496,7 @@ app.post('/api/directory/register', authenticateToken, async (req, res) => {
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const canRegister = ['REGISTRAR', 'ADMIN', 'PRINCIPAL', 'HOD'].includes(callerRole) ||
-      callerEmail === 'registrar@tce.edu' || callerEmail === 'principal@tce.edu' || callerEmail === 'siddharthk@student.tce.edu' ||
+      callerEmail === 'registrar@tce.edu' || isPrincipalEmail(callerEmail) || callerEmail === 'siddharthk@student.tce.edu' ||
       /^hod[a-z]{2,6}@tce\.edu$/i.test(callerEmail);
     if (!canRegister) {
       return res.status(403).json({
@@ -2631,7 +2636,7 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
     let hasLeadershipPrivilege = ['HOD', 'PRINCIPAL', 'REGISTRAR', 'IQAC', 'ADMIN'].includes(callerRole) ||
       callerEmail === 'registrar@tce.edu' ||
       callerEmail === 'siddharthk@student.tce.edu' ||
-      callerEmail === 'principal@tce.edu' ||
+      isPrincipalEmail(callerEmail) ||
       isIqacAccount(callerEmail) ||
       /^hod[a-z]{2,6}@tce\.edu$/i.test(callerEmail);
 
@@ -2682,7 +2687,7 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
       ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
       callerEmail === 'registrar@tce.edu' ||
       callerEmail === 'siddharthk@student.tce.edu' ||
-      callerEmail === 'principal@tce.edu' ||
+      isPrincipalEmail(callerEmail) ||
       isIqacAccount(callerEmail)
     );
     if (callerIsOnlyHod) {
@@ -2801,7 +2806,7 @@ app.post(['/api/appraisals/revert-to-draft', '/appraisals/revert-to-draft'], aut
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const isLeadership = ['HOD', 'PRINCIPAL', 'REGISTRAR', 'IQAC', 'ADMIN'].includes(callerRole) ||
-      callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu' ||
+      isPrincipalEmail(callerEmail) || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu' ||
       /^hod[a-z]{2,6}@tce\.edu$/i.test(callerEmail);
     const targetEmail = (targetRecord.email || targetRecord.facultyEmail || email || '').toLowerCase().trim();
     const isOwner = targetEmail === callerEmail;
@@ -2859,7 +2864,7 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticat
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const isAuthorizedIqac = ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
-      isIqacAccount(callerEmail) || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+      isIqacAccount(callerEmail) || isPrincipalEmail(callerEmail) || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
 
     if (!isAuthorizedIqac) {
       return res.status(403).json({
@@ -2925,7 +2930,7 @@ app.patch(['/api/appraisals/:id/iqac-status', '/appraisals/:id/iqac-status'], au
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const isAuthorizedIqac = ['IQAC', 'PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
-      isIqacAccount(callerEmail) || callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+      isIqacAccount(callerEmail) || isPrincipalEmail(callerEmail) || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
 
     if (!isAuthorizedIqac) {
       return res.status(403).json({
@@ -2984,7 +2989,7 @@ app.post(['/api/appraisals/endorse', '/appraisals/endorse'], authenticateToken, 
     const callerRole = (req.user?.role || '').toUpperCase().trim();
     const callerEmail = (req.user?.email || '').toLowerCase().trim();
     const isPrincipalOrAdmin = ['PRINCIPAL', 'REGISTRAR', 'ADMIN'].includes(callerRole) ||
-      callerEmail === 'principal@tce.edu' || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
+      isPrincipalEmail(callerEmail) || callerEmail === 'registrar@tce.edu' || callerEmail === 'siddharthk@student.tce.edu';
 
     if (!isPrincipalOrAdmin) {
       return res.status(403).json({

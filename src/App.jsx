@@ -1056,10 +1056,10 @@ function getRoleFromEmail(email) {
   if (userEmail === 'deansiddharth@gmail.com') {
     return 'Faculty';
   }
-  if (userEmail === 'principal@tce.edu') {
+  if (userEmail === 'principal@tce.edu' || userEmail === 'tcetestingmail@gmail.com') {
     return 'Principal';
   }
-  if (userEmail === 'iqac@tce.edu' || userEmail === 'headiqac@tce.edu' || userEmail === 'tcetestingmail@gmail.com' || userEmail.includes('iqac') || userEmail === 'pccse@tce.edu' || userEmail === 'pchitracse@tce.edu') {
+  if (userEmail === 'iqac@tce.edu' || userEmail === 'headiqac@tce.edu' || userEmail.includes('iqac') || userEmail === 'pccse@tce.edu' || userEmail === 'pchitracse@tce.edu') {
     return 'IQAC';
   }
   if (
@@ -4505,7 +4505,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     user?.role === 'IQAC' ||
     userEmailLower === 'iqac@tce.edu' ||
     userEmailLower === 'headiqac@tce.edu' ||
-    userEmailLower === 'tcetestingmail@gmail.com' ||
     userEmailLower.includes('iqac') ||
     userEmailLower === 'pccse@tce.edu' ||
     userEmailLower === 'pchitracse@tce.edu' ||
@@ -11719,6 +11718,15 @@ function getStoredAuthContext() {
 function normalizeArchUserProfile(userProfile) {
   if (!userProfile || typeof userProfile !== 'object') return userProfile;
   const em = String(userProfile.email || userProfile.personalEmail || '').toLowerCase().trim();
+  if (em === 'tcetestingmail@gmail.com') {
+    return {
+      ...userProfile,
+      role: 'Principal',
+      department: 'ALL',
+      departmentName: 'All Academic Departments',
+      designation: 'Principal',
+    };
+  }
   const hodMatch = em.match(/^hod([a-z]{2,6})@tce\.edu$/i);
   if (hodMatch) {
     const hodDeptCode = normalizeDepartmentCode(hodMatch[1].toUpperCase());
