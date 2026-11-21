@@ -8131,9 +8131,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       });
       hodCounts.TOTAL = hodCounts.HOD_APPROVED + hodCounts.HOD_PENDING + hodCounts.DRAFT;
       yourCounts.TOTAL = yourCounts.PENDING_REVIEW + yourCounts.APPROVED;
-      hodSubmissionCounts.TOTAL = hodSubmissionCounts.PENDING_REVIEW + hodSubmissionCounts.APPROVED + hodSubmissionCounts.DRAFT;
-      deanSubmissionCounts.TOTAL = deanSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.APPROVED + deanSubmissionCounts.DRAFT;
-      registrarSubmissionCounts.TOTAL = registrarSubmissionCounts.PENDING_REVIEW + registrarSubmissionCounts.APPROVED + registrarSubmissionCounts.DRAFT;
+      hodSubmissionCounts.TOTAL = hodSubmissionCounts.PENDING_REVIEW + hodSubmissionCounts.APPROVED;
+      deanSubmissionCounts.TOTAL = deanSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.APPROVED;
+      registrarSubmissionCounts.TOTAL = registrarSubmissionCounts.PENDING_REVIEW + registrarSubmissionCounts.APPROVED;
 
       // Populate statusCounts for live summary cards
       statusCounts.ALL = selectedInboxRows.filter(r => !isDraftRecord(r) && isRegularFacultyRow(r)).length;
