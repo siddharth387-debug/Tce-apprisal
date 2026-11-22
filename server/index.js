@@ -3889,6 +3889,30 @@ async function startServer() {
         }
       );
 
+      // One-time unlock to Draft for Dr. G. Jeya Jeevakani (gjjeng@tce.edu, ENG)
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: 'gjjeng@tce.edu' },
+            { facultyEmail: 'gjjeng@tce.edu' }
+          ],
+          unlockedReleaseTag: { $ne: 'unlock-2026-11-22-gjjeng' }
+        },
+        {
+          $set: {
+            appraisalStatus: 'Draft',
+            isSubmitted: false,
+            isDraft: true,
+            isLocked: false,
+            principalApprovalStatus: 'Draft',
+            iqacStatus: 'Draft',
+            submittedAt: null,
+            unlockedReleaseTag: 'unlock-2026-11-22-gjjeng',
+            updatedAt: new Date()
+          }
+        }
+      );
+
       // Ensure all Architecture (T'SEDA) faculty and their appraisals are strictly mapped to department: 'ARCH'
       const archEmails = [
         'gsjarch@tce.edu', 'hodarch@tce.edu', 'jjlkarch@tce.edu', 'aakarch@tce.edu',
