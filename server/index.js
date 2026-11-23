@@ -377,6 +377,7 @@ const normalizeDepartmentCode = (rawDept) => {
     'B.ARCH': 'ARCH',
     'BARCH': 'ARCH',
     'THIAGARAJAR SCHOOL OF ARCHITECTURE': 'ARCH',
+    'FASHION TECHNOLOGY': 'FT',
   };
   if (map[d]) return map[d];
   if (d.includes('ARCH') || d.includes('TSEDA')) return 'ARCH';
@@ -1005,10 +1006,16 @@ const DEPARTMENT_NAME_MAP = {
   MECH: 'Mechanical Engineering',
   CIVIL: 'Civil Engineering',
   IT: 'Information Technology',
+  MECT: 'Mechatronics',
+  CSBS: 'Computer Science and Business Systems',
+  AMCS: 'Applied Mathematics and Computational Science',
+  MATH: 'Mathematics',
+  PHY: 'Physics',
   CHEM: 'Chemistry',
   ENG: 'English',
   AI: 'Artificial Intelligence',
   ARCH: "Architecture (T'SEDA)",
+  FT: 'Fashion Technology',
   DS: 'Data Science',
   MATHS: 'Mathematics',
   PHYSICS: 'Physics',
@@ -1078,7 +1085,7 @@ const KNOWN_HOD_PERSONAL_EMAILS = [
   'cdcse@tce.edu', 'cdit@tce.edu',
   'aaamat@tce.edu', 'anithavalli@tce.edu',
   'pccse@tce.edu', 'pchitracse@tce.edu',
-  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
+  'pmmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
   'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
   'jeyamala@tce.edu',
   'rpift@tce.edu',
@@ -1092,10 +1099,12 @@ const APEX_NON_HOD_EMAILS = new Set([
   'iqac@tce.edu',
   'tcetestingmail@gmail.com',
   'deansiddharth@gmail.com',
+  'rhmech@tce.edu',
 ]);
 
 export function isHodDesignation(designation) {
-  return /\b(head|hod)\b/i.test(String(designation || ''));
+  const clean = String(designation || '').replace(/\bcent(?:er|re)\s+head\b/gi, '');
+  return /\b(head|hod)\b/i.test(clean);
 }
 
 async function getHodEmailSet() {
@@ -4173,14 +4182,190 @@ async function startServer() {
       await Appraisal.updateMany(
         {
           isHodSubmission: { $ne: true },
-          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS] },
+          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS, 'rhmech@tce.edu'] },
           $or: [
             { email: { $in: hodEmailsArr } },
             { facultyEmail: { $in: hodEmailsArr } },
-            { designation: /\b(head|hod)\b/i }
+            { designation: /^(?!.*\bcent(?:er|re)\s+head\b).*\b(head|hod)\b/i }
           ]
         },
         { $set: { isHodSubmission: true, isDeanSubmission: false } }
+      );
+
+      // 3. SynchronizeDr. R. Rajanprakash (HOD I/c, EEE), Dr. P. S. Manoharan (HOD I/c, MECT), Dr. G. K. Raajesh / Kanagaraj (Dean Career Development), and Dr. R. Priyadarshini (HOD I/c, FT)
+      await FacultyMember.updateOne(
+        { email: 'r[underscore]rajanprakash@tce.edu' },
+        {
+          $set: {
+            email: 'r_rajanprakash@tce.edu',
+            personalEmail: 'r_rajanprakash@tce.edu',
+            hodEmail: 'hodeee@tce.edu',
+            alternateEmails: ['r_rajanprakash@tce.edu', 'rrpeee@tce.edu'],
+            designation: 'HOD I/c, Associate Professor (CAS)',
+            department: 'EEE',
+            departmentName: 'Electrical and Electronics Engineering'
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'r_rajanprakash@tce.edu' },
+        {
+          $set: {
+            personalEmail: 'r_rajanprakash@tce.edu',
+            hodEmail: 'hodeee@tce.edu',
+            alternateEmails: ['r_rajanprakash@tce.edu', 'rrpeee@tce.edu'],
+            designation: 'HOD I/c, Associate Professor (CAS)',
+            department: 'EEE',
+            departmentName: 'Electrical and Electronics Engineering'
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'hodeee@tce.edu' },
+        {
+          $set: {
+            name: 'Dr. R. Rajanprakash',
+            designation: 'HOD I/c, Associate Professor (CAS)',
+            department: 'EEE',
+            departmentName: 'Electrical and Electronics Engineering',
+            role: 'HOD',
+            alternateEmails: ['hodeee@tce.edu']
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'psmeee@tce.edu' },
+        {
+          $set: {
+            hodEmail: 'hodmect@tce.edu',
+            designation: 'HOD I/c, Professor',
+            department: 'MECT',
+            departmentName: 'Mechatronics'
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'hodmect@tce.edu' },
+        {
+          $set: {
+            name: 'Dr. P. S. Manoharan',
+            designation: 'HOD I/c, Professor',
+            department: 'MECT',
+            departmentName: 'Mechatronics',
+            role: 'HOD',
+            alternateEmails: ['hodmect@tce.edu']
+          }
+        }
+      );
+      await Appraisal.updateMany(
+        { email: 'psmeee@tce.edu' },
+        {
+          $set: {
+            department: 'MECT',
+            departmentName: 'Mechatronics',
+            designation: 'HOD I/c, Professor',
+            isHodSubmission: true,
+            isDeanSubmission: false
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'gkmech@tce.edu' },
+        {
+          $set: {
+            designation: 'Professor and Dean (Career Development Centre)'
+          }
+        }
+      );
+      await Appraisal.updateMany(
+        { email: 'gkmech@tce.edu' },
+        {
+          $set: {
+            designation: 'Professor and Dean (Career Development Centre)',
+            isDeanSubmission: true,
+            isHodSubmission: false
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'spcse@tce.edu' },
+        {
+          $set: {
+            designation: 'Professor, Dean (Centres of Excellence and Continuing Education) and Head'
+          }
+        }
+      );
+      await Appraisal.updateMany(
+        { email: 'spcse@tce.edu' },
+        {
+          $set: {
+            designation: 'Professor, Dean (Centres of Excellence and Continuing Education) and Head',
+            isDeanSubmission: true,
+            isHodSubmission: false
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'rpift@tce.edu' },
+        {
+          $set: {
+            staffId: 'RPIFT',
+            name: 'Dr. R. Priyadarshini',
+            designation: 'HOD I/c, Associate Professor',
+            email: 'rpift@tce.edu',
+            personalEmail: 'rpift@tce.edu',
+            hodEmail: 'hodft@tce.edu',
+            alternateEmails: ['rpift@tce.edu'],
+            department: 'FT',
+            departmentName: 'Fashion Technology',
+            role: 'Faculty',
+            photo: 'https://www.tce.edu/sites/default/files/2026-08/rpift.jpg',
+            profileUrl: 'https://www.tce.edu/staff_profile/faculty/BARCH/rpift.html',
+            active: true
+          }
+        },
+        { upsert: true }
+      );
+      await FacultyMember.updateOne(
+        { email: 'hodft@tce.edu' },
+        {
+          $set: {
+            staffId: 'RPIFT',
+            name: 'Dr. R. Priyadarshini',
+            designation: 'HOD I/c, Associate Professor',
+            email: 'hodft@tce.edu',
+            personalEmail: 'hodft@tce.edu',
+            hodEmail: 'hodft@tce.edu',
+            alternateEmails: ['hodft@tce.edu'],
+            department: 'FT',
+            departmentName: 'Fashion Technology',
+            role: 'HOD',
+            photo: 'https://www.tce.edu/sites/default/files/2026-08/rpift.jpg',
+            profileUrl: 'https://www.tce.edu/staff_profile/faculty/BARCH/rpift.html',
+            active: true
+          }
+        },
+        { upsert: true }
+      );
+      await FacultyMember.updateOne(
+        { email: 'sajft@tce.edu' },
+        {
+          $set: {
+            staffId: 'SAJFT',
+            name: 'Ms. S. Aishwarya',
+            designation: 'Assistant Professor',
+            email: 'sajft@tce.edu',
+            personalEmail: 'sajft@tce.edu',
+            hodEmail: 'hodft@tce.edu',
+            alternateEmails: ['sajft@tce.edu'],
+            department: 'FT',
+            departmentName: 'Fashion Technology',
+            role: 'Faculty',
+            profileUrl: 'https://www.tce.edu/academics/departments/fashion-technology/academic-faculty',
+            active: true
+          }
+        },
+        { upsert: true }
       );
     } catch (normErr) {
       console.warn('AI dept / designation normalization warning:', normErr.message);

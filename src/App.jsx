@@ -58,7 +58,7 @@ export const KNOWN_HOD_EMAIL_SET = new Set([
   'cdcse@tce.edu', 'cdit@tce.edu',
   'aaamat@tce.edu', 'anithavalli@tce.edu',
   'pccse@tce.edu', 'pchitracse@tce.edu',
-  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
+  'pmmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
   'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
   'jeyamala@tce.edu',
   'rpift@tce.edu',
@@ -121,13 +121,13 @@ export const isHodSubmissionRecord = (r) => {
   if (!r || typeof r !== 'object' || isRegistrarSubmissionRecord(r) || isDeanSubmissionRecord(r)) return false;
   const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
   const desig = String(r.designation || '');
-  const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
+  // Exclude non-departmental "Center Head" titles (e.g., BEST - Center Head) unless explicitly in KNOWN_HOD_EMAIL_SET
+  const cleanDesigForHod = desig.replace(/\bcent(?:er|re)\s+head\b/gi, '');
   return (
     Boolean(r.isHodSubmission) ||
     KNOWN_HOD_EMAIL_SET.has(em) ||
     /^hod[a-z]{2,6}@tce\.edu$/i.test(em) ||
-    /\b(head|hod)\b/i.test(desig) ||
-    (Array.isArray(adminRows) && adminRows.some((a) => /\bhod\b/i.test(a?.role || '')))
+    /\b(head|hod)\b/i.test(cleanDesigForHod)
   );
 };
 
@@ -1140,7 +1140,7 @@ function isArchDepartment(dept) {
 }
 
 const TCE_DEPARTMENTS = [
-  { code: 'ALL', name: 'All 16 Academic Departments' },
+  { code: 'ALL', name: 'All 17 Academic Departments' },
   { code: 'CSE', name: 'Computer Science and Engineering' },
   { code: 'ECE', name: 'Electronics and Communication Engineering' },
   { code: 'EEE', name: 'Electrical and Electronics Engineering' },
@@ -1156,7 +1156,8 @@ const TCE_DEPARTMENTS = [
   { code: 'PHY', name: 'Physics' },
   { code: 'CHEM', name: 'Chemistry' },
   { code: 'ENG', name: 'English' },
-  { code: 'AI', name: 'Artificial Intelligence' }
+  { code: 'AI', name: 'Artificial Intelligence' },
+  { code: 'FT', name: 'Fashion Technology' }
 ];
 
 function getUnauthorizedPortalMessage(email) {
@@ -8265,9 +8266,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       });
       hodCounts.TOTAL = hodCounts.HOD_APPROVED + hodCounts.HOD_PENDING + hodCounts.DRAFT;
       yourCounts.TOTAL = yourCounts.PENDING_REVIEW + yourCounts.APPROVED;
-      hodSubmissionCounts.TOTAL = hodSubmissionCounts.PENDING_REVIEW + hodSubmissionCounts.APPROVED;
-      deanSubmissionCounts.TOTAL = deanSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.APPROVED;
-      registrarSubmissionCounts.TOTAL = registrarSubmissionCounts.PENDING_REVIEW + registrarSubmissionCounts.APPROVED;
+      hodSubmissionCounts.TOTAL = hodSubmissionCounts.PENDING_REVIEW + hodSubmissionCounts.APPROVED + hodSubmissionCounts.DRAFT;
+      deanSubmissionCounts.TOTAL = deanSubmissionCounts.PENDING_REVIEW + deanSubmissionCounts.APPROVED + deanSubmissionCounts.DRAFT;
+      registrarSubmissionCounts.TOTAL = registrarSubmissionCounts.PENDING_REVIEW + registrarSubmissionCounts.APPROVED + registrarSubmissionCounts.DRAFT;
 
       // Populate statusCounts for live summary cards
       statusCounts.ALL = selectedInboxRows.filter(r => !isDraftRecord(r) && isRegularFacultyRow(r)).length;
@@ -8450,16 +8451,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   value={selectedDeptFilter}
                   onChange={(e) => {
                     setSelectedDeptFilter(e.target.value);
-                    if (['HOD_SUBMISSIONS', 'DEAN_SUBMISSIONS', 'REGISTRAR_SUBMISSIONS'].includes(leadershipTopBox)) {
-                      setLeadershipTopBox('HOD_APPROVALS');
-                      setHodApprovalsTab('HOD_APPROVED');
-                    }
                   }}
                   className="h-8 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-semibold text-[#4A1519] outline-none focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519]"
                 >
                   {TCE_DEPARTMENTS.map((dept) => (
                     <option key={dept.code} value={dept.code}>
-                      {dept.code === 'ALL' ? '🏛️ All 16 Departments' : `${dept.code} - ${dept.name}`}
+                      {dept.code === 'ALL' ? '🏛️ All 17 Departments' : `${dept.code} - ${dept.name}`}
                     </option>
                   ))}
                 </select>
