@@ -149,22 +149,48 @@ export const isRegistrarPrincipalApproved = (row) => {
   return ['APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(prStatus) || apStatus === 'RATIFIED';
 };
 
+// ── Department inference from email suffix (mirrors server/index.js) ──────────
+export function inferDepartmentFromEmail(email) {
+  const clean = String(email || '').toLowerCase().trim();
+  if (!clean) return '';
+  if (/eee@tce\.edu$/i.test(clean)) return 'EEE';
+  if (/ece@tce\.edu$/i.test(clean)) return 'ECE';
+  if (/mech@tce\.edu$/i.test(clean)) return 'MECH';
+  if (/civ@tce\.edu$/i.test(clean)) return 'CIVIL';
+  if (/it@tce\.edu$/i.test(clean)) return 'IT';
+  if (/mect@tce\.edu$/i.test(clean)) return 'MECT';
+  if (/csbs@tce\.edu$/i.test(clean)) return 'CSBS';
+  if (/ca@tce\.edu$/i.test(clean)) return 'MCA';
+  if (/(?:amcs|ds)@tce\.edu$/i.test(clean)) return 'AMCS';
+  if (/arch@tce\.edu$/i.test(clean)) return 'ARCH';
+  if (/mat@tce\.edu$/i.test(clean)) return 'MATH';
+  if (/phy@tce\.edu$/i.test(clean)) return 'PHY';
+  if (/chem@tce\.edu$/i.test(clean)) return 'CHEM';
+  if (/eng@tce\.edu$/i.test(clean)) return 'ENG';
+  if (/ft@tce\.edu$/i.test(clean)) return 'FT';
+  if (/cse@tce\.edu$/i.test(clean)) return 'CSE';
+  return '';
+}
+
 export const isHodApprovedOrLater = (recordOrStatus) => {
   if (!recordOrStatus) return false;
-  if (
-    typeof recordOrStatus === 'object' &&
-    (recordOrStatus.isHodSubmission === true ||
-      recordOrStatus.isDeanSubmission === true ||
-      recordOrStatus.isRegistrarSubmission === true ||
-      isDeanSubmissionRecord(recordOrStatus) ||
-      isRegistrarSubmissionRecord(recordOrStatus))
-  ) {
-    return true;
+  if (typeof recordOrStatus === 'object') {
+    const isReg = isRegistrarSubmissionRecord(recordOrStatus);
+    const isDean = !isReg && isDeanSubmissionRecord(recordOrStatus);
+    // isHodSubmission flag is authoritative; isDeanSubmission takes precedence over HOD
+    const isHod = !isReg && !isDean && recordOrStatus.isHodSubmission === true;
+    if (isReg || isDean || isHod) return true;
   }
   const status = typeof recordOrStatus === 'string'
     ? recordOrStatus
     : (recordOrStatus.appraisalStatus || '');
   const normStatus = String(status).toUpperCase().trim();
+  // Explicitly block pending statuses so they never leak into "Approved by HOD" tab
+  const PENDING_STATUSES = [
+    'PENDING', 'SUBMITTED', 'PENDING REVIEW', 'PENDING HOD REVIEW',
+    'FIX NEEDED', 'NOT APPROVED', 'DRAFT', 'REJECTED', 'NOT SUBMITTED'
+  ];
+  if (PENDING_STATUSES.includes(normStatus)) return false;
   const HOD_APPROVED_OR_LATER_STATUSES = [
     'APPROVED',
     'HOD APPROVED',
@@ -174,14 +200,7 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
     'ENDORSED',
     'PRINCIPAL APPROVED'
   ];
-  if (HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus)) return true;
-  if (typeof recordOrStatus === 'object') {
-    const pStatus = String(recordOrStatus.principalApprovalStatus || '').toUpperCase().trim();
-    if (pStatus === 'RATIFIED' || pStatus === 'ENDORSED' || pStatus === 'APPROVED') return true;
-    const iqStatus = String(recordOrStatus.iqacStatus || '').toUpperCase().trim();
-    if (iqStatus === 'APPROVED' || iqStatus === 'IQAC APPROVED' || iqStatus === 'NOT APPROVED' || iqStatus === 'NOT APPROVED BY IQAC') return true;
-  }
-  return false;
+  return HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus);
 };
 
 export const isIqacApprovedRecord = (row) => {
@@ -2980,7 +2999,7 @@ const LandingPage = React.memo(function LandingPage({
           alternateEmails: backendUser?.alternateEmails || [userEmail],
           picture: backendUser?.picture || '',
           role: assignedRole,
-          department: backendUser?.department || 'CSE',
+          department: backendUser?.department || inferDepartmentFromEmail(userEmail) || 'CSE',
           departmentName: backendUser?.departmentName || '',
           designation: backendUser?.designation || 'Faculty',
           token: backendToken,
@@ -5080,7 +5099,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const draftUserKey = useMemo(() => {
     const baseEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
     if (!baseEmail) return '';
-    const deptKey = (activeDept || user?.department || 'CSE').toUpperCase().trim();
+    const deptKey = (activeDept || user?.department || inferDepartmentFromEmail(user?.email || user?.personalEmail || '') || 'CSE').toUpperCase().trim();
     return `${baseEmail}_${deptKey}`;
   }, [user, activeDept]);
 
@@ -5174,7 +5193,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     try {
       const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
-      const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || 'CSE');
+      const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || inferDepartmentFromEmail(user?.email || user?.personalEmail || '') || 'CSE');
       const effScores = computeEffectiveScores(currentDraft, activeTimelineRecord?.hodSubsectionScores || {}, activeDept);
 
       const cleanedSection1Data = {
@@ -6156,7 +6175,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         timeline: record.timeline,
         facultyName: record.facultyName || record.name || record.email,
         facultyEmail: record.email || record.facultyEmail,
-        department: record.department || 'CSE',
+        department: record.department || inferDepartmentFromEmail(record.email || record.facultyEmail || '') || 'CSE',
         departmentName: record.departmentName || '',
         isHodSubmission: Boolean(isHodSubmissionRecord(record)),
         isDeanSubmission: Boolean(isDeanSubmissionRecord(record)),
@@ -6886,7 +6905,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         timeline: record.timeline,
         facultyName: record.facultyName || record.name || record.email,
         facultyEmail: record.email || record.facultyEmail,
-        department: record.department || 'CSE',
+        department: record.department || inferDepartmentFromEmail(record.email || record.facultyEmail || '') || 'CSE',
         departmentName: record.departmentName || '',
         designation: record.designation || 'Assistant Professor',
         isHodSubmission: Boolean(isHodSubmissionRecord(record)),
@@ -7145,7 +7164,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const cloudFlattened = flattenAppraisalRecord(activeTimelineRecord);
       setWorkspaceByTimeline((prev) => {
         const currentInMemory = prev[selectedTimeline];
-        const merged = currentInMemory ? mergeSectionState(cloudFlattened, currentInMemory) : cloudFlattened;
+        const isCloudSubmitted = !['DRAFT', ''].includes(String(activeTimelineRecord.appraisalStatus || '').toUpperCase().trim());
+        // For submitted/pending records, cloud is authoritative; for drafts, merge preserving in-memory edits
+        const merged = isCloudSubmitted
+          ? cloudFlattened
+          : (currentInMemory ? mergeSectionState(cloudFlattened, currentInMemory) : cloudFlattened);
         return {
           ...prev,
           [selectedTimeline]: merged,
@@ -7701,7 +7724,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       };
 
       const totalScoreToSubmit = scores?.grandTotal || 0;
-      const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || 'CSE');
+      const targetDeptToSubmit = isMasterUser ? masterAppraisalMode : (user?.department || inferDepartmentFromEmail(user?.email || user?.personalEmail || '') || 'CSE');
 
       const response = await axios.post(
         `${API_BASE_URL}/appraisals`,

@@ -128,20 +128,31 @@ export function isDeanPersonalSubmission(email, record = null) {
 
 export const isHodApprovedOrLater = (recordOrStatus) => {
   if (!recordOrStatus) return false;
-  if (
-    typeof recordOrStatus === 'object' &&
-    (recordOrStatus.isHodSubmission === true ||
-      recordOrStatus.isDeanSubmission === true ||
-      recordOrStatus.isRegistrarSubmission === true ||
-      isDeanPersonalSubmission(recordOrStatus.email || recordOrStatus.facultyEmail, recordOrStatus) ||
-      isRegistrarPersonalSubmission(recordOrStatus.email || recordOrStatus.facultyEmail, recordOrStatus))
-  ) {
-    return true;
+  if (typeof recordOrStatus === 'object') {
+    const emailKey = String(recordOrStatus.email || recordOrStatus.facultyEmail || '').toLowerCase().trim();
+    const isReg = isRegistrarPersonalSubmission(emailKey, recordOrStatus);
+    const isDean = !isReg && isDeanPersonalSubmission(emailKey, recordOrStatus);
+    const isHod = !isReg && !isDean && !FORMER_HOD_PERSONAL_EMAILS.includes(emailKey) && (
+      recordOrStatus.isHodSubmission === true || isHodDesignation(recordOrStatus.designation)
+    );
+    if (isReg || isDean || isHod) {
+      return true;
+    }
   }
   const status = typeof recordOrStatus === 'string'
     ? recordOrStatus
     : (recordOrStatus.appraisalStatus || '');
   const normStatus = String(status).toUpperCase().trim();
+  const PENDING_STATUSES = [
+    'PENDING',
+    'SUBMITTED',
+    'PENDING REVIEW',
+    'PENDING HOD REVIEW',
+    'FIX NEEDED',
+    'NOT APPROVED',
+    'DRAFT'
+  ];
+  if (PENDING_STATUSES.includes(normStatus)) return false;
   const HOD_APPROVED_OR_LATER_STATUSES = [
     'APPROVED',
     'HOD APPROVED',
@@ -151,14 +162,7 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
     'ENDORSED',
     'PRINCIPAL APPROVED'
   ];
-  if (HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus)) return true;
-  if (typeof recordOrStatus === 'object') {
-    const pStatus = String(recordOrStatus.principalApprovalStatus || '').toUpperCase().trim();
-    if (['RATIFIED', 'ENDORSED', 'APPROVED', 'NOT APPROVED'].includes(pStatus)) return true;
-    const iqStatus = String(recordOrStatus.iqacStatus || '').toUpperCase().trim();
-    if (['APPROVED', 'IQAC APPROVED', 'NOT APPROVED', 'NOT APPROVED BY IQAC'].includes(iqStatus)) return true;
-  }
-  return false;
+  return HOD_APPROVED_OR_LATER_STATUSES.includes(normStatus);
 };
 
 export const isIqacApprovedRecord = (row) => {
@@ -1017,6 +1021,29 @@ const DEPARTMENT_NAME_MAP = {
   ALL: 'All Academic Departments'
 };
 
+// ── Helper to infer department from email suffix ──────────────────────────────
+export function inferDepartmentFromEmail(email) {
+  const clean = String(email || '').toLowerCase().trim();
+  if (!clean) return '';
+  if (/eee@tce\.edu$/i.test(clean)) return 'EEE';
+  if (/ece@tce\.edu$/i.test(clean)) return 'ECE';
+  if (/mech@tce\.edu$/i.test(clean)) return 'MECH';
+  if (/civ@tce\.edu$/i.test(clean)) return 'CIVIL';
+  if (/it@tce\.edu$/i.test(clean)) return 'IT';
+  if (/mect@tce\.edu$/i.test(clean)) return 'MECT';
+  if (/csbs@tce\.edu$/i.test(clean)) return 'CSBS';
+  if (/ca@tce\.edu$/i.test(clean)) return 'MCA';
+  if (/(?:amcs|ds)@tce\.edu$/i.test(clean)) return 'AMCS';
+  if (/arch@tce\.edu$/i.test(clean)) return 'ARCH';
+  if (/mat@tce\.edu$/i.test(clean)) return 'MATH';
+  if (/phy@tce\.edu$/i.test(clean)) return 'PHY';
+  if (/chem@tce\.edu$/i.test(clean)) return 'CHEM';
+  if (/eng@tce\.edu$/i.test(clean)) return 'ENG';
+  if (/ft@tce\.edu$/i.test(clean)) return 'FT';
+  if (/cse@tce\.edu$/i.test(clean)) return 'CSE';
+  return '';
+}
+
 // ── Helper to detect Principal, IQAC accounts and leadership emails ──────────
 export function isOfficialRoleEmail(email) {
   const em = String(email || '').toLowerCase().trim();
@@ -1421,6 +1448,18 @@ app.post('/api/auth/google', async (request, response) => {
     if (!facultyRecord) {
       facultyRecord = await FacultyMember.findOne({ personalEmail: verifiedEmail });
     }
+    const altUnderscoreEmail = verifiedEmail.includes('_')
+      ? verifiedEmail.replace(/_/g, '[underscore]')
+      : (verifiedEmail.includes('[underscore]') ? verifiedEmail.replace(/\[underscore\]/g, '_') : null);
+    if (!facultyRecord && altUnderscoreEmail) {
+      facultyRecord = await FacultyMember.findOne({
+        $or: [
+          { email: altUnderscoreEmail },
+          { personalEmail: altUnderscoreEmail },
+          { alternateEmails: altUnderscoreEmail }
+        ]
+      });
+    }
     if (!facultyRecord && !isOfficialRoleEmail(verifiedEmail)) {
       facultyRecord = await FacultyMember.findOne({
         alternateEmails: verifiedEmail,
@@ -1476,8 +1515,9 @@ app.post('/api/auth/google', async (request, response) => {
 
     // Determine Role, Department & Designation (Dynamic lookup by email entry)
     let assignedRole = 'Faculty';
-    let assignedDept = facultyRecord?.department || 'CSE';
-    let assignedDeptName = facultyRecord?.departmentName || 'Computer Science and Engineering';
+    const inferredDeptFromEmail = inferDepartmentFromEmail(verifiedEmail);
+    let assignedDept = normalizeDepartmentCode(facultyRecord?.department) || inferredDeptFromEmail || 'CSE';
+    let assignedDeptName = facultyRecord?.departmentName || DEPARTMENT_NAME_MAP[assignedDept] || 'Computer Science and Engineering';
     let assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
 
     if (verifiedEmail === 'registrar@tce.edu' || verifiedEmail === 'siddharthk@student.tce.edu') {
@@ -1501,32 +1541,32 @@ app.post('/api/auth/google', async (request, response) => {
           : 'IQAC Head';
     } else if (verifiedEmail === 'deansiddharth@gmail.com') {
       assignedRole = 'Faculty';
-      assignedDept = facultyRecord?.department || 'CSE';
-      assignedDeptName = facultyRecord?.departmentName || 'Computer Science and Engineering';
+      assignedDept = normalizeDepartmentCode(facultyRecord?.department) || inferredDeptFromEmail || 'CSE';
+      assignedDeptName = facultyRecord?.departmentName || DEPARTMENT_NAME_MAP[assignedDept] || 'Computer Science and Engineering';
       assignedDesignation = facultyRecord?.designation || 'Assistant Professor';
     } else if (/^hod[a-z]{2,6}@tce\.edu$/i.test(verifiedEmail)) {
       // Official generic departmental HOD account (e.g. hodca@tce.edu, hodcse@tce.edu, hodece@tce.edu)
       assignedRole = 'HOD';
       assignedDesignation = facultyRecord?.designation || 'Professor & Head (HOD)';
       const hodMatch = verifiedEmail.match(/^hod([a-z]+)@/i);
-      let rawDept = facultyRecord?.department || (hodMatch ? hodMatch[1].toUpperCase() : 'CSE');
+      let rawDept = facultyRecord?.department || (hodMatch ? hodMatch[1].toUpperCase() : inferredDeptFromEmail || 'CSE');
       assignedDept = normalizeDepartmentCode(rawDept);
       assignedDeptName = assignedDept === 'AI'
         ? 'Artificial Intelligence'
-        : (facultyRecord?.departmentName || '');
+        : (facultyRecord?.departmentName || DEPARTMENT_NAME_MAP[assignedDept] || '');
     } else if (facultyRecord) {
       // Individual personal faculty/HOD-personal account (e.g. pccse@tce.edu, shalinie@tce.edu, gjjeng@tce.edu, etc.)
       assignedRole = (facultyRecord.role === 'HOD' || facultyRecord.role === 'IQAC')
         ? 'Faculty'
         : (facultyRecord.role || 'Faculty');
       const isPccsePersonal = verifiedEmail === 'pccse@tce.edu' || verifiedEmail === 'pchitracse@tce.edu';
-      let rawDept = isPccsePersonal ? 'MCA' : (facultyRecord.department || 'CSE');
+      let rawDept = isPccsePersonal ? 'MCA' : (facultyRecord.department || inferredDeptFromEmail || 'CSE');
       assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : normalizeDepartmentCode(rawDept);
       assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal')
         ? 'All Academic Departments'
         : (assignedDept === 'AI'
             ? 'Artificial Intelligence'
-            : (assignedDept === 'MCA' && isPccsePersonal ? 'Computer Applications' : (facultyRecord.departmentName || '')));
+            : (assignedDept === 'MCA' && isPccsePersonal ? 'Computer Applications' : (facultyRecord.departmentName || DEPARTMENT_NAME_MAP[assignedDept] || '')));
       assignedDesignation = facultyRecord.designation || 'Assistant Professor';
     }
 
@@ -1769,7 +1809,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       ? 'ARCH'
       : (isPccsePersonal
           ? 'MCA'
-          : (recordDeptClean || bodyDeptClean || jwtDeptClean || 'CSE'));
+          : (recordDeptClean || inferDepartmentFromEmail(verifiedEmail) || bodyDeptClean || jwtDeptClean || 'CSE'));
     const targetDeptName = targetDept === 'ARCH'
       ? 'Department of Architecture (TSEDA)'
       : (targetDept === 'MCA'
@@ -1800,23 +1840,35 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       ? { _id: existingDoc._id }
       : { email: canonicalEmail, timeline: timeline.trim() };
 
-    // ── GUARD: Protect submitted appraisals from background auto-save draft overwrites ──
+    // ── GUARD: Protect permanently-locked appraisals from draft overwrites ────
+    // Only block auto-saves when the record is truly finalized (RATIFIED / isLocked).
+    // Submitted-but-unlocked records (Pending, Approved, etc.) still receive section
+    // updates so that in-progress marking edits are never silently dropped.
     const existingStatus = String(existingDoc?.appraisalStatus || '').toUpperCase().trim();
-    const isAlreadySubmitted = existingDoc && existingStatus !== 'DRAFT' && (
-      existingDoc.isSubmitted === true ||
-      ['PENDING', 'SUBMITTED', 'PENDING REVIEW', 'APPROVED', 'HOD APPROVED', 'IQAC APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(existingStatus)
+    const isPermanentlyLocked = existingDoc && (
+      existingDoc.isLocked === true ||
+      existingStatus === 'RATIFIED' ||
+      existingStatus === 'ENDORSED' ||
+      existingStatus === 'PRINCIPAL APPROVED'
     );
 
     const isIncomingDraft = (req.body?.appraisalStatus === 'Draft' || !req.body?.appraisalStatus) && !req.body?.isSubmitted;
 
-    if (isAlreadySubmitted && isIncomingDraft) {
-      console.log(`🛡️ Blocked draft overwrite: Appraisal for ${canonicalEmail} [${timeline}] is already submitted (${existingDoc.appraisalStatus}). Preserving submitted state.`);
+    if (isPermanentlyLocked && isIncomingDraft) {
+      console.log(`🛡️ Blocked draft overwrite: Appraisal for ${canonicalEmail} [${timeline}] is permanently locked (${existingDoc.appraisalStatus}). Preserving finalized state.`);
       return res.status(200).json({
         success: true,
-        message: 'Appraisal is already submitted and locked. Draft overwrite ignored.',
+        message: 'Appraisal is permanently locked (Ratified/Endorsed). Draft overwrite ignored.',
         data: existingDoc,
       });
     }
+
+    // For already-submitted (but not locked) records arriving via auto-save draft,
+    // preserve the existing appraisalStatus/isSubmitted so they don't get demoted to Draft.
+    const isAlreadySubmitted = existingDoc && existingStatus !== 'DRAFT' && (
+      existingDoc.isSubmitted === true ||
+      ['PENDING', 'SUBMITTED', 'PENDING REVIEW', 'APPROVED', 'HOD APPROVED', 'IQAC APPROVED'].includes(existingStatus)
+    );
 
     const hasMeaningfulSectionData = (sec) => {
       if (!sec || typeof sec !== 'object') return false;
@@ -4236,6 +4288,27 @@ async function startServer() {
         },
         { $set: { isHodSubmission: true, isDeanSubmission: false } }
       );
+
+      // ── ISSUE 1 AUDIT: Demote regular-faculty records that were mistakenly set to 'Approved'
+      // without any real HOD review (no hodRemarks and no hodSubsectionScores entries).
+      // These should sit in the HOD's "Pending" queue, not in the "Approved by HOD" tab.
+      await Appraisal.updateMany(
+        {
+          isHodSubmission: false,
+          isDeanSubmission: false,
+          isRegistrarSubmission: false,
+          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS, ...hodEmailsArr, ...FORMER_HOD_PERSONAL_EMAILS] },
+          appraisalStatus: { $in: ['Approved', 'HOD Approved'] },
+          hodRemarks: { $in: [null, ''] },
+          $or: [
+            { hodSubsectionScores: { $exists: false } },
+            { hodSubsectionScores: null },
+            { hodSubsectionScores: {} }
+          ]
+        },
+        { $set: { appraisalStatus: 'Pending' } }
+      );
+      console.log('✅ Issue 1 audit complete: demoted unreviewed "Approved" regular faculty records to "Pending".');
 
       // 3. SynchronizeDr. R. Rajanprakash (HOD I/c, EEE), Dr. P. S. Manoharan (HOD I/c, MECT), Dr. G. K. Raajesh / Kanagaraj (Dean Career Development), and Dr. R. Priyadarshini (HOD I/c, FT)
       await FacultyMember.updateOne(
