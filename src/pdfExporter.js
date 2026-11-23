@@ -181,6 +181,12 @@ export const exportAppraisalToPDF = ({
     'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
     'rpift@tce.edu',
   ]);
+  const FORMER_HOD_EMAIL_SET = new Set([
+    'jeyamala@tce.edu',
+    'gkgmech@tce.edu',
+    'mseee@tce.edu',
+    'gsjarch@tce.edu',
+  ]);
   const KNOWN_DEAN_PERSONAL_EMAILS = new Set([
     'sbeee@tce.edu', 'deanacad@tce.edu',
     'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
@@ -198,7 +204,7 @@ export const exportAppraisalToPDF = ({
   const hasFullRegistrarTitle = /\bregistrar\b/i.test(
     targetDesig.replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
   );
-  const isHodRecord = Boolean(
+  const isHodRecord = !FORMER_HOD_EMAIL_SET.has(targetEmailLower) && Boolean(
     record?.isHodSubmission ||
     record?.isDeanSubmission ||
     KNOWN_HOD_PERSONAL_EMAILS.has(targetEmailLower) ||

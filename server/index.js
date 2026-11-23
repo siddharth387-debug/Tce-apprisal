@@ -4197,6 +4197,15 @@ async function startServer() {
         { email: 'jeyamala@tce.edu' },
         { $set: { designation: 'Associate Professor', hodEmail: '', role: 'Faculty' } }
       );
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: 'jeyamala@tce.edu' },
+            { facultyEmail: 'jeyamala@tce.edu' }
+          ]
+        },
+        { $set: { isHodSubmission: false, isDeanSubmission: false, designation: 'Associate Professor' } }
+      );
       await FacultyMember.updateOne(
         { email: 'gkgmech@tce.edu' },
         { $set: { designation: 'Professor', hodEmail: '', role: 'Faculty' } }
