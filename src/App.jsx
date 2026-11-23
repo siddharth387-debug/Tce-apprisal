@@ -3019,7 +3019,7 @@ const LandingPage = React.memo(function LandingPage({
           <div className="my-auto py-4 sm:py-8 md:py-16">
             <div className="max-w-2xl">
               <h2 className="max-w-xl text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight text-white tracking-tight">
-                Faculty Performance Evaluation Portal
+                Faculty Appraisal Portal
               </h2>
             </div>
           </div>
