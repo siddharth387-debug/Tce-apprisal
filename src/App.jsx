@@ -11539,28 +11539,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               </div>
             )}
 
-            {/* IQAC / Head IQAC Workspace Switcher */}
-            {isIqacLeadership && !isSuperAdmin && (
-              <div className="flex flex-wrap items-center bg-amber-50/90 p-1 rounded-xl border border-amber-300 shadow-sm gap-0.5">
-                <span className="text-[10px] font-black uppercase text-amber-900 px-1.5 sm:px-2 flex items-center gap-1">
-                  <span>📊</span> <span className="hidden sm:inline">Workspace:</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdminActiveRole('IQAC');
-                    setActiveView('overview');
-                    setSelectedAppraisal(null);
-                    setSelectedReviewAppraisal(null);
-                  }}
-                  className="px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 bg-[#4A1519] text-white shadow-sm"
-                >
-                  <span>📊</span>
-                  <span>IQAC Audit</span>
-                </button>
-              </div>
-            )}
-
             {/* Master Appraisal Template Mode Dropdown (Exclusive to siddharthk@student.tce.edu) */}
             {isMasterUser && (
               <div className="flex items-center bg-amber-100/90 p-1 rounded-xl border border-amber-300 shadow-sm">
@@ -11667,7 +11645,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               : isRegistrar
                 ? '🏛️ REGISTRAR INSTITUTIONAL GOVERNANCE WORKBENCH (CAMPUS-WIDE OVERSIGHT)'
                 : isIQAC
-                  ? '📊 IQAC ACCREDITATION & QUALITY AUDIT (NAAC / NIRF BENCHMARKING)'
+                  ? ''
                   : effectiveRole === 'HOD'
                     ? '🏢 HEAD OF DEPARTMENT EVALUATION WORKBENCH'
                     : '📋 FACULTY APPRAISAL WORKBENCH'}
