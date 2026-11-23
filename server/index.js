@@ -76,7 +76,15 @@ const KNOWN_DEAN_PERSONAL_EMAILS = [
   'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
   'gbarch@tce.edu', 'deanstud@tce.edu',
   'spcse@tce.edu', 'sps@tce.edu', 'deancce@tce.edu',
+  'pccse@tce.edu', 'pchitracse@tce.edu',
   'deaneca@tce.edu', 'rvchem@tce.edu',
+];
+
+const FORMER_HOD_PERSONAL_EMAILS = [
+  'jeyamala@tce.edu',
+  'gkgmech@tce.edu',
+  'mseee@tce.edu',
+  'gsjarch@tce.edu',
 ];
 
 export function hasFullRegistrarDesignation(str) {
@@ -86,7 +94,7 @@ export function hasFullRegistrarDesignation(str) {
 }
 
 export function hasFullDeanDesignation(str) {
-  return /\bdean\b/i.test(
+  return /\b(dean|head\s*iqac)\b/i.test(
     String(str || '').replace(/\b(?:associate|assoc|asst|assistant|deputy|dy)\s*\.?\s*deans?\b/gi, '')
   );
 }
@@ -1075,19 +1083,17 @@ export function isIqacAccount(email, record = null) {
 
 const KNOWN_HOD_PERSONAL_EMAILS = [
   'spmcse@tce.edu',
-  'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
+  'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
   'vvchem@tce.edu', 'velkannan@tce.edu',
   'samciv@tce.edu',
   'mkkdit@tce.edu',
   'bmece@tce.edu', 'naveenmegaa@tce.edu',
-  'mseee@tce.edu', 'r_rajanprakash@tce.edu', 'rrpeee@tce.edu',
+  'r_rajanprakash@tce.edu', 'rrpeee@tce.edu',
   'gjjeng@tce.edu',
   'cdcse@tce.edu', 'cdit@tce.edu',
   'aaamat@tce.edu', 'anithavalli@tce.edu',
-  'pccse@tce.edu', 'pchitracse@tce.edu',
-  'pmmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
+  'pmmech@tce.edu', 'psmeee@tce.edu',
   'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
-  'jeyamala@tce.edu',
   'rpift@tce.edu',
 ];
 
@@ -1100,6 +1106,7 @@ const APEX_NON_HOD_EMAILS = new Set([
   'tcetestingmail@gmail.com',
   'deansiddharth@gmail.com',
   'rhmech@tce.edu',
+  ...FORMER_HOD_PERSONAL_EMAILS,
 ]);
 
 export function isHodDesignation(designation) {
@@ -1140,7 +1147,11 @@ async function getHodEmailSet() {
 function isHodEmailInSet(email, hodSet) {
   const clean = String(email || '').toLowerCase().trim();
   if (!clean) return false;
-  if (KNOWN_DEAN_PERSONAL_EMAILS.includes(clean) || KNOWN_REGISTRAR_PERSONAL_EMAILS.includes(clean)) {
+  if (
+    KNOWN_DEAN_PERSONAL_EMAILS.includes(clean) ||
+    KNOWN_REGISTRAR_PERSONAL_EMAILS.includes(clean) ||
+    FORMER_HOD_PERSONAL_EMAILS.includes(clean)
+  ) {
     return false;
   }
   return hodSet.has(clean) || /^hod[a-z]{2,6}@tce\.edu$/i.test(clean);
@@ -4166,7 +4177,7 @@ async function startServer() {
       const hodEmailSetForBackfill = await getHodEmailSet();
       const hodEmailsArr = Array.from(hodEmailSetForBackfill);
 
-      // 1. Ensure all Dean appraisals (including Deans who also serve as HOD, e.g. spcse@tce.edu, shalinie@tce.edu)
+      // 1. Ensure all Dean & Head IQAC appraisals (including Deans who also serve as HOD, e.g. spcse@tce.edu, shalinie@tce.edu, pccse@tce.edu)
       // have isDeanSubmission: true and isHodSubmission: false
       await Appraisal.updateMany(
         {
@@ -4178,11 +4189,42 @@ async function startServer() {
         { $set: { isDeanSubmission: true, isHodSubmission: false } }
       );
 
-      // 2. Ensure non-Dean, non-Registrar HOD appraisals have isHodSubmission: true
+      // 1b. Demote former HODs (e.g. Dr. C. Jeyamala, Dr. G. Kumaraguruparan, Dr. M. Saravanan, Dr. G. Sooraj) from HOD submissions to regular faculty
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: { $in: FORMER_HOD_PERSONAL_EMAILS } },
+            { facultyEmail: { $in: FORMER_HOD_PERSONAL_EMAILS } }
+          ]
+        },
+        { $set: { isHodSubmission: false, isDeanSubmission: false } }
+      );
+      await FacultyMember.updateOne(
+        { email: 'jeyamala@tce.edu' },
+        { $set: { designation: 'Associate Professor', hodEmail: '', role: 'Faculty' } }
+      );
+      await FacultyMember.updateOne(
+        { email: 'gkgmech@tce.edu' },
+        { $set: { designation: 'Professor', hodEmail: '', role: 'Faculty' } }
+      );
+      await Appraisal.updateMany(
+        { email: 'gkgmech@tce.edu' },
+        { $set: { designation: 'Professor', isHodSubmission: false, isDeanSubmission: false } }
+      );
+      await FacultyMember.updateOne(
+        { email: 'mseee@tce.edu' },
+        { $set: { designation: 'Professor (RD)', hodEmail: '', role: 'Faculty' } }
+      );
+      await FacultyMember.updateOne(
+        { email: 'gsjarch@tce.edu' },
+        { $set: { designation: 'Associate Professor', hodEmail: '', role: 'Faculty' } }
+      );
+
+      // 2. Ensure non-Dean, non-Registrar, current HOD appraisals have isHodSubmission: true
       await Appraisal.updateMany(
         {
           isHodSubmission: { $ne: true },
-          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS, 'rhmech@tce.edu'] },
+          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS, ...FORMER_HOD_PERSONAL_EMAILS, 'rhmech@tce.edu'] },
           $or: [
             { email: { $in: hodEmailsArr } },
             { facultyEmail: { $in: hodEmailsArr } },

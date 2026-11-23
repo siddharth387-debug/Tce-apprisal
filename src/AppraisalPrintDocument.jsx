@@ -3,19 +3,17 @@ import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH
 
 const KNOWN_HOD_PERSONAL_EMAILS = new Set([
   'spmcse@tce.edu',
-  'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
+  'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
   'vvchem@tce.edu', 'velkannan@tce.edu',
   'samciv@tce.edu',
   'mkkdit@tce.edu',
   'bmece@tce.edu', 'naveenmegaa@tce.edu',
-  'mseee@tce.edu', 'r_rajanprakash@tce.edu', 'rrpeee@tce.edu',
+  'r_rajanprakash@tce.edu', 'rrpeee@tce.edu',
   'gjjeng@tce.edu',
   'cdcse@tce.edu', 'cdit@tce.edu',
   'aaamat@tce.edu', 'anithavalli@tce.edu',
-  'pccse@tce.edu', 'pchitracse@tce.edu',
-  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
+  'pmmech@tce.edu', 'psmeee@tce.edu',
   'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
-  'jeyamala@tce.edu',
   'rpift@tce.edu',
 ]);
 
@@ -27,11 +25,12 @@ const KNOWN_DEAN_PERSONAL_EMAILS = new Set([
   'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
   'gbarch@tce.edu', 'deanstud@tce.edu',
   'spcse@tce.edu', 'sps@tce.edu', 'deancce@tce.edu',
+  'pccse@tce.edu', 'pchitracse@tce.edu', 'headiqac@tce.edu',
   'deaneca@tce.edu', 'rvchem@tce.edu',
 ]);
 
 const hasFullDeanTitle = (str) =>
-  /\bdean\b/i.test(
+  /\b(dean|head\s*iqac)\b/i.test(
     String(str || '').replace(/\b(?:associate|assoc|asst|assistant|deputy|dy)\s*\.?\s*deans?\b/gi, '')
   );
 
