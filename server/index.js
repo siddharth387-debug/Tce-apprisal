@@ -419,7 +419,7 @@ const FacultyMemberSchema = new mongoose.Schema({
   alternateEmails: [{ type: String, lowercase: true, trim: true }],
   department: { type: String, required: true, trim: true, index: true },
   departmentName: { type: String, trim: true },
-  role: { type: String, enum: ['Faculty', 'HOD', 'Registrar', 'Principal', 'Admin'], default: 'Faculty', index: true },
+  role: { type: String, enum: ['Faculty', 'HOD', 'IQAC', 'Registrar', 'Principal', 'Admin'], default: 'Faculty', index: true },
   photo: { type: String, default: '' },
   profileUrl: { type: String, default: '' },
   joiningDate: { type: Date, default: () => new Date(Date.now() - 400 * 24 * 60 * 60 * 1000) },
@@ -986,6 +986,18 @@ const DEPARTMENT_NAME_MAP = {
 };
 
 // ── Helper to detect Principal, IQAC accounts and leadership emails ──────────
+export function isOfficialRoleEmail(email) {
+  const em = String(email || '').toLowerCase().trim();
+  return (
+    /^hod[a-z]{2,6}@tce\.edu$/i.test(em) ||
+    em === 'iqac@tce.edu' ||
+    em === 'headiqac@tce.edu' ||
+    em === 'registrar@tce.edu' ||
+    em === 'principal@tce.edu' ||
+    em === 'tcetestingmail@gmail.com'
+  );
+}
+
 export function isPrincipalEmail(email) {
   const em = String(email || '').toLowerCase().trim();
   return em === 'principal@tce.edu' || em === 'tcetestingmail@gmail.com';
@@ -1000,42 +1012,75 @@ export function isIqacAccount(email, record = null) {
     return false;
   }
 
+  // Personal Head IQAC faculty emails sign in to their personal Faculty appraisal workbench
+  // (official IQAC audit login uses headiqac@tce.edu or iqac@tce.edu)
+  if (em === 'pccse@tce.edu' || em === 'pchitracse@tce.edu') {
+    return false;
+  }
+
   // Generic / institutional IQAC accounts
   if (em === 'iqac@tce.edu' || em === 'headiqac@tce.edu' || em.includes('iqac')) {
     return true;
   }
 
-  // Known Head IQAC personal emails (Dr. P. Chitra)
-  if (em === 'pccse@tce.edu' || em === 'pchitracse@tce.edu') {
-    return true;
-  }
-
-  // Record-level inspection (only when not logging in via a departmental hod<dept>@tce.edu email)
-  if (record) {
-    if (String(record.role || '').toUpperCase() === 'IQAC') return true;
+  // Record-level inspection (only when not logging in via a personal non-IQAC faculty email)
+  if (record && String(record.role || '').toUpperCase() === 'IQAC') {
+    const recEmail = String(record.email || '').toLowerCase().trim();
+    if ((!em || em.includes('iqac')) && (isOfficialRoleEmail(recEmail) || recEmail.includes('iqac'))) {
+      return true;
+    }
   }
 
   return false;
 }
 
 const KNOWN_HOD_PERSONAL_EMAILS = [
-  'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
-  'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
-  'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
-  'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
-  'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
+  'spmcse@tce.edu', 'spcse@tce.edu', 'sps@tce.edu',
+  'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
+  'vvchem@tce.edu', 'velkannan@tce.edu',
+  'samciv@tce.edu',
+  'mkkdit@tce.edu',
+  'smscse@tce.edu', 'shalinie@tce.edu',
+  'bmece@tce.edu', 'naveenmegaa@tce.edu',
+  'mseee@tce.edu',
+  'gjjeng@tce.edu',
+  'cdcse@tce.edu', 'cdit@tce.edu',
+  'aaamat@tce.edu', 'anithavalli@tce.edu',
+  'pccse@tce.edu', 'pchitracse@tce.edu',
+  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu',
+  'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
+  'jeyamala@tce.edu',
 ];
+
+const APEX_NON_HOD_EMAILS = new Set([
+  'principal@tce.edu',
+  'registrar@tce.edu',
+  'siddharthk@student.tce.edu',
+  'headiqac@tce.edu',
+  'iqac@tce.edu',
+  'tcetestingmail@gmail.com',
+  'deansiddharth@gmail.com',
+]);
+
+export function isHodDesignation(designation) {
+  return /\b(head|hod)\b/i.test(String(designation || ''));
+}
 
 async function getHodEmailSet() {
   const hodMembers = await FacultyMember.find(
-    { role: 'HOD' },
+    {
+      $or: [
+        { role: 'HOD' },
+        { designation: /\b(head|hod)\b/i }
+      ]
+    },
     { email: 1, personalEmail: 1, hodEmail: 1, alternateEmails: 1 }
   ).lean();
   const hodSet = new Set(KNOWN_HOD_PERSONAL_EMAILS);
   for (const m of hodMembers) {
     [m.email, m.personalEmail, m.hodEmail, ...(m.alternateEmails || [])].forEach((e) => {
       const clean = String(e || '').toLowerCase().trim();
-      if (clean) hodSet.add(clean);
+      if (clean && !APEX_NON_HOD_EMAILS.has(clean)) hodSet.add(clean);
     });
   }
   return hodSet;
@@ -1326,6 +1371,13 @@ app.post('/api/auth/google', async (request, response) => {
     if (!facultyRecord) {
       facultyRecord = await FacultyMember.findOne({ personalEmail: verifiedEmail });
     }
+    if (!facultyRecord && !isOfficialRoleEmail(verifiedEmail)) {
+      facultyRecord = await FacultyMember.findOne({
+        alternateEmails: verifiedEmail,
+        email: { $not: /^hod[a-z]{2,6}@tce\.edu$/i },
+        role: { $nin: ['HOD', 'IQAC', 'Principal', 'Registrar'] }
+      });
+    }
     if (!facultyRecord) {
       facultyRecord = await FacultyMember.findOne({
         $or: [
@@ -1337,12 +1389,30 @@ app.post('/api/auth/google', async (request, response) => {
     if (!facultyRecord && verifiedEmail.endsWith('@tce.edu')) {
       const emailPrefix = verifiedEmail.split('@')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       facultyRecord = await FacultyMember.findOne({
-        profileUrl: new RegExp(`/${emailPrefix}\\.html$`, 'i')
+        profileUrl: new RegExp(`/${emailPrefix}\\.html$`, 'i'),
+        ...(!isOfficialRoleEmail(verifiedEmail) ? {
+          email: { $not: /^hod[a-z]{2,6}@tce\.edu$/i },
+          role: { $nin: ['HOD', 'IQAC', 'Principal', 'Registrar'] }
+        } : {})
       });
     }
 
     // Auto-link alternate email in directory so cross-device logins share identical identity
-    if (facultyRecord && verifiedEmail && !facultyRecord.alternateEmails?.includes(verifiedEmail)) {
+    // (Strictly keep personal faculty emails separate from official institutional role accounts)
+    const recordIsOfficial = Boolean(
+      facultyRecord && (
+        isOfficialRoleEmail(facultyRecord.email) ||
+        ['HOD', 'IQAC', 'Principal', 'Registrar'].includes(facultyRecord.role)
+      )
+    );
+    const canAutoLinkEmail = Boolean(
+      facultyRecord &&
+      verifiedEmail &&
+      !facultyRecord.alternateEmails?.includes(verifiedEmail) &&
+      !(recordIsOfficial && !isOfficialRoleEmail(verifiedEmail)) &&
+      !(!recordIsOfficial && isOfficialRoleEmail(verifiedEmail))
+    );
+    if (canAutoLinkEmail) {
       try {
         await FacultyMember.updateOne(
           { _id: facultyRecord._id },
@@ -1376,7 +1446,7 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDeptName = 'All Academic Departments';
       assignedDesignation = (facultyRecord?.designation && /iqac/i.test(facultyRecord.designation))
         ? facultyRecord.designation
-        : (verifiedEmail === 'headiqac@tce.edu' || verifiedEmail === 'pccse@tce.edu' || verifiedEmail === 'pchitracse@tce.edu')
+        : (verifiedEmail === 'headiqac@tce.edu')
           ? 'Professor, Head IQAC'
           : 'IQAC Head';
     } else if (verifiedEmail === 'deansiddharth@gmail.com') {
@@ -1395,14 +1465,19 @@ app.post('/api/auth/google', async (request, response) => {
         ? 'Artificial Intelligence'
         : (facultyRecord?.departmentName || '');
     } else if (facultyRecord) {
-      // Individual personal faculty account (e.g. pccse@tce.edu, shalinie@tce.edu, etc.)
-      assignedRole = facultyRecord.role || 'Faculty';
-      let rawDept = facultyRecord.department || 'CSE';
+      // Individual personal faculty/HOD-personal account (e.g. pccse@tce.edu, shalinie@tce.edu, gjjeng@tce.edu, etc.)
+      assignedRole = (facultyRecord.role === 'HOD' || facultyRecord.role === 'IQAC')
+        ? 'Faculty'
+        : (facultyRecord.role || 'Faculty');
+      const isPccsePersonal = verifiedEmail === 'pccse@tce.edu' || verifiedEmail === 'pchitracse@tce.edu';
+      let rawDept = isPccsePersonal ? 'MCA' : (facultyRecord.department || 'CSE');
       assignedDept = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal') ? 'ALL' : normalizeDepartmentCode(rawDept);
       assignedDeptName = (assignedRole === 'IQAC' || assignedRole === 'Registrar' || assignedRole === 'Principal')
         ? 'All Academic Departments'
-        : (assignedDept === 'AI' ? 'Artificial Intelligence' : (facultyRecord.departmentName || ''));
-      assignedDesignation = facultyRecord.designation || (assignedRole === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
+        : (assignedDept === 'AI'
+            ? 'Artificial Intelligence'
+            : (assignedDept === 'MCA' && isPccsePersonal ? 'Computer Applications' : (facultyRecord.departmentName || '')));
+      assignedDesignation = facultyRecord.designation || 'Assistant Professor';
     }
 
     const isArchFacultyAccount =
@@ -1425,12 +1500,29 @@ app.post('/api/auth/google', async (request, response) => {
       assignedDesignation = 'Professor & Head I/C';
     }
 
-    const canonicalPersonalEmail = facultyRecord?.personalEmail || facultyRecord?.email || verifiedEmail;
+    const isOfficialLogin = isOfficialRoleEmail(verifiedEmail) || ['HOD', 'IQAC', 'Principal', 'Registrar'].includes(assignedRole);
+    const rawPersonalEmail = facultyRecord?.personalEmail || facultyRecord?.email || verifiedEmail;
+    const canonicalPersonalEmail = (!isOfficialLogin && isOfficialRoleEmail(rawPersonalEmail))
+      ? verifiedEmail
+      : rawPersonalEmail;
     const canonicalHodEmail = facultyRecord?.hodEmail || (assignedRole === 'HOD' ? `hod${assignedDept.toLowerCase()}@tce.edu` : '');
-    const userAliases = (facultyRecord?.alternateEmails || [verifiedEmail]).filter(e => !e.toLowerCase().startsWith('hod') || assignedRole === 'HOD');
+    let userAliases = (facultyRecord?.alternateEmails || [verifiedEmail])
+      .filter(Boolean)
+      .map(e => String(e).toLowerCase().trim());
+    if (isOfficialLogin) {
+      userAliases = userAliases.filter(e => e === verifiedEmail || isOfficialRoleEmail(e));
+    } else {
+      userAliases = userAliases.filter(e => !isOfficialRoleEmail(e));
+    }
     if (!userAliases.includes(verifiedEmail)) userAliases.push(verifiedEmail);
-    if (canonicalPersonalEmail && !userAliases.includes(canonicalPersonalEmail)) userAliases.push(canonicalPersonalEmail);
-    if (assignedRole === 'HOD' && canonicalHodEmail && !userAliases.includes(canonicalHodEmail)) userAliases.push(canonicalHodEmail);
+    const normCanonicalPersonal = String(canonicalPersonalEmail || '').toLowerCase().trim();
+    if (normCanonicalPersonal && (!isOfficialLogin ? !isOfficialRoleEmail(normCanonicalPersonal) : isOfficialRoleEmail(normCanonicalPersonal)) && !userAliases.includes(normCanonicalPersonal)) {
+      userAliases.push(normCanonicalPersonal);
+    }
+    const normCanonicalHod = String(canonicalHodEmail || '').toLowerCase().trim();
+    if (assignedRole === 'HOD' && normCanonicalHod && !userAliases.includes(normCanonicalHod)) {
+      userAliases.push(normCanonicalHod);
+    }
     if (verifiedEmail === 'principal@tce.edu') {
       ['principal@tce.edu'].forEach(em => {
         if (!userAliases.includes(em)) userAliases.push(em);
@@ -1564,10 +1656,21 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const verifiedEmail = req.user.email.toLowerCase().trim();
     const userRole = (req.user?.role || '').toUpperCase().trim();
 
-    // Institutional Governance Guard: Principal is an apex executive role and never submits self-appraisals
+    // Institutional Governance Guard: Principal and official generic role accounts never submit self-appraisals
     if (userRole === 'PRINCIPAL' || isPrincipalEmail(verifiedEmail)) {
       console.log('⛔ Principal account is an apex administrative role and does not submit self-appraisals.');
       return res.status(403).json({ success: false, message: 'Principal account is for institutional review and governance only. Self-appraisal submission is disabled.' });
+    }
+    if (
+      /^hod[a-z]{2,6}@tce\.edu$/i.test(verifiedEmail) ||
+      verifiedEmail === 'headiqac@tce.edu' ||
+      verifiedEmail === 'iqac@tce.edu' ||
+      verifiedEmail === 'registrar@tce.edu'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Official institutional role accounts are for review/governance only. Please sign in with your personal @tce.edu email to edit or submit your self-appraisal.'
+      });
     }
 
     if (!timeline || !isValidAcademicTimeline(timeline)) {
@@ -1580,22 +1683,50 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'section1Data is required and must be an object.' });
     }
 
-    // Resolve authoritative department from master directory (or fallback to body / JWT)
-    const facultyRecord = await FacultyMember.findOne({
-      $or: [
-        { email: verifiedEmail },
-        { personalEmail: verifiedEmail },
-        { hodEmail: verifiedEmail },
-        { alternateEmails: verifiedEmail }
-      ]
-    });
-    const canonicalEmail = facultyRecord?.personalEmail || facultyRecord?.email || req.user?.personalEmail || verifiedEmail;
+    // Resolve authoritative department from master directory (prioritize exact personal email match)
+    let facultyRecord = await FacultyMember.findOne({ email: verifiedEmail });
+    if (!facultyRecord) {
+      facultyRecord = await FacultyMember.findOne({ personalEmail: verifiedEmail });
+    }
+    if (!facultyRecord && !isOfficialRoleEmail(verifiedEmail)) {
+      facultyRecord = await FacultyMember.findOne({
+        alternateEmails: verifiedEmail,
+        email: { $not: /^hod[a-z]{2,6}@tce\.edu$/i },
+        role: { $nin: ['HOD', 'IQAC', 'Principal', 'Registrar'] }
+      });
+    }
+    if (!facultyRecord) {
+      facultyRecord = await FacultyMember.findOne({
+        $or: [
+          { hodEmail: verifiedEmail },
+          { alternateEmails: verifiedEmail }
+        ]
+      });
+    }
+
+    const rawCanonical = facultyRecord?.personalEmail || facultyRecord?.email || req.user?.personalEmail || verifiedEmail;
+    const canonicalEmail = (!isOfficialRoleEmail(verifiedEmail) && isOfficialRoleEmail(rawCanonical))
+      ? verifiedEmail
+      : String(rawCanonical).toLowerCase().trim();
+
+    const isPccsePersonal = verifiedEmail === 'pccse@tce.edu' || verifiedEmail === 'pchitracse@tce.edu';
+    const recordDeptClean = (facultyRecord?.department && String(facultyRecord.department).toUpperCase() !== 'ALL')
+      ? facultyRecord.department
+      : '';
+    const bodyDeptClean = (department && String(department).toUpperCase() !== 'ALL') ? department : '';
+    const jwtDeptClean = (req.user?.department && String(req.user.department).toUpperCase() !== 'ALL') ? req.user.department : '';
     const targetDept = (req.body?.department === 'ARCH' || department === 'ARCH')
       ? 'ARCH'
-      : (facultyRecord?.department || department || req.user?.department || 'CSE');
+      : (isPccsePersonal
+          ? 'MCA'
+          : (recordDeptClean || bodyDeptClean || jwtDeptClean || 'CSE'));
     const targetDeptName = targetDept === 'ARCH'
       ? 'Department of Architecture (TSEDA)'
-      : (facultyRecord?.departmentName || departmentName || req.user?.departmentName || 'Computer Science and Engineering');
+      : (targetDept === 'MCA'
+          ? 'Computer Applications'
+          : (facultyRecord?.departmentName && !/all academic departments/i.test(facultyRecord.departmentName)
+              ? facultyRecord.departmentName
+              : (departmentName || req.user?.departmentName || DEPARTMENT_NAME_MAP[targetDept] || 'Computer Science and Engineering')));
 
     const candidateEmails = [
       canonicalEmail,
@@ -1603,7 +1734,10 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       req.user?.email,
       req.user?.personalEmail,
       ...(facultyRecord?.alternateEmails || [])
-    ].filter(Boolean).map(e => String(e).toLowerCase().trim());
+    ]
+      .filter(Boolean)
+      .map(e => String(e).toLowerCase().trim())
+      .filter(e => isOfficialRoleEmail(verifiedEmail) || !isOfficialRoleEmail(e));
     const uniqueCandidateEmails = Array.from(new Set(candidateEmails));
 
     const existingFilter = {
@@ -1645,12 +1779,14 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       });
     };
 
+    const hodEmailSet = await getHodEmailSet();
+    const resolvedDesignation = facultyRecord?.designation || req.user?.designation || (req.user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
     const submitterIsHod = Boolean(
       facultyRecord?.role === 'HOD' ||
-      /^hod[a-z]{2,6}@tce\.edu$/i.test(canonicalEmail) ||
-      /^hod[a-z]{2,6}@tce\.edu$/i.test(verifiedEmail)
+      isHodEmailInSet(canonicalEmail, hodEmailSet) ||
+      isHodEmailInSet(verifiedEmail, hodEmailSet) ||
+      isHodDesignation(resolvedDesignation)
     );
-    const resolvedDesignation = facultyRecord?.designation || req.user?.designation || (req.user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
     const submitterIsRegistrar = !submitterIsHod && isRegistrarPersonalSubmission(canonicalEmail, {
       email: verifiedEmail,
       designation: resolvedDesignation,
@@ -1723,6 +1859,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       principalApprovalStatus: (req.body?.isSubmitted && String(existingDoc?.principalApprovalStatus || '').toUpperCase().trim() === 'DRAFT') ? 'Pending' : (existingDoc?.principalApprovalStatus || 'Pending'),
       principalRemarks: existingDoc?.principalRemarks || '',
       principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
+      unlockedReleaseTag: existingDoc?.unlockedReleaseTag || '',
       appraisalStatus: (!submitterIsRegistrar && isIqacApprovedRecord(existingDoc)) ? 'IQAC Approved' : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft'),
     };
 
@@ -2122,9 +2259,11 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         requestEmail,
         masterRecord?.email,
         masterRecord?.personalEmail,
-        masterRecord?.hodEmail,
         ...(masterRecord?.alternateEmails || [])
-      ].filter(Boolean).map(e => e.toLowerCase().trim());
+      ]
+        .filter(Boolean)
+        .map(e => e.toLowerCase().trim())
+        .filter(e => e === requestEmail || !isOfficialRoleEmail(e));
 
       queryFilter = {
         $or: [
@@ -2137,7 +2276,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     const isIQACUser = !isExplicitHodRequest && (tokenRole === 'IQAC' || requestRole === 'IQAC' || masterRecord?.role === 'IQAC' || isIqacAccount(requestEmail, masterRecord));
     const isPrincipalUser = !isExplicitHodRequest && (tokenRole === 'PRINCIPAL' || requestRole === 'PRINCIPAL' || masterRecord?.role === 'Principal' || isPrincipalEmail(requestEmail));
 
-    if (isIQACUser || isPrincipalUser) {
+    if (isElevated && (isIQACUser || isPrincipalUser)) {
       const allowedStatuses = [
         'Draft', 'DRAFT', 'draft',
         'Pending', 'PENDING', 'pending',
@@ -2196,7 +2335,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     for (const doc of rawRecords) {
       normalizeAppraisalLeadershipDecision(doc);
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
-      const recordIsHodSubmission = Boolean(doc.isHodSubmission) || isHodEmailInSet(emailKey, hodEmailSet);
+      const recordIsHodSubmission = Boolean(doc.isHodSubmission) || isHodEmailInSet(emailKey, hodEmailSet) || isHodDesignation(doc.designation);
       if (recordIsHodSubmission && !doc.isHodSubmission) {
         doc.isHodSubmission = true;
       }
@@ -2557,8 +2696,20 @@ app.post('/api/directory/change-hod', authenticateToken, async (req, res) => {
     const targetEmail = newHodEmail.toLowerCase().trim();
     const genericHodEmail = `hod${deptCode.toLowerCase()}@tce.edu`;
 
-    // 1. Find the incoming new HoD
+    // 1. Find the incoming new HoD's personal faculty profile (never pick a generic hod* record)
     const incomingFaculty = await FacultyMember.findOne({
+      $and: [
+        {
+          $or: [
+            { email: targetEmail },
+            { personalEmail: targetEmail },
+            { alternateEmails: targetEmail }
+          ]
+        },
+        { email: { $not: /^hod[a-z]{2,6}@tce\.edu$/i } }
+      ],
+      department: deptCode
+    }) || await FacultyMember.findOne({
       $or: [
         { email: targetEmail },
         { personalEmail: targetEmail },
@@ -2574,39 +2725,76 @@ app.post('/api/directory/change-hod', authenticateToken, async (req, res) => {
       });
     }
 
-    // 2. Demote the outgoing HoD for this department (if any)
+    // 2. Demote the outgoing personal HoD for this department (keep role: 'Faculty')
     const outgoingHod = await FacultyMember.findOne({
       department: deptCode,
-      role: 'HOD',
-      _id: { $ne: incomingFaculty._id }
+      email: { $not: /^hod[a-z]{2,6}@tce\.edu$/i },
+      _id: { $ne: incomingFaculty._id },
+      $or: [
+        { hodEmail: genericHodEmail },
+        { designation: /\b(head|hod)\b/i },
+        { role: 'HOD' }
+      ]
     });
 
     if (outgoingHod) {
       outgoingHod.role = 'Faculty';
       outgoingHod.hodEmail = '';
-      outgoingHod.alternateEmails = (outgoingHod.alternateEmails || []).filter(e => e !== genericHodEmail);
+      outgoingHod.alternateEmails = (outgoingHod.alternateEmails || []).filter(e => !/^hod[a-z]{2,6}@tce\.edu$/i.test(e));
       if (outgoingHod.designation.toLowerCase().includes('head')) {
         outgoingHod.designation = outgoingHod.designation.replace(/\s*(?:&|,|\/)\s*Head\s*(?:I\/c)?/i, '').trim() || 'Professor';
       }
       await outgoingHod.save();
-      console.log(`✓ Demoted outgoing HoD: ${outgoingHod.name} (${outgoingHod.email}) to Faculty role`);
+      console.log(`✓ Demoted outgoing HoD: ${outgoingHod.name} (${outgoingHod.email}) to regular Faculty`);
     }
 
-    // 3. Promote the incoming faculty to HOD
-    incomingFaculty.role = 'HOD';
-    incomingFaculty.hodEmail = genericHodEmail;
-    if (!incomingFaculty.alternateEmails) incomingFaculty.alternateEmails = [];
-    if (!incomingFaculty.alternateEmails.includes(genericHodEmail)) {
-      incomingFaculty.alternateEmails.push(genericHodEmail);
+    // 3. Promote the incoming personal faculty profile to Head while keeping personal role as 'Faculty'
+    if (!/^hod[a-z]{2,6}@tce\.edu$/i.test(incomingFaculty.email)) {
+      incomingFaculty.role = 'Faculty';
+      incomingFaculty.hodEmail = genericHodEmail;
+      incomingFaculty.alternateEmails = (incomingFaculty.alternateEmails || []).filter(e => !/^hod[a-z]{2,6}@tce\.edu$/i.test(e));
+      if (!incomingFaculty.alternateEmails.includes(incomingFaculty.email)) {
+        incomingFaculty.alternateEmails.push(incomingFaculty.email);
+      }
+      if (!incomingFaculty.designation.toLowerCase().includes('head')) {
+        incomingFaculty.designation = `${incomingFaculty.designation} & Head`;
+      }
+      await incomingFaculty.save();
     }
-    if (!incomingFaculty.alternateEmails.includes(incomingFaculty.email)) {
-      incomingFaculty.alternateEmails.push(incomingFaculty.email);
+
+    // Update or create the official generic departmental HOD login account (hod<dept>@tce.edu)
+    let officialHodDoc = await FacultyMember.findOne({
+      department: deptCode,
+      $or: [
+        { email: genericHodEmail },
+        { role: 'HOD' }
+      ]
+    });
+    if (officialHodDoc) {
+      officialHodDoc.name = incomingFaculty.name;
+      officialHodDoc.designation = incomingFaculty.designation;
+      officialHodDoc.role = 'HOD';
+      officialHodDoc.department = deptCode;
+      officialHodDoc.alternateEmails = [officialHodDoc.email];
+      await officialHodDoc.save();
+    } else {
+      officialHodDoc = await FacultyMember.create({
+        staffId: incomingFaculty.staffId || '',
+        name: incomingFaculty.name,
+        designation: incomingFaculty.designation,
+        email: genericHodEmail,
+        personalEmail: genericHodEmail,
+        hodEmail: genericHodEmail,
+        alternateEmails: [genericHodEmail],
+        department: deptCode,
+        departmentName: incomingFaculty.departmentName || DEPARTMENT_NAME_MAP[deptCode] || '',
+        role: 'HOD',
+        photo: incomingFaculty.photo || '',
+        profileUrl: incomingFaculty.profileUrl || '',
+        active: true
+      });
     }
-    if (!incomingFaculty.designation.toLowerCase().includes('head')) {
-      incomingFaculty.designation = `${incomingFaculty.designation} & Head`;
-    }
-    await incomingFaculty.save();
-    console.log(`✓ Promoted incoming HoD: ${incomingFaculty.name} (${incomingFaculty.email}) with ${genericHodEmail}`);
+    console.log(`✓ Promoted incoming HoD: ${incomingFaculty.name} (${incomingFaculty.email}) with ${officialHodDoc.email}`);
 
     // 4. Synchronize local JSON, XLSX, and CSV files
     await refreshDirectoryFiles();
@@ -2862,7 +3050,7 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
     );
     if (callerIsOnlyHod) {
       const hodEmailSet = await getHodEmailSet();
-      if (Boolean(targetRecord.isHodSubmission) || isHodEmailInSet(targetEmailCheck, hodEmailSet) || targetEmailCheck === callerEmail) {
+      if (Boolean(targetRecord.isHodSubmission) || isHodEmailInSet(targetEmailCheck, hodEmailSet) || isHodDesignation(targetRecord.designation) || targetEmailCheck === callerEmail) {
         return res.status(403).json({
           success: false,
           message: "Forbidden: HOD appraisals cannot be reviewed or approved by an HOD. They are routed directly to IQAC and Principal."
@@ -3817,105 +4005,10 @@ async function startServer() {
         },
         { $set: { designation: 'Professor & Head I/C', departmentName: 'Artificial Intelligence' } }
       );
-      // One-time unlock to Draft for Dr. C. Selva Kumar (MECH) and Mr. S. A. R. Sheik Masthan (MECT)
-      await Appraisal.updateMany(
-        {
-          $or: [
-            { email: { $in: ['cskmech@tce.edu', 'sarsmech@tce.edu'] } },
-            { facultyEmail: { $in: ['cskmech@tce.edu', 'sarsmech@tce.edu'] } }
-          ],
-          unlockedReleaseTag: { $ne: 'unlock-2026-11-18' }
-        },
-        {
-          $set: {
-            appraisalStatus: 'Draft',
-            isSubmitted: false,
-            isDraft: true,
-            isLocked: false,
-            principalApprovalStatus: 'Draft',
-            iqacStatus: 'Draft',
-            submittedAt: null,
-            unlockedReleaseTag: 'unlock-2026-11-18',
-            updatedAt: new Date()
-          }
-        }
-      );
-
-      // One-time unlock to Draft for Dr. RS. Swarnalakshmi (rssleng@tce.edu, ENG)
-      await Appraisal.updateMany(
-        {
-          $or: [
-            { email: 'rssleng@tce.edu' },
-            { facultyEmail: 'rssleng@tce.edu' }
-          ],
-          unlockedReleaseTag: { $ne: 'unlock-2026-11-20-rssleng' }
-        },
-        {
-          $set: {
-            appraisalStatus: 'Draft',
-            isSubmitted: false,
-            isDraft: true,
-            isLocked: false,
-            principalApprovalStatus: 'Draft',
-            iqacStatus: 'Draft',
-            submittedAt: null,
-            unlockedReleaseTag: 'unlock-2026-11-20-rssleng',
-            updatedAt: new Date()
-          }
-        }
-      );
-
-      // One-time unlock to Draft for Dr. I. Chandramathy (cmarch@tce.edu / icarch@tce.edu, ARCH)
-      await Appraisal.updateMany(
-        {
-          $or: [
-            { email: { $in: ['cmarch@tce.edu', 'icarch@tce.edu'] } },
-            { facultyEmail: { $in: ['cmarch@tce.edu', 'icarch@tce.edu'] } }
-          ],
-          unlockedReleaseTag: { $ne: 'unlock-2026-11-20-cmarch' }
-        },
-        {
-          $set: {
-            appraisalStatus: 'Draft',
-            isSubmitted: false,
-            isDraft: true,
-            isLocked: false,
-            principalApprovalStatus: 'Draft',
-            iqacStatus: 'Draft',
-            submittedAt: null,
-            unlockedReleaseTag: 'unlock-2026-11-20-cmarch',
-            updatedAt: new Date()
-          }
-        }
-      );
-
-      // One-time unlock to Draft for Dr. G. Jeya Jeevakani (gjjeng@tce.edu, ENG)
-      await Appraisal.updateMany(
-        {
-          $or: [
-            { email: 'gjjeng@tce.edu' },
-            { facultyEmail: 'gjjeng@tce.edu' }
-          ],
-          unlockedReleaseTag: { $ne: 'unlock-2026-11-22-gjjeng' }
-        },
-        {
-          $set: {
-            appraisalStatus: 'Draft',
-            isSubmitted: false,
-            isDraft: true,
-            isLocked: false,
-            principalApprovalStatus: 'Draft',
-            iqacStatus: 'Draft',
-            submittedAt: null,
-            unlockedReleaseTag: 'unlock-2026-11-22-gjjeng',
-            updatedAt: new Date()
-          }
-        }
-      );
 
       // Ensure all Architecture (T'SEDA) faculty and their appraisals are strictly mapped to department: 'ARCH'
       const archEmails = [
-        'gsjarch@tce.edu', 'hodarch@tce.edu', 'jjlkarch@tce.edu', 'aakarch@tce.edu',
+        'gsjarch@tce.edu', 'hodarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'aakarch@tce.edu',
         'aaarch@tce.edu', 'agarch@tce.edu', 'cparch@tce.edu', 'dglarch@tce.edu',
         'drnarch@tce.edu', 'mlsarch@tce.edu', 'crissindhu@tce.edu', 'msarch@tce.edu',
         'mvlarch@tce.edu', 'ppharch@tce.edu', 'pvkarch@tce.edu', 'ajarch@tce.edu',
@@ -3953,6 +4046,69 @@ async function startServer() {
           ]
         },
         { $set: { department: 'ARCH', departmentName: "Architecture (T'SEDA)" } }
+      );
+
+      // Isolate personal HOD faculty accounts from official generic institutional logins
+      await FacultyMember.updateOne(
+        { email: 'pccse@tce.edu' },
+        {
+          $set: {
+            role: 'Faculty',
+            department: 'MCA',
+            departmentName: 'Computer Applications',
+            hodEmail: 'hodca@tce.edu',
+            alternateEmails: ['pccse@tce.edu', 'pchitracse@tce.edu']
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'headiqac@tce.edu' },
+        {
+          $set: {
+            role: 'IQAC',
+            department: 'ALL',
+            departmentName: 'Internal Quality Assurance Cell (IQAC)',
+            alternateEmails: ['headiqac@tce.edu', 'iqac@tce.edu']
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { email: 'hodca@tce.edu' },
+        { $set: { alternateEmails: ['hodca@tce.edu'] } }
+      );
+      await FacultyMember.updateOne(
+        { email: 'hodamcs@tce.edu' },
+        { $set: { alternateEmails: ['hodamcs@tce.edu'] } }
+      );
+      await FacultyMember.updateOne(
+        { email: 'spcse@tce.edu' },
+        { $set: { alternateEmails: ['sps@tce.edu', 'spcse@tce.edu'] } }
+      );
+      await FacultyMember.updateOne(
+        { email: 'mseee@tce.edu' },
+        { $set: { alternateEmails: ['mseee@tce.edu'] } }
+      );
+      await FacultyMember.updateMany(
+        {
+          email: { $not: /^hod[a-z]{2,6}@tce\.edu$/i },
+          role: 'HOD'
+        },
+        { $set: { role: 'Faculty' } }
+      );
+
+      // Backfill isHodSubmission: true on existing HOD personal appraisals (preserving statuses & scores)
+      const hodEmailSetForBackfill = await getHodEmailSet();
+      const hodEmailsArr = Array.from(hodEmailSetForBackfill);
+      await Appraisal.updateMany(
+        {
+          isHodSubmission: { $ne: true },
+          $or: [
+            { email: { $in: hodEmailsArr } },
+            { facultyEmail: { $in: hodEmailsArr } },
+            { designation: /\b(head|hod)\b/i }
+          ]
+        },
+        { $set: { isHodSubmission: true } }
       );
     } catch (normErr) {
       console.warn('AI dept / designation normalization warning:', normErr.message);

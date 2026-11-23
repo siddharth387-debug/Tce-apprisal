@@ -47,11 +47,21 @@ const STATS = [
 ];
 
 export const KNOWN_HOD_EMAIL_SET = new Set([
-  'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
-  'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
-  'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
-  'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
-  'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
+  'spmcse@tce.edu', 'spcse@tce.edu', 'sps@tce.edu',
+  'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
+  'vvchem@tce.edu', 'velkannan@tce.edu',
+  'samciv@tce.edu',
+  'mkkdit@tce.edu',
+  'smscse@tce.edu', 'shalinie@tce.edu',
+  'bmece@tce.edu', 'naveenmegaa@tce.edu',
+  'mseee@tce.edu',
+  'gjjeng@tce.edu',
+  'cdcse@tce.edu', 'cdit@tce.edu',
+  'aaamat@tce.edu', 'anithavalli@tce.edu',
+  'pccse@tce.edu', 'pchitracse@tce.edu',
+  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu',
+  'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
+  'jeyamala@tce.edu',
 ]);
 
 export const KNOWN_DEAN_EMAIL_SET = new Set([
@@ -1166,15 +1176,10 @@ function getRoleFromEmail(email) {
   if (userEmail === 'principal@tce.edu' || userEmail === 'tcetestingmail@gmail.com') {
     return 'Principal';
   }
-  if (userEmail === 'iqac@tce.edu' || userEmail === 'headiqac@tce.edu' || userEmail.includes('iqac') || userEmail === 'pccse@tce.edu' || userEmail === 'pchitracse@tce.edu') {
+  if (userEmail === 'iqac@tce.edu' || userEmail === 'headiqac@tce.edu' || userEmail.includes('iqac')) {
     return 'IQAC';
   }
-  if (
-    userEmail.startsWith('hod') ||
-    userEmail.includes('hod') ||
-    userEmail.endsWith('.tce.edu') ||
-    userEmail.endsWith('@tce.edu')
-  ) {
+  if (/^hod[a-z]{2,6}@tce\.edu$/i.test(userEmail)) {
     return 'HOD';
   }
 
@@ -4684,24 +4689,28 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const userEmailLower = (user?.email || '').toLowerCase().trim();
   const isOfficialHodDeptAccount = /^hod[a-z]{2,6}@tce\.edu$/i.test(userEmailLower);
-  const isIqacLeadership = !isOfficialHodDeptAccount && (
-    user?.role === 'IQAC' ||
+  const isPersonalHeadIqacEmail = userEmailLower === 'pccse@tce.edu' || userEmailLower === 'pchitracse@tce.edu';
+  const isIqacLeadership = !isOfficialHodDeptAccount && !isPersonalHeadIqacEmail && (
     userEmailLower === 'iqac@tce.edu' ||
     userEmailLower === 'headiqac@tce.edu' ||
     userEmailLower.includes('iqac') ||
-    userEmailLower === 'pccse@tce.edu' ||
-    userEmailLower === 'pchitracse@tce.edu' ||
-    Boolean(user?.designation && /iqac/i.test(user.designation))
+    user?.role === 'IQAC'
   );
 
   const [adminActiveRole, setAdminActiveRole] = useState(() => {
     if (user.role === 'Principal') return 'Principal';
     if (user.role === 'Registrar') return 'Registrar';
-    if (user.role === 'IQAC' || isIqacLeadership) return 'IQAC';
-    if (user.role === 'HOD') return 'HOD';
-    return user.role || 'Faculty';
+    if (isIqacLeadership) return 'IQAC';
+    if (user.role === 'HOD' && isOfficialHodDeptAccount) return 'HOD';
+    return (user.role === 'HOD' || user.role === 'IQAC') ? 'Faculty' : (user.role || 'Faculty');
   });
-  const effectiveRole = isSuperAdmin ? adminActiveRole : (isIqacLeadership ? 'IQAC' : user.role);
+  const effectiveRole = isSuperAdmin
+    ? adminActiveRole
+    : (isIqacLeadership
+        ? 'IQAC'
+        : ((isPersonalHeadIqacEmail || (user?.role === 'HOD' && !isOfficialHodDeptAccount))
+            ? 'Faculty'
+            : (user?.role || 'Faculty')));
   const isPrincipal = effectiveRole === 'Principal';
   const isRegistrar = effectiveRole === 'Registrar';
   const [hodWorkspaceMode, setHodWorkspaceMode] = useState('hod_inbox'); // 'hod_inbox' | 'self_appraisal'
@@ -4713,6 +4722,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const hasHodPrivileges = effectiveRole === 'HOD' || isRegistrar || isPrincipal;
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   const isFacultyUser = (effectiveRole === 'Faculty') && !isHod && !isIQAC && !isPrincipal && !isRegistrar && !isReviewMode;
+  const isCurrentUserHodPersonal = useMemo(
+    () => !isReviewMode && !isMasterUser && isHodSubmissionRecord(user),
+    [isReviewMode, isMasterUser, user]
+  );
+  const isCurrentUserRegistrarPersonal = useMemo(
+    () => !isReviewMode && !isMasterUser && isRegistrarSubmissionRecord(user),
+    [isReviewMode, isMasterUser, user]
+  );
 
   const [cloudSyncState, setCloudSyncState] = useState('saved'); // 'saving' | 'saved' | 'error'
   const [lastCloudSyncTime, setLastCloudSyncTime] = useState('');
@@ -4978,13 +4995,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     const targetName = String(rowName || '').toLowerCase().trim();
     const userName = String(userObj.name || '').toLowerCase().trim();
 
+    const isPersonalUser =
+      !/^hod[a-z]{2,6}@tce\.edu$/i.test(String(userObj.email || '').toLowerCase().trim()) &&
+      !['HOD', 'IQAC', 'Principal', 'Registrar'].includes(userObj.role);
     const aliases = [
       userObj.email,
       userObj.personalEmail,
-      userObj.hodEmail,
+      ...(isPersonalUser ? [] : [userObj.hodEmail]),
       userObj.facultyEmail,
       ...(userObj.alternateEmails || [])
-    ].filter(Boolean).map(e => String(e).toLowerCase().trim());
+    ]
+      .filter(Boolean)
+      .map(e => String(e).toLowerCase().trim())
+      .filter(e => !isPersonalUser || (!/^hod[a-z]{2,6}@tce\.edu$/i.test(e) && !/iqac/i.test(e)));
 
 
 
@@ -6107,7 +6130,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const tl = record.timeline;
       if (!tl) return;
       const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
-      if (isOnlyHodReviewer && (record.isHodSubmission || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
+      if (isOnlyHodReviewer && (isHodSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
         return; // HOD & Registrar submissions bypass HOD review and go directly to IQAC & Principal
       }
       const uniqueKey = `${recEmail}_${tl}`;
@@ -6823,7 +6846,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       if (hodDept && hodDept !== 'ALL') {
         rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === hodDept);
       }
-      rows = rows.filter(r => !r.isHodSubmission && !isRegistrarSubmissionRecord(r));
+      rows = rows.filter(r => !isHodSubmissionRecord(r) && !isRegistrarSubmissionRecord(r));
     }
 
     // HoD, Leadership & Institutional queues must NEVER include test accounts (purely for testing) or student accounts
@@ -7508,10 +7531,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
     // Faculty has completed at least one section with valid links and 0 errors!
     const totalScore = scores?.grandTotal || 0;
+    const submitTargetMessage = isCurrentUserRegistrarPersonal
+      ? 'Once submitted, editing will be locked and your appraisal will be routed to IQAC and the Principal for official approval.'
+      : isCurrentUserHodPersonal
+        ? 'Once submitted, editing will be locked and your appraisal will be routed directly to IQAC and the Principal for official review (bypassing departmental HOD review).'
+        : 'Once submitted, editing will be locked and your appraisal will be routed to the Head of Department (HOD) for official review.';
     setSubmitModalState({
       type: 'confirm',
       title: 'Are you sure you want to submit?',
-      message: `You are about to submit your faculty self-appraisal for academic year ${selectedTimeline} with a calculated score of ${totalScore} / 200 (${validation.completedSectionsCount} section(s) completed). Once submitted, editing will be locked and your appraisal will be routed to the Head of Department (HOD) for official review.`,
+      message: `You are about to submit your faculty self-appraisal for academic year ${selectedTimeline} with a calculated score of ${totalScore} / 200 (${validation.completedSectionsCount} section(s) completed). ${submitTargetMessage}`,
       errorList: [],
     });
   };
@@ -7707,12 +7735,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
 
       const isRegistrarUser = isRegistrarSubmissionRecord(user);
+      const isHodPersonalUser = !isRegistrarUser && isHodSubmissionRecord(user);
       setSubmitModalState({
         type: 'success',
         title: 'Appraisal Submitted Successfully! 🎉',
         message: isRegistrarUser
           ? `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to IQAC and the Principal for approval.`
-          : `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to your Head of Department. Your submission is now officially recorded and locked for review.`,
+          : isHodPersonalUser
+            ? `Your HOD self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded directly to IQAC and the Principal for review. Your submission is now officially recorded and locked for audit.`
+            : `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to your Head of Department. Your submission is now officially recorded and locked for review.`,
         errorList: [],
       });
       localStorage.removeItem(`draft_${draftUserKey}_${selectedTimeline}`);
@@ -7735,7 +7766,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       };
       updateCurrentTimeline(() => submittedSection);
 
-      // Push this submission into the shared HOD inbox (persists across sign-outs).
+      // Push this submission into the shared HOD inbox (persists across sign-outs),
+      // excluding test accounts and leadership self-appraisals that bypass HOD review.
       const inboxRecord = {
         id: `${submissionEmail}-${selectedTimeline}`,
         facultyName: user?.name || "Faculty Member",
@@ -7755,7 +7787,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         sectionData: submittedSection,
       };
       const isTestAccount = submissionEmail === 'deansiddharth@gmail.com' || submissionEmail === 'siddharthk@student.tce.edu';
-      if (!isTestAccount) {
+      const bypassesHodInbox = isTestAccount || isHodPersonalUser || isRegistrarUser;
+      if (!bypassesHodInbox) {
         pushRecordToInboxStorage(selectedTimeline, inboxRecord);
       }
       if (transaction) {
@@ -7767,8 +7800,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           return next;
         });
       }
-      // Also reflect in HOD inbox state only if not a test account
-      if (!isTestAccount) {
+      // Also reflect in HOD inbox state only for regular faculty accounts routed to HOD
+      if (!bypassesHodInbox) {
         setHodInboxByTimeline((prev) => {
           const rows = prev[selectedTimeline] || [];
           const existingIdx = rows.findIndex((r) => isSameUser(r.facultyEmail || r.email, user));
@@ -9400,7 +9433,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                  <span>⏳</span> {row.isHodSubmission ? 'Pending IQAC Review' : (isRegistrarSubmissionRecord(row) ? 'Pending IQAC & Principal' : (isHod ? 'Pending Review' : 'Pending HoD Review'))}
+                                  <span>⏳</span> {isHodSubmissionRecord(row) ? 'Pending IQAC Review' : (isRegistrarSubmissionRecord(row) ? 'Pending IQAC & Principal' : (isHod ? 'Pending Review' : 'Pending HoD Review'))}
                                 </span>
                               );
                             }
@@ -9654,7 +9687,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <th className="py-2 px-2">Submission Date</th>
                   <th className="py-2 px-2">Converted Score</th>
                   <th className="py-2 px-2">Status</th>
-                  <th className="py-2 px-2">HOD Remarks / Feedback</th>
+                  <th className="py-2 px-2">Remarks / Feedback</th>
                   <th className="py-2 px-2">Action</th>
                 </tr>
               </thead>
@@ -9752,6 +9785,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 </span>
                               );
                             } else if (activeStatus === 'APPROVED') {
+                              if (isHodSubmissionRecord(row)) {
+                                return (
+                                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 shadow-sm">
+                                    ⏳ Pending IQAC Review
+                                  </span>
+                                );
+                              }
                               return (
                                 <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-green-50 text-green-700 border border-green-200 shadow-sm">
                                   ✔ Approved
@@ -9766,7 +9806,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
-                                  Pending
+                                  {isHodSubmissionRecord(row) ? '⏳ Pending IQAC Review' : 'Pending'}
                                 </span>
                               );
                             }
@@ -11225,9 +11265,11 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-medium text-slate-700">
-                {isRegistrarSubmissionRecord(user)
+                {isCurrentUserRegistrarPersonal
                   ? 'Submit this Section I to IX appraisal to IQAC & Principal when your added rows are complete.'
-                  : 'Submit this Section I to IX appraisal to the HoD when your added rows are complete.'}
+                  : isCurrentUserHodPersonal
+                    ? 'Submit this Section I to IX HOD self-appraisal directly to IQAC & Principal when your added rows are complete.'
+                    : 'Submit this Section I to IX appraisal to the HoD when your added rows are complete.'}
               </p>
               <p className="mt-1 text-[11px] text-slate-500">
                 Empty sections are allowed and will be ignored automatically.
@@ -11243,7 +11285,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 disabled={isSubmitting || !isEditable}
                 className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
-                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : (isRegistrarSubmissionRecord(user) ? 'Submit to IQAC & Principal' : 'Submit to HOD')}
+                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : (isCurrentUserRegistrarPersonal ? 'Submit to IQAC & Principal' : (isCurrentUserHodPersonal ? 'Submit to IQAC' : 'Submit to HOD'))}
               </button>
             </div>
           </div>
@@ -11376,10 +11418,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             onClick={handleInitiateSubmit}
             disabled={isSubmitting}
             className="inline-flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black bg-[#4A1519] hover:bg-[#3B1013] text-white transition-all shadow-md cursor-pointer disabled:opacity-60 active:scale-95 shrink-0"
-            title="Formally submit completed appraisal to HOD"
+            title={isCurrentUserRegistrarPersonal ? 'Formally submit completed appraisal to IQAC & Principal' : isCurrentUserHodPersonal ? 'Formally submit completed HOD appraisal directly to IQAC & Principal' : 'Formally submit completed appraisal to HOD'}
           >
             <span>📤</span>
-            <span>Submit to HOD</span>
+            <span>{isCurrentUserRegistrarPersonal ? 'Submit to IQAC & Principal' : isCurrentUserHodPersonal ? 'Submit to IQAC' : 'Submit to HOD'}</span>
           </button>
         )}
       </div>
@@ -11935,10 +11977,12 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <div className="flex items-start gap-2 pt-1 text-[11px] text-amber-900 bg-amber-50/80 p-2.5 rounded-lg border border-amber-200 font-medium">
                   <span className="text-sm">🔒</span>
                   <span>
-                    <strong>Important:</strong> Submitting will lock your form and forward your dossier to{' '}
-                    {isRegistrarSubmissionRecord(user)
-                      ? 'IQAC and the Principal for official approval'
-                      : 'the Head of Department (HOD) for official review'}. Ensure all Google Drive evidence links are accessible.
+                    <strong>Important:</strong> Submitting will lock your form and forward your dossier{' '}
+                    {isCurrentUserRegistrarPersonal
+                      ? 'to IQAC and the Principal for official approval'
+                      : isCurrentUserHodPersonal
+                        ? 'directly to IQAC and the Principal for official review'
+                        : 'to the Head of Department (HOD) for official review'}. Ensure all Google Drive evidence links are accessible.
                   </span>
                 </div>
               </div>
@@ -11950,9 +11994,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <div className="flex items-center justify-between">
                   <span className="text-emerald-800 font-semibold">Official Status:</span>
                   <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                    {isRegistrarSubmissionRecord(user)
+                    {isCurrentUserRegistrarPersonal
                       ? 'Pending IQAC & Principal Review'
-                      : ((user?.role === 'HOD' || /^hod[a-z]{2,6}@tce\.edu$/i.test(user?.email || '')) ? 'Pending IQAC Review' : 'Pending HoD Review')}
+                      : (isCurrentUserHodPersonal ? 'Pending IQAC Review' : 'Pending HoD Review')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -11984,7 +12028,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   {isSubmitting ? (
                     <>
                       <span className="animate-spin text-sm">⏳</span>
-                      <span>Submitting to HOD...</span>
+                      <span>
+                        {isCurrentUserRegistrarPersonal
+                          ? 'Submitting to IQAC & Principal...'
+                          : isCurrentUserHodPersonal
+                            ? 'Submitting to IQAC...'
+                            : 'Submitting to HOD...'}
+                      </span>
                     </>
                   ) : (
                     <>
@@ -12132,6 +12182,18 @@ function normalizeArchUserProfile(userProfile) {
       designation: 'Principal',
     };
   }
+  if (em === 'pccse@tce.edu' || em === 'pchitracse@tce.edu') {
+    return {
+      ...userProfile,
+      role: 'Faculty',
+      department: 'MCA',
+      departmentName: 'Computer Applications',
+      hodEmail: 'hodca@tce.edu',
+      alternateEmails: (userProfile.alternateEmails || [em]).filter(
+        (a) => !/^hod[a-z]{2,6}@tce\.edu$/i.test(String(a || '')) && !/iqac/i.test(String(a || ''))
+      ),
+    };
+  }
   const hodMatch = em.match(/^hod([a-z]{2,6})@tce\.edu$/i);
   if (hodMatch) {
     const hodDeptCode = normalizeDepartmentCode(hodMatch[1].toUpperCase());
@@ -12143,18 +12205,25 @@ function normalizeArchUserProfile(userProfile) {
       departmentName: matchedDeptObj ? matchedDeptObj.name : (userProfile.departmentName || hodDeptCode),
     };
   }
+  let resolvedProfile = userProfile;
+  if (userProfile.role === 'HOD' && em !== 'siddharthk@student.tce.edu') {
+    resolvedProfile = {
+      ...userProfile,
+      role: 'Faculty',
+    };
+  }
   const isArchEmail = /arch@tce\.edu$/i.test(em) || em === 'crissindhu@tce.edu';
   if (
-    (isArchEmail || isArchDepartment(userProfile.department) || isArchDepartment(userProfile.departmentName)) &&
-    !['IQAC', 'Registrar', 'Principal'].includes(userProfile.role)
+    (isArchEmail || isArchDepartment(resolvedProfile.department) || isArchDepartment(resolvedProfile.departmentName)) &&
+    !['IQAC', 'Registrar', 'Principal'].includes(resolvedProfile.role)
   ) {
     return {
-      ...userProfile,
+      ...resolvedProfile,
       department: 'ARCH',
       departmentName: "Architecture (T'SEDA)",
     };
   }
-  return userProfile;
+  return resolvedProfile;
 }
 
 function loadUserFromStorage() {

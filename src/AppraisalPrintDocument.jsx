@@ -1,6 +1,24 @@
 import React from 'react';
 import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH } from './scoringEngine.js';
 
+const KNOWN_HOD_PERSONAL_EMAILS = new Set([
+  'spmcse@tce.edu', 'spcse@tce.edu', 'sps@tce.edu',
+  'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
+  'vvchem@tce.edu', 'velkannan@tce.edu',
+  'samciv@tce.edu',
+  'mkkdit@tce.edu',
+  'smscse@tce.edu', 'shalinie@tce.edu',
+  'bmece@tce.edu', 'naveenmegaa@tce.edu',
+  'mseee@tce.edu',
+  'gjjeng@tce.edu',
+  'cdcse@tce.edu', 'cdit@tce.edu',
+  'aaamat@tce.edu', 'anithavalli@tce.edu',
+  'pccse@tce.edu', 'pchitracse@tce.edu',
+  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu',
+  'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
+  'jeyamala@tce.edu',
+]);
+
 const formatExternalLink = (url) => {
   if (!url || typeof url !== 'string') return '';
   const trimmed = url.trim();
@@ -220,7 +238,7 @@ export default function AppraisalPrintDocument({
               );
               const isHodRecord = Boolean(
                 record?.isHodSubmission ||
-                ['spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu', 'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu', 'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu'].includes(targetEmailLower) ||
+                KNOWN_HOD_PERSONAL_EMAILS.has(targetEmailLower) ||
                 /^hod[a-z]{2,6}@tce\.edu$/i.test(targetEmailLower) ||
                 /\b(head|hod)\b/i.test(targetDesig) ||
                 (String(user?.role || '').toUpperCase() === 'HOD' && targetEmailLower === String(user?.email || '').toLowerCase().trim())
@@ -845,7 +863,7 @@ export default function AppraisalPrintDocument({
             const targetDesig = String(record?.designation || user?.designation || '');
             const isHodRecord = Boolean(
               record?.isHodSubmission ||
-              ['spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu', 'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu', 'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu'].includes(targetEmailLower) ||
+              KNOWN_HOD_PERSONAL_EMAILS.has(targetEmailLower) ||
               /^hod[a-z]{2,6}@tce\.edu$/i.test(targetEmailLower) ||
               /\b(head|hod)\b/i.test(targetDesig) ||
               (String(user?.role || '').toUpperCase() === 'HOD' && targetEmailLower === String(user?.email || '').toLowerCase().trim())

@@ -167,11 +167,21 @@ export const exportAppraisalToPDF = ({
   const targetEmailLower = String(record?.email || record?.facultyEmail || user?.email || '').toLowerCase().trim();
   const targetDesig = String(record?.designation || user?.designation || '');
   const KNOWN_HOD_PERSONAL_EMAILS = new Set([
-    'spmcse@tce.edu', 'spcse@tce.edu', 'gsjarch@tce.edu', 'jjlkarch@tce.edu',
-    'vvchem@tce.edu', 'samciv@tce.edu', 'mkkdit@tce.edu', 'smscse@tce.edu',
-    'shalinie@tce.edu', 'bmece@tce.edu', 'mseee@tce.edu', 'gjjeng@tce.edu',
-    'cdcse@tce.edu', 'aaamat@tce.edu', 'pccse@tce.edu', 'pmmech@tce.edu',
-    'rhmech@tce.edu', 'gkgmech@tce.edu', 'mmphy@tce.edu', 'jeyamala@tce.edu',
+    'spmcse@tce.edu', 'spcse@tce.edu', 'sps@tce.edu',
+    'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
+    'vvchem@tce.edu', 'velkannan@tce.edu',
+    'samciv@tce.edu',
+    'mkkdit@tce.edu',
+    'smscse@tce.edu', 'shalinie@tce.edu',
+    'bmece@tce.edu', 'naveenmegaa@tce.edu',
+    'mseee@tce.edu',
+    'gjjeng@tce.edu',
+    'cdcse@tce.edu', 'cdit@tce.edu',
+    'aaamat@tce.edu', 'anithavalli@tce.edu',
+    'pccse@tce.edu', 'pchitracse@tce.edu',
+    'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu',
+    'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
+    'jeyamala@tce.edu',
   ]);
   const hasFullRegistrarTitle = /\bregistrar\b/i.test(
     targetDesig.replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
