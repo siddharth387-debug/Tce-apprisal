@@ -277,7 +277,7 @@ export default function AppraisalPrintDocument({
                     isRatified
                       ? 'bg-emerald-100 text-emerald-900 border border-emerald-400'
                       : isRegistrarRecord
-                      ? (isIqacApp && isPrincipalApp
+                      ? (isPrincipalApp
                           ? 'bg-green-100 text-green-800 border border-green-300'
                           : 'bg-amber-100 text-amber-800 border border-amber-300')
                       : (isHodRecord ? isIqacApp : isApproved)
@@ -290,13 +290,9 @@ export default function AppraisalPrintDocument({
                   {isRatified
                     ? '🔒 Ratified & Locked'
                     : isRegistrarRecord
-                    ? (isIqacApp && isPrincipalApp
-                        ? '✔ Approved by IQAC & Principal'
-                        : isIqacApp
-                        ? '✔ IQAC Approved · ⏳ Pending Principal'
-                        : isPrincipalApp
-                        ? '✔ Principal Approved · ⏳ Pending IQAC'
-                        : '⏳ Pending IQAC & Principal Approval')
+                    ? (isPrincipalApp
+                        ? '✔ Approved by Principal'
+                        : '⏳ Pending Principal Approval')
                     : isHodRecord
                     ? (isIqacApp ? '✔ Approved by IQAC' : '⏳ Pending IQAC Approval')
                     : isApproved

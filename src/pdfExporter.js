@@ -221,7 +221,7 @@ export const exportAppraisalToPDF = ({
   let badgeBg = [254, 243, 199];
   let badgeBorder = [252, 211, 77];
   let badgeText = [146, 64, 14];
-  let badgeLabel = isRegistrarRecord ? 'PENDING IQAC & PRINCIPAL APPROVAL' : (isHodRecord ? 'PENDING IQAC APPROVAL' : 'PENDING HOD APPROVAL');
+  let badgeLabel = isRegistrarRecord ? 'PENDING PRINCIPAL APPROVAL' : (isHodRecord ? 'PENDING IQAC APPROVAL' : 'PENDING HOD APPROVAL');
 
   if (isRatified) {
     badgeBg = [209, 250, 229];
@@ -229,26 +229,16 @@ export const exportAppraisalToPDF = ({
     badgeText = [6, 95, 70];
     badgeLabel = 'RATIFIED & LOCKED';
   } else if (isRegistrarRecord) {
-    if (isIqacApproved && isPrincipalApproved) {
+    if (isPrincipalApproved) {
       badgeBg = [220, 252, 231];
       badgeBorder = [134, 239, 172];
       badgeText = [22, 101, 52];
-      badgeLabel = 'APPROVED BY IQAC & PRINCIPAL';
-    } else if (isIqacApproved) {
-      badgeBg = [254, 243, 199];
-      badgeBorder = [252, 211, 77];
-      badgeText = [146, 64, 14];
-      badgeLabel = 'IQAC APPROVED (PENDING PRINCIPAL)';
-    } else if (isPrincipalApproved) {
-      badgeBg = [254, 243, 199];
-      badgeBorder = [252, 211, 77];
-      badgeText = [146, 64, 14];
-      badgeLabel = 'PRINCIPAL APPROVED (PENDING IQAC)';
+      badgeLabel = 'APPROVED BY PRINCIPAL';
     } else {
       badgeBg = [254, 243, 199];
       badgeBorder = [252, 211, 77];
       badgeText = [146, 64, 14];
-      badgeLabel = 'PENDING IQAC & PRINCIPAL APPROVAL';
+      badgeLabel = 'PENDING PRINCIPAL APPROVAL';
     }
   } else if (isHodRecord) {
     if (isIqacApproved) {

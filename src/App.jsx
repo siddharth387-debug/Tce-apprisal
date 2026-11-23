@@ -4394,24 +4394,16 @@ function DetailedReviewView({ appraisal, onClose, hodControls, principalControls
           {isRegistrarSubmissionRecord(appraisal) ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                Dual Governance Sign-Off Status (Principal &amp; IQAC)
+                Principal Sign-Off Status
               </span>
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border shadow-xs flex items-center gap-1 ${
-                  isRegistrarIqacApproved(appraisal)
-                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    : 'bg-amber-50 text-amber-800 border-amber-300'
-                }`}>
-                  <span>{isRegistrarIqacApproved(appraisal) ? '✔' : '⏳'}</span>
-                  <span>{isRegistrarIqacApproved(appraisal) ? 'IQAC Approved' : 'IQAC Pending'}</span>
-                </span>
                 <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border shadow-xs flex items-center gap-1 ${
                   isRegistrarPrincipalApproved(appraisal)
                     ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                     : 'bg-amber-50 text-amber-800 border-amber-300'
                 }`}>
                   <span>{isRegistrarPrincipalApproved(appraisal) ? '✔' : '⏳'}</span>
-                  <span>{isRegistrarPrincipalApproved(appraisal) ? 'Principal Approved' : 'Principal Pending'}</span>
+                  <span>{isRegistrarPrincipalApproved(appraisal) ? 'Approved by Principal' : 'Pending Principal Approval'}</span>
                 </span>
               </div>
             </div>
@@ -5842,10 +5834,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isApprovedByActiveAuthority = useCallback((rec) => {
     if (!rec) return false;
     if (isRegistrarSubmissionRecord(rec)) {
-      return isPrincipal ? isRegistrarPrincipalApproved(rec) : isRegistrarIqacApproved(rec);
+      return isRegistrarPrincipalApproved(rec);
     }
     return isIqacApprovedRecord(rec);
-  }, [isPrincipal]);
+  }, []);
 
   const handleIqacVerifySubmission = useCallback(async (recordId, recordEmail = '', recordTimeline = '', customRemarks = null, _customStatus = 'Approved') => {
     try {
@@ -5867,23 +5859,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         (targetEmail && recEmail === targetEmail && (!recordTimeline || rec.timeline === recordTimeline));
         if (isMatch) {
           if (isRegistrarSubmissionRecord(rec)) {
-            if (roleTitle === 'Principal') {
-              const nextPrincipalStatus = rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved';
-              return {
-                ...rec,
-                principalApprovalStatus: nextPrincipalStatus,
-                principalEndorsedAt: new Date().toISOString(),
-                ...(trimmedRemarks ? { principalRemarks: trimmedRemarks } : {}),
-                appraisalStatus: isRegistrarIqacApproved(rec) ? 'Approved' : 'Pending',
-              };
-            }
+            const nextPrincipalStatus = rec.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved';
             return {
               ...rec,
-              iqacStatus: 'Approved',
-              iqacEvaluatedAt: new Date().toISOString(),
-              iqacEvaluatedBy: 'IQAC',
-              ...(trimmedRemarks !== undefined ? { iqacAuditRemarks: trimmedRemarks } : {}),
-              appraisalStatus: isRegistrarPrincipalApproved(rec) ? 'Approved' : 'Pending',
+              principalApprovalStatus: nextPrincipalStatus,
+              principalEndorsedAt: new Date().toISOString(),
+              ...(trimmedRemarks ? { principalRemarks: trimmedRemarks } : {}),
+              appraisalStatus: 'Approved',
             };
           }
           return {
@@ -6149,8 +6131,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const tl = record.timeline;
       if (!tl) return;
       const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
-      if (isOnlyHodReviewer && (isHodSubmissionRecord(record) || isDeanSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
-        return; // HOD, Dean & Registrar submissions bypass HOD review and go directly to IQAC & Principal
+      if ((isOnlyHodReviewer && (isHodSubmissionRecord(record) || isDeanSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) ||
+          (!isPrincipal && isRegistrarSubmissionRecord(record))) {
+        return; // HOD, Dean & Registrar submissions bypass HOD review; Registrar submissions are visible exclusively to Principal
       }
       const uniqueKey = `${recEmail}_${tl}`;
       if (recEmail && seenKeys.has(uniqueKey)) return;
@@ -6870,11 +6853,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
 
     // HoD, Leadership & Institutional queues must NEVER include test accounts (purely for testing) or student accounts
+    // Additionally, Registrar personal appraisals are strictly visible only to Principal (not in IQAC, Registrar, or HOD views)
     if (effectiveRole === 'HOD' || isReviewMode) {
       rows = rows.filter(r => {
         const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
         if (em === 'deansiddharth@gmail.com' || em === 'siddharthk@student.tce.edu') return false;
         if (em.endsWith('@student.tce.edu') || em.endsWith('@gmail.com') || em.endsWith('@googlemail.com')) return false;
+        if (!isPrincipal && isRegistrarSubmissionRecord(r)) return false;
         return true;
       });
     }
@@ -7553,7 +7538,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     // Faculty has completed at least one section with valid links and 0 errors!
     const totalScore = scores?.grandTotal || 0;
     const submitTargetMessage = isCurrentUserRegistrarPersonal
-      ? 'Once submitted, editing will be locked and your appraisal will be routed to IQAC and the Principal for official approval.'
+      ? 'Once submitted, editing will be locked and your appraisal will be routed directly to the Principal for official approval.'
       : isCurrentUserHodPersonal
         ? 'Once submitted, editing will be locked and your appraisal will be routed directly to IQAC and the Principal for official review (bypassing departmental HOD review).'
         : 'Once submitted, editing will be locked and your appraisal will be routed to the Head of Department (HOD) for official review.';
@@ -7761,7 +7746,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         type: 'success',
         title: 'Appraisal Submitted Successfully! 🎉',
         message: isRegistrarUser
-          ? `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to IQAC and the Principal for approval.`
+          ? `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded directly to the Principal for approval.`
           : isHodPersonalUser
             ? `Your HOD self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded directly to IQAC and the Principal for review. Your submission is now officially recorded and locked for audit.`
             : `Your self-appraisal for academic year ${selectedTimeline} has been successfully submitted and forwarded to your Head of Department. Your submission is now officially recorded and locked for review.`,
@@ -8475,7 +8460,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 {[
                   { key: 'HOD_SUBMISSIONS', label: 'HOD', counts: hodSubmissionCounts, title: 'View HOD Personal Appraisals' },
                   { key: 'DEAN_SUBMISSIONS', label: 'Dean', counts: deanSubmissionCounts, title: 'View Dean Personal Appraisals' },
-                  { key: 'REGISTRAR_SUBMISSIONS', label: 'Registrar', counts: registrarSubmissionCounts, title: 'View Registrar Personal Appraisals' },
+                  ...(isPrincipal ? [{ key: 'REGISTRAR_SUBMISSIONS', label: 'Registrar', counts: registrarSubmissionCounts, title: 'View Registrar Personal Appraisals' }] : []),
                 ].map((sector) => {
                   const isActiveSector = leadershipTopBox === sector.key;
                   const nextSubTab = sector.counts.PENDING_REVIEW > 0
@@ -9327,40 +9312,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 );
                               }
                               if (isRegistrarSubmissionRow(row)) {
-                                const iqDone = isRegistrarIqacApproved(row);
                                 const prDone = isRegistrarPrincipalApproved(row);
-                                if (iqDone && prDone) {
+                                if (prDone) {
                                   return (
                                     <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
-                                      <span>✔</span> Approved (IQAC &amp; Principal)
-                                    </span>
-                                  );
-                                }
-                                if (iqDone && !prDone) {
-                                  return (
-                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border shadow-sm flex items-center gap-1 w-fit ${
-                                      isPrincipal
-                                        ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                        : 'bg-blue-100 text-blue-900 border-blue-300'
-                                    }`}>
-                                      <span>✔ IQAC Approved · ⏳ Pending Principal</span>
-                                    </span>
-                                  );
-                                }
-                                if (!iqDone && prDone) {
-                                  return (
-                                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border shadow-sm flex items-center gap-1 w-fit ${
-                                      isPrincipal
-                                        ? 'bg-blue-100 text-blue-900 border-blue-300'
-                                        : 'bg-amber-50 text-amber-800 border-amber-300'
-                                    }`}>
-                                      <span>✔ Principal Approved · ⏳ Pending IQAC</span>
+                                      <span>✔</span> Approved by Principal
                                     </span>
                                   );
                                 }
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                    <span>⏳</span> Pending IQAC &amp; Principal
+                                    <span>⏳</span> Pending Principal Review
                                   </span>
                                 );
                               }
@@ -9389,25 +9351,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             const isRatified = activeStatus === 'RATIFIED' || (row.principalApprovalStatus || '').toUpperCase() === 'RATIFIED';
 
                             if (isRegistrarSubmissionRecord(row) && activeStatus !== 'DRAFT' && !isRatified) {
-                              const iqDone = isRegistrarIqacApproved(row);
                               const prDone = isRegistrarPrincipalApproved(row);
-                              if (iqDone && prDone) {
+                              if (prDone) {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm flex items-center gap-1 w-fit">
-                                    <span>✔</span> Approved by IQAC &amp; Principal
-                                  </span>
-                                );
-                              }
-                              if (iqDone || prDone) {
-                                return (
-                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm flex items-center gap-1 w-fit">
-                                    <span>{iqDone ? '✔ IQAC Approved · ⏳ Pending Principal' : '✔ Principal Approved · ⏳ Pending IQAC'}</span>
+                                    <span>✔</span> Approved by Principal
                                   </span>
                                 );
                               }
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                  <span>⏳</span> Pending IQAC &amp; Principal
+                                  <span>⏳</span> Pending Principal Review
                                 </span>
                               );
                             }
@@ -9450,7 +9404,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                  <span>⏳</span> {(isHodSubmissionRecord(row) || isDeanSubmissionRecord(row)) ? 'Pending IQAC Review' : (isRegistrarSubmissionRecord(row) ? 'Pending IQAC & Principal' : (isHod ? 'Pending Review' : 'Pending HoD Review'))}
+                                  <span>⏳</span> {(isHodSubmissionRecord(row) || isDeanSubmissionRecord(row)) ? 'Pending IQAC Review' : (isRegistrarSubmissionRecord(row) ? 'Pending Principal Review' : (isHod ? 'Pending Review' : 'Pending HoD Review'))}
                                 </span>
                               );
                             }
@@ -9749,32 +9703,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               );
                             }
                             if (isRegistrarSubmissionRecord(row) && !isRatified) {
-                              const iqDone = isRegistrarIqacApproved(row);
                               const prDone = isRegistrarPrincipalApproved(row);
-                              if (iqDone && prDone) {
-                                return (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">
-                                    <span>✔</span> Approved by IQAC &amp; Principal
-                                  </span>
-                                );
-                              }
-                              if (iqDone) {
-                                return (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm">
-                                    <span>✔ IQAC Approved · ⏳ Pending Principal</span>
-                                  </span>
-                                );
-                              }
                               if (prDone) {
                                 return (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-100 text-blue-900 border border-blue-300 shadow-sm">
-                                    <span>✔ Principal Approved · ⏳ Pending IQAC</span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm">
+                                    <span>✔</span> Approved by Principal
                                   </span>
                                 );
                               }
                               return (
                                 <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 shadow-sm">
-                                  ⏳ Pending IQAC &amp; Principal
+                                  ⏳ Pending Principal Review
                                 </span>
                               );
                             }
@@ -11283,7 +11222,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div>
               <p className="text-xs font-medium text-slate-700">
                 {isCurrentUserRegistrarPersonal
-                  ? 'Submit this Section I to IX appraisal to IQAC & Principal when your added rows are complete.'
+                  ? 'Submit this Section I to IX appraisal directly to the Principal when your added rows are complete.'
                   : isCurrentUserHodPersonal
                     ? 'Submit this Section I to IX HOD self-appraisal directly to IQAC & Principal when your added rows are complete.'
                     : 'Submit this Section I to IX appraisal to the HoD when your added rows are complete.'}
@@ -11302,7 +11241,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 disabled={isSubmitting || !isEditable}
                 className="inline-flex h-8 items-center justify-center rounded-md bg-[#4A1519] px-3 text-xs font-semibold text-white transition hover:bg-[#5a1c22] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
-                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : (isCurrentUserRegistrarPersonal ? 'Submit to IQAC & Principal' : (isCurrentUserHodPersonal ? 'Submit to IQAC' : 'Submit to HOD'))}
+                {isSubmitting ? 'Submitting…' : !isEditable ? 'Submitted (Locked)' : (isCurrentUserRegistrarPersonal ? 'Submit to Principal' : (isCurrentUserHodPersonal ? 'Submit to IQAC' : 'Submit to HOD'))}
               </button>
             </div>
           </div>
@@ -11435,10 +11374,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             onClick={handleInitiateSubmit}
             disabled={isSubmitting}
             className="inline-flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-black bg-[#4A1519] hover:bg-[#3B1013] text-white transition-all shadow-md cursor-pointer disabled:opacity-60 active:scale-95 shrink-0"
-            title={isCurrentUserRegistrarPersonal ? 'Formally submit completed appraisal to IQAC & Principal' : isCurrentUserHodPersonal ? 'Formally submit completed HOD appraisal directly to IQAC & Principal' : 'Formally submit completed appraisal to HOD'}
+            title={isCurrentUserRegistrarPersonal ? 'Formally submit completed appraisal to Principal' : isCurrentUserHodPersonal ? 'Formally submit completed HOD appraisal directly to IQAC & Principal' : 'Formally submit completed appraisal to HOD'}
           >
             <span>📤</span>
-            <span>{isCurrentUserRegistrarPersonal ? 'Submit to IQAC & Principal' : isCurrentUserHodPersonal ? 'Submit to IQAC' : 'Submit to HOD'}</span>
+            <span>{isCurrentUserRegistrarPersonal ? 'Submit to Principal' : isCurrentUserHodPersonal ? 'Submit to IQAC' : 'Submit to HOD'}</span>
           </button>
         )}
       </div>
@@ -11494,6 +11433,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   type="button"
                   onClick={() => {
                     setAdminActiveRole('Registrar');
+                    if (leadershipTopBox === 'REGISTRAR_SUBMISSIONS') {
+                      setLeadershipTopBox('HOD_APPROVALS');
+                      setHodApprovalsTab('HOD_APPROVED');
+                    }
                     setActiveView('overview');
                     setSelectedAppraisal(null);
                     setSelectedReviewAppraisal(null);
@@ -11511,6 +11454,10 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   type="button"
                   onClick={() => {
                     setAdminActiveRole('IQAC');
+                    if (leadershipTopBox === 'REGISTRAR_SUBMISSIONS') {
+                      setLeadershipTopBox('HOD_APPROVALS');
+                      setHodApprovalsTab('HOD_APPROVED');
+                    }
                     setActiveView('overview');
                   }}
                   className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${
@@ -11974,7 +11921,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <span>
                     <strong>Important:</strong> Submitting will lock your form and forward your dossier{' '}
                     {isCurrentUserRegistrarPersonal
-                      ? 'to IQAC and the Principal for official approval'
+                      ? 'directly to the Principal for official approval'
                       : isCurrentUserHodPersonal
                         ? 'directly to IQAC and the Principal for official review'
                         : 'to the Head of Department (HOD) for official review'}. Ensure all Google Drive evidence links are accessible.
@@ -11990,7 +11937,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   <span className="text-emerald-800 font-semibold">Official Status:</span>
                   <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
                     {isCurrentUserRegistrarPersonal
-                      ? 'Pending IQAC & Principal Review'
+                      ? 'Pending Principal Review'
                       : (isCurrentUserHodPersonal ? 'Pending IQAC Review' : 'Pending HoD Review')}
                   </span>
                 </div>
@@ -12025,7 +11972,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                       <span className="animate-spin text-sm">⏳</span>
                       <span>
                         {isCurrentUserRegistrarPersonal
-                          ? 'Submitting to IQAC & Principal...'
+                          ? 'Submitting to Principal...'
                           : isCurrentUserHodPersonal
                             ? 'Submitting to IQAC...'
                             : 'Submitting to HOD...'}

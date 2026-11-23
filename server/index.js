@@ -204,38 +204,23 @@ export function applyLeadershipDecision({ targetRecord, decision, evaluatorRole,
   );
 
   if (resolvedIsRegistrar) {
-    const isPrincipalEval = String(evaluatorRole || '').toUpperCase().trim() === 'PRINCIPAL';
-    const currentIqacApproved = ['APPROVED', 'IQAC APPROVED'].includes(String(targetRecord?.iqacStatus || '').toUpperCase().trim());
-    const currentPrincipalApproved = ['APPROVED', 'RATIFIED', 'ENDORSED', 'PRINCIPAL APPROVED'].includes(String(targetRecord?.principalApprovalStatus || '').toUpperCase().trim());
-    const nextIqacApproved = isPrincipalEval ? currentIqacApproved : (finalStatus === 'Approved');
-    const nextPrincipalApproved = isPrincipalEval ? (finalStatus === 'Approved') : currentPrincipalApproved;
-
     const regUpdateFields = {
       isRegistrarSubmission: true,
       ...(excluded !== undefined ? { iqacExcluded: Boolean(excluded) } : {}),
+      principalApprovalStatus: finalStatus === 'Approved'
+        ? (targetRecord?.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved')
+        : 'Pending',
+      principalEndorsedAt: finalStatus === 'Approved' ? now : null,
+      appraisalStatus: finalStatus === 'Approved' ? 'Approved' : 'Pending',
       updatedAt: now
     };
 
-    if (isPrincipalEval) {
-      regUpdateFields.principalApprovalStatus = finalStatus === 'Approved'
-        ? (targetRecord?.principalApprovalStatus === 'Ratified' ? 'Ratified' : 'Approved')
-        : 'Pending';
-      regUpdateFields.principalEndorsedAt = finalStatus === 'Approved' ? now : null;
-      if (remarks !== undefined && remarks !== null && String(remarks).trim() !== '') {
-        regUpdateFields.principalRemarks = String(remarks).trim();
-      } else if (finalStatus === 'Pending' && remarks === '') {
-        regUpdateFields.principalRemarks = '';
-      }
-    } else {
-      regUpdateFields.iqacStatus = finalStatus;
-      regUpdateFields.iqacEvaluatedAt = finalStatus === 'Approved' ? now : null;
-      regUpdateFields.iqacEvaluatedBy = finalStatus === 'Approved' ? 'IQAC' : '';
-      regUpdateFields.iqacAuditRemarks = remarks !== undefined && remarks !== null
-        ? String(remarks)
-        : (targetRecord?.iqacAuditRemarks || '');
+    if (remarks !== undefined && remarks !== null && String(remarks).trim() !== '') {
+      regUpdateFields.principalRemarks = String(remarks).trim();
+    } else if (finalStatus === 'Pending' && remarks === '') {
+      regUpdateFields.principalRemarks = '';
     }
 
-    regUpdateFields.appraisalStatus = (nextIqacApproved && nextPrincipalApproved) ? 'Approved' : 'Pending';
     return { updateFields: regUpdateFields, finalStatus };
   }
 
@@ -2424,7 +2409,10 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
           continue; // Purely for testing — never return test accounts to HoD or higher authorities
         }
         if (isCallerOnlyHod && (recordIsHodSubmission || recordIsDeanSubmission || recordIsRegistrarSubmission)) {
-          continue; // HOD, Dean & Registrar appraisals bypass HOD review and go directly to IQAC & Principal
+          continue; // HOD, Dean & Registrar appraisals bypass HOD review
+        }
+        if (!isPrincipalUser && recordIsRegistrarSubmission) {
+          continue; // Registrar personal appraisal is visible exclusively in Principal view (not in IQAC or Registrar review inbox)
         }
       }
       const liveScores = computeEffectiveScores(
@@ -3337,6 +3325,12 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticat
 
     const evaluatorRole = req.body.evaluatorRole || req.body.evaluatedBy || ((req.user?.role === 'Principal' || isPrincipalEmail(callerEmail)) ? 'Principal' : 'IQAC');
     const isRegistrarRecord = isRegistrarPersonalSubmission(targetRecord.email || targetRecord.facultyEmail || email, targetRecord);
+    if (isRegistrarRecord && String(evaluatorRole).toUpperCase().trim() !== 'PRINCIPAL' && !isPrincipalEmail(callerEmail) && callerEmail !== 'siddharthk@student.tce.edu') {
+      return res.status(403).json({
+        success: false,
+        message: "Forbidden: Only the Principal can review and approve the Registrar's appraisal."
+      });
+    }
     const { updateFields, finalStatus } = applyLeadershipDecision({
       targetRecord,
       decision: iqacStatus,
