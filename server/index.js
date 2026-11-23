@@ -68,9 +68,26 @@ const KNOWN_REGISTRAR_PERSONAL_EMAILS = [
   'registrar@tce.edu',
 ];
 
+const KNOWN_DEAN_PERSONAL_EMAILS = [
+  'sbeee@tce.edu', 'deanacad@tce.edu',
+  'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
+  'gkmech@tce.edu', 'deancd@tce.edu',
+  'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
+  'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
+  'gbarch@tce.edu', 'deanstud@tce.edu',
+  'spcse@tce.edu', 'sps@tce.edu', 'deancce@tce.edu',
+  'deaneca@tce.edu', 'rvchem@tce.edu',
+];
+
 export function hasFullRegistrarDesignation(str) {
   return /\bregistrar\b/i.test(
     String(str || '').replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
+  );
+}
+
+export function hasFullDeanDesignation(str) {
+  return /\bdean\b/i.test(
+    String(str || '').replace(/\b(?:associate|assoc|asst|assistant|deputy|dy)\s*\.?\s*deans?\b/gi, '')
   );
 }
 
@@ -89,12 +106,26 @@ export function isRegistrarPersonalSubmission(email, record = null) {
   return false;
 }
 
+export function isDeanPersonalSubmission(email, record = null) {
+  const clean = String(email || record?.email || record?.facultyEmail || '').toLowerCase().trim();
+  if (clean === 'siddharthk@student.tce.edu' || clean.endsWith('@student.tce.edu') || clean.endsWith('@gmail.com')) {
+    return false;
+  }
+  if (isRegistrarPersonalSubmission(clean, record)) return false;
+  if (clean && KNOWN_DEAN_PERSONAL_EMAILS.includes(clean)) return true;
+  if (record?.isDeanSubmission === true) return true;
+  if (hasFullDeanDesignation(record?.designation)) return true;
+  return false;
+}
+
 export const isHodApprovedOrLater = (recordOrStatus) => {
   if (!recordOrStatus) return false;
   if (
     typeof recordOrStatus === 'object' &&
     (recordOrStatus.isHodSubmission === true ||
+      recordOrStatus.isDeanSubmission === true ||
       recordOrStatus.isRegistrarSubmission === true ||
+      isDeanPersonalSubmission(recordOrStatus.email || recordOrStatus.facultyEmail, recordOrStatus) ||
       isRegistrarPersonalSubmission(recordOrStatus.email || recordOrStatus.facultyEmail, recordOrStatus))
   ) {
     return true;
@@ -471,6 +502,7 @@ const AppraisalSchema = new mongoose.Schema({
   iqacEvaluatedBy: { type: String, default: '' },
   isLocked: { type: Boolean, default: false },
   isHodSubmission: { type: Boolean, default: false },
+  isDeanSubmission: { type: Boolean, default: false },
   isRegistrarSubmission: { type: Boolean, default: false },
   unlockedReleaseTag: { type: String, default: '' },
   section1Data: {
@@ -1035,21 +1067,21 @@ export function isIqacAccount(email, record = null) {
 }
 
 const KNOWN_HOD_PERSONAL_EMAILS = [
-  'spmcse@tce.edu', 'spcse@tce.edu', 'sps@tce.edu',
+  'spmcse@tce.edu',
   'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
   'vvchem@tce.edu', 'velkannan@tce.edu',
   'samciv@tce.edu',
   'mkkdit@tce.edu',
-  'smscse@tce.edu', 'shalinie@tce.edu',
   'bmece@tce.edu', 'naveenmegaa@tce.edu',
-  'mseee@tce.edu',
+  'mseee@tce.edu', 'r_rajanprakash@tce.edu', 'rrpeee@tce.edu',
   'gjjeng@tce.edu',
   'cdcse@tce.edu', 'cdit@tce.edu',
   'aaamat@tce.edu', 'anithavalli@tce.edu',
   'pccse@tce.edu', 'pchitracse@tce.edu',
-  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu',
+  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
   'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
   'jeyamala@tce.edu',
+  'rpift@tce.edu',
 ];
 
 const APEX_NON_HOD_EMAILS = new Set([
@@ -1074,13 +1106,23 @@ async function getHodEmailSet() {
         { designation: /\b(head|hod)\b/i }
       ]
     },
-    { email: 1, personalEmail: 1, hodEmail: 1, alternateEmails: 1 }
+    { email: 1, personalEmail: 1, hodEmail: 1, alternateEmails: 1, designation: 1 }
   ).lean();
   const hodSet = new Set(KNOWN_HOD_PERSONAL_EMAILS);
   for (const m of hodMembers) {
+    if (hasFullDeanDesignation(m.designation) || hasFullRegistrarDesignation(m.designation)) {
+      continue;
+    }
     [m.email, m.personalEmail, m.hodEmail, ...(m.alternateEmails || [])].forEach((e) => {
       const clean = String(e || '').toLowerCase().trim();
-      if (clean && !APEX_NON_HOD_EMAILS.has(clean)) hodSet.add(clean);
+      if (
+        clean &&
+        !APEX_NON_HOD_EMAILS.has(clean) &&
+        !KNOWN_DEAN_PERSONAL_EMAILS.includes(clean) &&
+        !KNOWN_REGISTRAR_PERSONAL_EMAILS.includes(clean)
+      ) {
+        hodSet.add(clean);
+      }
     });
   }
   return hodSet;
@@ -1089,6 +1131,9 @@ async function getHodEmailSet() {
 function isHodEmailInSet(email, hodSet) {
   const clean = String(email || '').toLowerCase().trim();
   if (!clean) return false;
+  if (KNOWN_DEAN_PERSONAL_EMAILS.includes(clean) || KNOWN_REGISTRAR_PERSONAL_EMAILS.includes(clean)) {
+    return false;
+  }
   return hodSet.has(clean) || /^hod[a-z]{2,6}@tce\.edu$/i.test(clean);
 }
 
@@ -1781,17 +1826,21 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
 
     const hodEmailSet = await getHodEmailSet();
     const resolvedDesignation = facultyRecord?.designation || req.user?.designation || (req.user?.role === 'HOD' ? 'Professor & Head (HOD)' : 'Assistant Professor');
-    const submitterIsHod = Boolean(
+    const submitterIsRegistrar = isRegistrarPersonalSubmission(canonicalEmail, {
+      email: verifiedEmail,
+      designation: resolvedDesignation,
+      section9Data: req.body?.section9Data
+    });
+    const submitterIsDean = !submitterIsRegistrar && (
+      isDeanPersonalSubmission(canonicalEmail, { email: verifiedEmail, designation: resolvedDesignation }) ||
+      isDeanPersonalSubmission(verifiedEmail, { email: canonicalEmail, designation: resolvedDesignation })
+    );
+    const submitterIsHod = !submitterIsRegistrar && !submitterIsDean && Boolean(
       facultyRecord?.role === 'HOD' ||
       isHodEmailInSet(canonicalEmail, hodEmailSet) ||
       isHodEmailInSet(verifiedEmail, hodEmailSet) ||
       isHodDesignation(resolvedDesignation)
     );
-    const submitterIsRegistrar = !submitterIsHod && isRegistrarPersonalSubmission(canonicalEmail, {
-      email: verifiedEmail,
-      designation: resolvedDesignation,
-      section9Data: req.body?.section9Data
-    });
 
     const mergedSection1Data = hasMeaningfulSectionData(section1Data) ? section1Data : (existingDoc?.section1Data || section1Data || {});
     const mergedSection2Data = hasMeaningfulSectionData(section2Data) ? section2Data : (existingDoc?.section2Data || section2Data || {});
@@ -1831,6 +1880,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       department: targetDept,
       departmentName: targetDeptName,
       isHodSubmission: submitterIsHod,
+      isDeanSubmission: submitterIsDean,
       isRegistrarSubmission: submitterIsRegistrar,
       isSubmitted: Boolean(req.body?.isSubmitted || (existingDoc?.isSubmitted && existingStatus !== 'DRAFT')),
       submittedAt: req.body?.isSubmitted
@@ -2335,14 +2385,14 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
     for (const doc of rawRecords) {
       normalizeAppraisalLeadershipDecision(doc);
       const emailKey = (doc.email || doc.facultyEmail || '').toLowerCase().trim();
-      const recordIsHodSubmission = Boolean(doc.isHodSubmission) || isHodEmailInSet(emailKey, hodEmailSet) || isHodDesignation(doc.designation);
-      if (recordIsHodSubmission && !doc.isHodSubmission) {
-        doc.isHodSubmission = true;
-      }
-      const recordIsRegistrarSubmission = !recordIsHodSubmission && isRegistrarPersonalSubmission(emailKey, doc);
-      if (recordIsRegistrarSubmission && !doc.isRegistrarSubmission) {
-        doc.isRegistrarSubmission = true;
-      }
+      const recordIsRegistrarSubmission = isRegistrarPersonalSubmission(emailKey, doc);
+      const recordIsDeanSubmission = !recordIsRegistrarSubmission && isDeanPersonalSubmission(emailKey, doc);
+      const recordIsHodSubmission = !recordIsRegistrarSubmission && !recordIsDeanSubmission && (
+        Boolean(doc.isHodSubmission) || isHodEmailInSet(emailKey, hodEmailSet) || isHodDesignation(doc.designation)
+      );
+      doc.isRegistrarSubmission = recordIsRegistrarSubmission;
+      doc.isDeanSubmission = recordIsDeanSubmission;
+      doc.isHodSubmission = recordIsHodSubmission;
       if (isElevated) {
         if (
           emailKey === 'deansiddharth@gmail.com' ||
@@ -2353,8 +2403,8 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         ) {
           continue; // Purely for testing — never return test accounts to HoD or higher authorities
         }
-        if (isCallerOnlyHod && (recordIsHodSubmission || recordIsRegistrarSubmission)) {
-          continue; // HOD & Registrar appraisals bypass HOD review and go directly to IQAC & Principal
+        if (isCallerOnlyHod && (recordIsHodSubmission || recordIsDeanSubmission || recordIsRegistrarSubmission)) {
+          continue; // HOD, Dean & Registrar appraisals bypass HOD review and go directly to IQAC & Principal
         }
       }
       const liveScores = computeEffectiveScores(
@@ -3050,10 +3100,17 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
     );
     if (callerIsOnlyHod) {
       const hodEmailSet = await getHodEmailSet();
-      if (Boolean(targetRecord.isHodSubmission) || isHodEmailInSet(targetEmailCheck, hodEmailSet) || isHodDesignation(targetRecord.designation) || targetEmailCheck === callerEmail) {
+      if (
+        Boolean(targetRecord.isHodSubmission) ||
+        Boolean(targetRecord.isDeanSubmission) ||
+        isDeanPersonalSubmission(targetEmailCheck, targetRecord) ||
+        isHodEmailInSet(targetEmailCheck, hodEmailSet) ||
+        isHodDesignation(targetRecord.designation) ||
+        targetEmailCheck === callerEmail
+      ) {
         return res.status(403).json({
           success: false,
-          message: "Forbidden: HOD appraisals cannot be reviewed or approved by an HOD. They are routed directly to IQAC and Principal."
+          message: "Forbidden: HOD and Dean appraisals cannot be reviewed or approved by an HOD. They are routed directly to IQAC and Principal."
         });
       }
       if (isRegistrarPersonalSubmission(targetEmailCheck, targetRecord)) {
@@ -4096,19 +4153,34 @@ async function startServer() {
         { $set: { role: 'Faculty' } }
       );
 
-      // Backfill isHodSubmission: true on existing HOD personal appraisals (preserving statuses & scores)
+      // Backfill leadership submission flags with strict hierarchy precedence: Registrar > Dean > HOD
       const hodEmailSetForBackfill = await getHodEmailSet();
       const hodEmailsArr = Array.from(hodEmailSetForBackfill);
+
+      // 1. Ensure all Dean appraisals (including Deans who also serve as HOD, e.g. spcse@tce.edu, shalinie@tce.edu)
+      // have isDeanSubmission: true and isHodSubmission: false
+      await Appraisal.updateMany(
+        {
+          $or: [
+            { email: { $in: KNOWN_DEAN_PERSONAL_EMAILS } },
+            { facultyEmail: { $in: KNOWN_DEAN_PERSONAL_EMAILS } }
+          ]
+        },
+        { $set: { isDeanSubmission: true, isHodSubmission: false } }
+      );
+
+      // 2. Ensure non-Dean, non-Registrar HOD appraisals have isHodSubmission: true
       await Appraisal.updateMany(
         {
           isHodSubmission: { $ne: true },
+          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS] },
           $or: [
             { email: { $in: hodEmailsArr } },
             { facultyEmail: { $in: hodEmailsArr } },
             { designation: /\b(head|hod)\b/i }
           ]
         },
-        { $set: { isHodSubmission: true } }
+        { $set: { isHodSubmission: true, isDeanSubmission: false } }
       );
     } catch (normErr) {
       console.warn('AI dept / designation normalization warning:', normErr.message);

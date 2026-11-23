@@ -47,26 +47,32 @@ const STATS = [
 ];
 
 export const KNOWN_HOD_EMAIL_SET = new Set([
-  'spmcse@tce.edu', 'spcse@tce.edu', 'sps@tce.edu',
+  'spmcse@tce.edu',
   'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
   'vvchem@tce.edu', 'velkannan@tce.edu',
   'samciv@tce.edu',
   'mkkdit@tce.edu',
-  'smscse@tce.edu', 'shalinie@tce.edu',
   'bmece@tce.edu', 'naveenmegaa@tce.edu',
-  'mseee@tce.edu',
+  'mseee@tce.edu', 'r_rajanprakash@tce.edu', 'rrpeee@tce.edu',
   'gjjeng@tce.edu',
   'cdcse@tce.edu', 'cdit@tce.edu',
   'aaamat@tce.edu', 'anithavalli@tce.edu',
   'pccse@tce.edu', 'pchitracse@tce.edu',
-  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu',
+  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
   'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
   'jeyamala@tce.edu',
+  'rpift@tce.edu',
 ]);
 
 export const KNOWN_DEAN_EMAIL_SET = new Set([
-  'gbarch@tce.edu', 'deaneca@tce.edu', 'rvchem@tce.edu', 'khh@tce.edu',
-  'khhece@tce.edu', 'smmroomi@tce.edu', 'smmrece@tce.edu', 'sbeee@tce.edu',
+  'sbeee@tce.edu', 'deanacad@tce.edu',
+  'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
+  'gkmech@tce.edu', 'deancd@tce.edu',
+  'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
+  'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
+  'gbarch@tce.edu', 'deanstud@tce.edu',
+  'spcse@tce.edu', 'sps@tce.edu', 'deancce@tce.edu',
+  'deaneca@tce.edu', 'rvchem@tce.edu',
 ]);
 
 export const KNOWN_REGISTRAR_EMAIL_SET = new Set([
@@ -83,22 +89,8 @@ export const hasFullRegistrarTitle = (str) =>
     String(str || '').replace(/\b(?:deputy|dy|asst|assistant)\s*\.?\s*registrar\b/gi, '')
   );
 
-export const isHodSubmissionRecord = (r) => {
-  if (!r || typeof r !== 'object') return false;
-  const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
-  const desig = String(r.designation || '');
-  const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
-  return (
-    Boolean(r.isHodSubmission) ||
-    KNOWN_HOD_EMAIL_SET.has(em) ||
-    /^hod[a-z]{2,6}@tce\.edu$/i.test(em) ||
-    /\b(head|hod)\b/i.test(desig) ||
-    (Array.isArray(adminRows) && adminRows.some((a) => /\bhod\b/i.test(a?.role || '')))
-  );
-};
-
 export const isRegistrarSubmissionRecord = (r) => {
-  if (!r || typeof r !== 'object' || isHodSubmissionRecord(r)) return false;
+  if (!r || typeof r !== 'object') return false;
   const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
   if (em === 'siddharthk@student.tce.edu' || em.endsWith('@student.tce.edu') || em.endsWith('@gmail.com')) {
     return false;
@@ -113,13 +105,30 @@ export const isRegistrarSubmissionRecord = (r) => {
   );
 };
 
+// Hierarchy Precedence: Registrar > Dean > HOD > Faculty
+// Any member holding both a Dean and HOD position (e.g. Dr. S. Parthasarathy, Dr. S. Mercy Shalinie)
+// is classified under Dean (the higher authority) and NOT under HOD.
 export const isDeanSubmissionRecord = (r) => {
-  if (!r || typeof r !== 'object' || isHodSubmissionRecord(r) || isRegistrarSubmissionRecord(r)) return false;
+  if (!r || typeof r !== 'object' || isRegistrarSubmissionRecord(r)) return false;
   const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
   const desig = String(r.designation || '');
   // Note: Do NOT check section9Data.adminResponsibilities here — Associate Deans often select "Dean" in 9.3,
   // but must remain under Normal Faculty submissions rather than the Dean category.
-  return KNOWN_DEAN_EMAIL_SET.has(em) || hasFullDeanTitle(desig);
+  return Boolean(r.isDeanSubmission) || KNOWN_DEAN_EMAIL_SET.has(em) || hasFullDeanTitle(desig);
+};
+
+export const isHodSubmissionRecord = (r) => {
+  if (!r || typeof r !== 'object' || isRegistrarSubmissionRecord(r) || isDeanSubmissionRecord(r)) return false;
+  const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+  const desig = String(r.designation || '');
+  const adminRows = r.section9Data?.adminResponsibilities || r.sectionData?.adminResponsibilities || [];
+  return (
+    Boolean(r.isHodSubmission) ||
+    KNOWN_HOD_EMAIL_SET.has(em) ||
+    /^hod[a-z]{2,6}@tce\.edu$/i.test(em) ||
+    /\b(head|hod)\b/i.test(desig) ||
+    (Array.isArray(adminRows) && adminRows.some((a) => /\bhod\b/i.test(a?.role || '')))
+  );
 };
 
 export const isRegistrarIqacApproved = (row) => {
@@ -138,7 +147,9 @@ export const isHodApprovedOrLater = (recordOrStatus) => {
   if (
     typeof recordOrStatus === 'object' &&
     (recordOrStatus.isHodSubmission === true ||
+      recordOrStatus.isDeanSubmission === true ||
       recordOrStatus.isRegistrarSubmission === true ||
+      isDeanSubmissionRecord(recordOrStatus) ||
       isRegistrarSubmissionRecord(recordOrStatus))
   ) {
     return true;
@@ -4723,7 +4734,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const isReviewMode = isPrincipal || isRegistrar || isIQAC || isHod;
   const isFacultyUser = (effectiveRole === 'Faculty') && !isHod && !isIQAC && !isPrincipal && !isRegistrar && !isReviewMode;
   const isCurrentUserHodPersonal = useMemo(
-    () => !isReviewMode && !isMasterUser && isHodSubmissionRecord(user),
+    () => !isReviewMode && !isMasterUser && (isHodSubmissionRecord(user) || isDeanSubmissionRecord(user)),
     [isReviewMode, isMasterUser, user]
   );
   const isCurrentUserRegistrarPersonal = useMemo(
@@ -6130,8 +6141,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const tl = record.timeline;
       if (!tl) return;
       const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
-      if (isOnlyHodReviewer && (isHodSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
-        return; // HOD & Registrar submissions bypass HOD review and go directly to IQAC & Principal
+      if (isOnlyHodReviewer && (isHodSubmissionRecord(record) || isDeanSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
+        return; // HOD, Dean & Registrar submissions bypass HOD review and go directly to IQAC & Principal
       }
       const uniqueKey = `${recEmail}_${tl}`;
       if (recEmail && seenKeys.has(uniqueKey)) return;
@@ -6156,8 +6167,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         facultyEmail: record.email || record.facultyEmail,
         department: record.department || 'CSE',
         departmentName: record.departmentName || '',
-        isHodSubmission: Boolean(record.isHodSubmission),
-        isRegistrarSubmission: Boolean(record.isRegistrarSubmission || isRegistrarSubmissionRecord(record)),
+        isHodSubmission: Boolean(isHodSubmissionRecord(record)),
+        isDeanSubmission: Boolean(isDeanSubmissionRecord(record)),
+        isRegistrarSubmission: Boolean(isRegistrarSubmissionRecord(record)),
         appraisalStatus: ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(String(record.appraisalStatus || '').toUpperCase().trim())
           ? 'Pending'
           : (String(record.appraisalStatus || '').toUpperCase().trim() === 'NOT APPROVED BY IQAC' ? 'Approved' : (record.appraisalStatus || 'Pending')),
@@ -6846,7 +6858,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       if (hodDept && hodDept !== 'ALL') {
         rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === hodDept);
       }
-      rows = rows.filter(r => !isHodSubmissionRecord(r) && !isRegistrarSubmissionRecord(r));
+      rows = rows.filter(r => !isHodSubmissionRecord(r) && !isDeanSubmissionRecord(r) && !isRegistrarSubmissionRecord(r));
     }
 
     // HoD, Leadership & Institutional queues must NEVER include test accounts (purely for testing) or student accounts
@@ -6884,8 +6896,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         department: record.department || 'CSE',
         departmentName: record.departmentName || '',
         designation: record.designation || 'Assistant Professor',
-        isHodSubmission: Boolean(record.isHodSubmission),
-        isRegistrarSubmission: Boolean(record.isRegistrarSubmission || isRegistrarSubmissionRecord(record)),
+        isHodSubmission: Boolean(isHodSubmissionRecord(record)),
+        isDeanSubmission: Boolean(isDeanSubmissionRecord(record)),
+        isRegistrarSubmission: Boolean(isRegistrarSubmissionRecord(record)),
         appraisalStatus: flattenedData.appraisalStatus || record.appraisalStatus || 'Pending',
         iqacStatus: flattenedData.iqacStatus || record.iqacStatus || 'Pending',
         iqacExcluded: Boolean(record.iqacExcluded),
@@ -7735,7 +7748,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       }
 
       const isRegistrarUser = isRegistrarSubmissionRecord(user);
-      const isHodPersonalUser = !isRegistrarUser && isHodSubmissionRecord(user);
+      const isHodPersonalUser = !isRegistrarUser && (isHodSubmissionRecord(user) || isDeanSubmissionRecord(user));
       setSubmitModalState({
         type: 'success',
         title: 'Appraisal Submitted Successfully! 🎉',
@@ -9433,7 +9446,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-300 shadow-sm animate-pulse flex items-center gap-1 w-fit">
-                                  <span>⏳</span> {isHodSubmissionRecord(row) ? 'Pending IQAC Review' : (isRegistrarSubmissionRecord(row) ? 'Pending IQAC & Principal' : (isHod ? 'Pending Review' : 'Pending HoD Review'))}
+                                  <span>⏳</span> {(isHodSubmissionRecord(row) || isDeanSubmissionRecord(row)) ? 'Pending IQAC Review' : (isRegistrarSubmissionRecord(row) ? 'Pending IQAC & Principal' : (isHod ? 'Pending Review' : 'Pending HoD Review'))}
                                 </span>
                               );
                             }
@@ -9785,7 +9798,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 </span>
                               );
                             } else if (activeStatus === 'APPROVED') {
-                              if (isHodSubmissionRecord(row)) {
+                              if (isHodSubmissionRecord(row) || isDeanSubmissionRecord(row)) {
                                 return (
                                   <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 shadow-sm">
                                     ⏳ Pending IQAC Review
@@ -9806,7 +9819,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                             } else {
                               return (
                                 <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
-                                  {isHodSubmissionRecord(row) ? '⏳ Pending IQAC Review' : 'Pending'}
+                                  {(isHodSubmissionRecord(row) || isDeanSubmissionRecord(row)) ? '⏳ Pending IQAC Review' : 'Pending'}
                                 </span>
                               );
                             }

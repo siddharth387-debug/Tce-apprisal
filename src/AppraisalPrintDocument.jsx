@@ -2,22 +2,38 @@ import React from 'react';
 import { computeEffectiveScores, SUBSECTION_MAX_MARKS, SUBSECTION_MAX_MARKS_ARCH } from './scoringEngine.js';
 
 const KNOWN_HOD_PERSONAL_EMAILS = new Set([
-  'spmcse@tce.edu', 'spcse@tce.edu', 'sps@tce.edu',
+  'spmcse@tce.edu',
   'gsjarch@tce.edu', 'jjlkarch@tce.edu', 'jinujoshua@tce.edu', 'jjkarch@tce.edu',
   'vvchem@tce.edu', 'velkannan@tce.edu',
   'samciv@tce.edu',
   'mkkdit@tce.edu',
-  'smscse@tce.edu', 'shalinie@tce.edu',
   'bmece@tce.edu', 'naveenmegaa@tce.edu',
-  'mseee@tce.edu',
+  'mseee@tce.edu', 'r_rajanprakash@tce.edu', 'rrpeee@tce.edu',
   'gjjeng@tce.edu',
   'cdcse@tce.edu', 'cdit@tce.edu',
   'aaamat@tce.edu', 'anithavalli@tce.edu',
   'pccse@tce.edu', 'pchitracse@tce.edu',
-  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu',
+  'pmmech@tce.edu', 'rhmech@tce.edu', 'gkgmech@tce.edu', 'psmeee@tce.edu',
   'mmphy@tce.edu', 'manickam-mahendran@tce.edu',
   'jeyamala@tce.edu',
+  'rpift@tce.edu',
 ]);
+
+const KNOWN_DEAN_PERSONAL_EMAILS = new Set([
+  'sbeee@tce.edu', 'deanacad@tce.edu',
+  'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
+  'gkmech@tce.edu', 'deancd@tce.edu',
+  'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
+  'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
+  'gbarch@tce.edu', 'deanstud@tce.edu',
+  'spcse@tce.edu', 'sps@tce.edu', 'deancce@tce.edu',
+  'deaneca@tce.edu', 'rvchem@tce.edu',
+]);
+
+const hasFullDeanTitle = (str) =>
+  /\bdean\b/i.test(
+    String(str || '').replace(/\b(?:associate|assoc|asst|assistant|deputy|dy)\s*\.?\s*deans?\b/gi, '')
+  );
 
 const formatExternalLink = (url) => {
   if (!url || typeof url !== 'string') return '';
@@ -238,7 +254,10 @@ export default function AppraisalPrintDocument({
               );
               const isHodRecord = Boolean(
                 record?.isHodSubmission ||
+                record?.isDeanSubmission ||
                 KNOWN_HOD_PERSONAL_EMAILS.has(targetEmailLower) ||
+                KNOWN_DEAN_PERSONAL_EMAILS.has(targetEmailLower) ||
+                hasFullDeanTitle(targetDesig) ||
                 /^hod[a-z]{2,6}@tce\.edu$/i.test(targetEmailLower) ||
                 /\b(head|hod)\b/i.test(targetDesig) ||
                 (String(user?.role || '').toUpperCase() === 'HOD' && targetEmailLower === String(user?.email || '').toLowerCase().trim())
@@ -863,7 +882,10 @@ export default function AppraisalPrintDocument({
             const targetDesig = String(record?.designation || user?.designation || '');
             const isHodRecord = Boolean(
               record?.isHodSubmission ||
+              record?.isDeanSubmission ||
               KNOWN_HOD_PERSONAL_EMAILS.has(targetEmailLower) ||
+              KNOWN_DEAN_PERSONAL_EMAILS.has(targetEmailLower) ||
+              hasFullDeanTitle(targetDesig) ||
               /^hod[a-z]{2,6}@tce\.edu$/i.test(targetEmailLower) ||
               /\b(head|hod)\b/i.test(targetDesig) ||
               (String(user?.role || '').toUpperCase() === 'HOD' && targetEmailLower === String(user?.email || '').toLowerCase().trim())
