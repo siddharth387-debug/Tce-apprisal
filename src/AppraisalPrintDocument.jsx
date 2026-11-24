@@ -19,15 +19,15 @@ const KNOWN_HOD_PERSONAL_EMAILS = new Set([
 
 const FORMER_HOD_EMAIL_SET = new Set([
   'jeyamala@tce.edu',
-  'gkgmech@tce.edu',
   'mseee@tce.edu',
   'gsjarch@tce.edu',
+  'gkmech@tce.edu',
 ]);
 
 const KNOWN_DEAN_PERSONAL_EMAILS = new Set([
   'sbeee@tce.edu', 'deanacad@tce.edu',
   'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
-  'deancd@tce.edu',
+  'gkgmech@tce.edu', 'deancd@tce.edu',
   'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
   'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
   'gbarch@tce.edu', 'deanstud@tce.edu',

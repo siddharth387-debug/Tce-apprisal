@@ -71,7 +71,7 @@ const KNOWN_REGISTRAR_PERSONAL_EMAILS = [
 const KNOWN_DEAN_PERSONAL_EMAILS = [
   'sbeee@tce.edu', 'deanacad@tce.edu',
   'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
-  'deancd@tce.edu',
+  'gkgmech@tce.edu', 'deancd@tce.edu',
   'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
   'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
   'gbarch@tce.edu', 'deanstud@tce.edu',
@@ -82,9 +82,9 @@ const KNOWN_DEAN_PERSONAL_EMAILS = [
 
 const FORMER_HOD_PERSONAL_EMAILS = [
   'jeyamala@tce.edu',
-  'gkgmech@tce.edu',
   'mseee@tce.edu',
   'gsjarch@tce.edu',
+  'gkmech@tce.edu',
 ];
 
 export function hasFullRegistrarDesignation(str) {
@@ -119,6 +119,7 @@ export function isDeanPersonalSubmission(email, record = null) {
   if (clean === 'siddharthk@student.tce.edu' || clean.endsWith('@student.tce.edu') || clean.endsWith('@gmail.com')) {
     return false;
   }
+  if (clean === 'gkmech@tce.edu') return false;
   if (isRegistrarPersonalSubmission(clean, record)) return false;
   if (clean && KNOWN_DEAN_PERSONAL_EMAILS.includes(clean)) return true;
   if (record?.isDeanSubmission === true) return true;
@@ -4262,11 +4263,11 @@ async function startServer() {
       );
       await FacultyMember.updateOne(
         { email: 'gkgmech@tce.edu' },
-        { $set: { designation: 'Professor', hodEmail: '', role: 'Faculty' } }
+        { $set: { designation: 'Professor & Dean', hodEmail: '', role: 'Faculty' } }
       );
       await Appraisal.updateMany(
-        { email: 'gkgmech@tce.edu' },
-        { $set: { designation: 'Professor', isHodSubmission: false, isDeanSubmission: false } }
+        { $or: [{ email: 'gkgmech@tce.edu' }, { facultyEmail: 'gkgmech@tce.edu' }] },
+        { $set: { designation: 'Professor & Dean', isHodSubmission: false, isDeanSubmission: true } }
       );
       await FacultyMember.updateOne(
         { email: 'mseee@tce.edu' },

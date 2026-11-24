@@ -64,15 +64,15 @@ export const KNOWN_HOD_EMAIL_SET = new Set([
 
 export const FORMER_HOD_EMAIL_SET = new Set([
   'jeyamala@tce.edu',
-  'gkgmech@tce.edu',
   'mseee@tce.edu',
   'gsjarch@tce.edu',
+  'gkmech@tce.edu',
 ]);
 
 export const KNOWN_DEAN_EMAIL_SET = new Set([
   'sbeee@tce.edu', 'deanacad@tce.edu',
   'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
-  'deancd@tce.edu',
+  'gkgmech@tce.edu', 'deancd@tce.edu',
   'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
   'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
   'gbarch@tce.edu', 'deanstud@tce.edu',
@@ -117,6 +117,7 @@ export const isRegistrarSubmissionRecord = (r) => {
 export const isDeanSubmissionRecord = (r) => {
   if (!r || typeof r !== 'object' || isRegistrarSubmissionRecord(r)) return false;
   const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
+  if (em === 'gkmech@tce.edu') return false;
   const desig = String(r.designation || '');
   // Note: Do NOT check section9Data.adminResponsibilities here — Associate Deans often select "Dean" in 9.3,
   // but must remain under Normal Faculty submissions rather than the Dean category.
