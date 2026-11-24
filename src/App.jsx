@@ -8465,6 +8465,122 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     };
     const selectableInboxRows = displayInboxRows.filter(isRowSelectable);
 
+    const handleExportRosterCSV = () => {
+      const roleLabel = isPrincipal
+        ? 'Principal'
+        : isIQAC
+          ? 'IQAC'
+          : isRegistrar
+            ? 'Registrar'
+            : isHod
+              ? `HOD_${user?.department || 'Dept'}`
+              : 'Review';
+      const deptScope = isHod && !isIQAC && !isPrincipal && !isRegistrar
+        ? (user?.department || 'Dept')
+        : (selectedDeptFilter || 'ALL');
+
+      if (activeReviewTab === 'non_logged') {
+        const q = nonLoggedSearch.trim().toLowerCase();
+        const filteredRows = nonLoggedFacultyRows.filter((r) =>
+          !q ||
+          (r.name || '').toLowerCase().includes(q) ||
+          (r.email || '').toLowerCase().includes(q) ||
+          (r.department || '').toLowerCase().includes(q) ||
+          (r.designation || '').toLowerCase().includes(q)
+        );
+        const headers = ['S.No', 'Department', 'Faculty Name', 'Designation', 'Email', 'Academic Year', 'Status'];
+        const csvRows = [headers.join(',')];
+        filteredRows.forEach((r, idx) => {
+          csvRows.push([
+            idx + 1,
+            `"${r.department || ''}"`,
+            `"${String(r.name || '').replace(/"/g, '""')}"`,
+            `"${String(r.designation || '').replace(/"/g, '""')}"`,
+            `"${r.email || ''}"`,
+            `"${selectedTimeline}"`,
+            '"Not Logged In / Not Started"'
+          ].join(','));
+        });
+        const csvContent = '\uFEFF' + csvRows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${roleLabel}_Non_Logged_Faculty_${deptScope}_${selectedTimeline}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      const headers = [
+        'S.No',
+        'Faculty Name',
+        'Designation',
+        'Faculty Email',
+        'Department',
+        'Category',
+        'Academic Year',
+        'Date Submitted',
+        'Final Score (/200)',
+        'HoD Status',
+        'IQAC Status',
+        'Principal Status',
+        'HoD Remarks',
+        'IQAC Audit Remarks'
+      ];
+      const csvRows = [headers.join(',')];
+
+      displayInboxRows.forEach((row, idx) => {
+        const rawDate = row.submittedAt || row.createdAt || row.updatedAt;
+        const formattedDate = rawDate && !isNaN(new Date(rawDate).getTime())
+          ? new Date(rawDate).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+          : '—';
+        const totalScore = Number(row.totalScore ?? row.convertedScore) || 0;
+        const category = isRegistrarSubmissionRecord(row)
+          ? 'Registrar'
+          : isDeanSubmissionRecord(row)
+            ? 'Dean'
+            : isHodSubmissionRecord(row)
+              ? 'HOD'
+              : 'Faculty';
+        const apSt = String(row.appraisalStatus || 'Pending').trim();
+        const iqSt = isIqacApprovedRecord(row) ? 'Approved' : (String(row.iqacStatus || 'Pending').trim());
+        const prSt = String(row.principalApprovalStatus || 'Pending').trim();
+        const cleanHodRemarks = String(row.hodRemarks || '').replace(/\r?\n/g, ' | ').replace(/"/g, '""');
+        const cleanIqacRemarks = String(row.iqacAuditRemarks || '').replace(/\r?\n/g, ' | ').replace(/"/g, '""');
+
+        csvRows.push([
+          idx + 1,
+          `"${String(row.facultyName || row.name || '').replace(/"/g, '""')}"`,
+          `"${String(row.designation || 'Assistant Professor').replace(/"/g, '""')}"`,
+          `"${String(row.facultyEmail || row.email || '').replace(/"/g, '""')}"`,
+          `"${String(row.department || 'CSE').replace(/"/g, '""')}"`,
+          `"${category}"`,
+          `"${String(row.timeline || selectedTimeline).replace(/"/g, '""')}"`,
+          `"${formattedDate}"`,
+          `"${totalScore} / 200"`,
+          `"${apSt.replace(/"/g, '""')}"`,
+          `"${iqSt.replace(/"/g, '""')}"`,
+          `"${prSt.replace(/"/g, '""')}"`,
+          `"${cleanHodRemarks}"`,
+          `"${cleanIqacRemarks}"`
+        ].join(','));
+      });
+
+      const csvContent = '\uFEFF' + csvRows.join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${roleLabel}_Appraisal_Roster_${deptScope}_${selectedTimeline}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
     return (
     <div className="space-y-3">
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm shadow-black/5 hover:bg-white/95 hover:border-[#4A1519]/20 glass-card-float">
@@ -8594,9 +8710,20 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
               <button
                 type="button"
                 onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? 'ALL' : user.department)}
-                className="h-8 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition"
+                className="h-8 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition cursor-pointer"
               >
                 <span>🔄</span> Refresh
+              </button>
+            )}
+
+            {isReviewMode && (
+              <button
+                type="button"
+                onClick={handleExportRosterCSV}
+                className="h-8 px-3 bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold rounded-md shadow-sm transition flex items-center gap-1.5 cursor-pointer"
+                title="Export current view as CSV"
+              >
+                <span>📥</span> Export CSV
               </button>
             )}
 
@@ -9241,6 +9368,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     </div>
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={handleExportRosterCSV}
+                  className="h-7 px-2.5 text-xs font-semibold text-[#4A1519] bg-white border border-[#4A1519]/30 rounded-md shadow-2xs hover:bg-[#4A1519]/5 transition flex items-center gap-1 whitespace-nowrap cursor-pointer shrink-0"
+                  title="Export current table rows to CSV"
+                >
+                  <span>📥</span> Export CSV
+                </button>
               </div>
             </div>
 
