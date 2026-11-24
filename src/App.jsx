@@ -5086,8 +5086,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     });
   }, [appraisals, user, selectedTimeline, isSameUser, isMasterUser, masterAppraisalMode]);
 
-  const isSubmissionTestingExempt = userEmailLower === 'deansiddharth@gmail.com' || userEmailLower === 'msiece@tce.edu';
-  const isFacultySubmissionTemporarilyBlocked = !isSubmissionTestingExempt && !isReviewMode;
+  const isFacultySubmissionTemporarilyBlocked = false;
 
   const isEditable = useMemo(() => {
     if (isReviewMode) return false;
