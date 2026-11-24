@@ -2474,9 +2474,6 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         if (isCallerOnlyHod && (recordIsHodSubmission || recordIsDeanSubmission || recordIsRegistrarSubmission)) {
           continue; // HOD, Dean & Registrar appraisals bypass HOD review
         }
-        if (!(isPrincipalUser || isIQACUser) && recordIsRegistrarSubmission) {
-          continue; // Registrar personal appraisal is visible in IQAC and Principal views (not in Registrar or HOD review inbox)
-        }
       }
       const liveScores = computeEffectiveScores(
         buildNormalizedSectionDataForScoring(doc),

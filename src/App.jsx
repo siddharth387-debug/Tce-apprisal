@@ -6157,9 +6157,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       const tl = record.timeline;
       if (!tl) return;
       const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
-      if ((isOnlyHodReviewer && (isHodSubmissionRecord(record) || isDeanSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) ||
-          (!(isPrincipal || isIQAC) && isRegistrarSubmissionRecord(record))) {
-        return; // HOD, Dean & Registrar submissions bypass HOD review; Registrar submissions are visible to IQAC and Principal
+      if (isOnlyHodReviewer && (isHodSubmissionRecord(record) || isDeanSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
+        return; // HOD, Dean & Registrar submissions bypass HOD review
       }
       const uniqueKey = `${recEmail}_${tl}`;
       if (recEmail && seenKeys.has(uniqueKey)) return;
@@ -6885,7 +6884,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
         if (em === 'deansiddharth@gmail.com' || em === 'siddharthk@student.tce.edu') return false;
         if (em.endsWith('@student.tce.edu') || em.endsWith('@gmail.com') || em.endsWith('@googlemail.com')) return false;
-        if (!(isPrincipal || isIQAC) && isRegistrarSubmissionRecord(r)) return false;
         return true;
       });
     }
@@ -8728,7 +8726,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Submissions</p>
               <p className="text-2xl font-black text-slate-800 mt-1">
-                {isHod ? statusCounts.ALL : displayInboxRows.length}
+                {statusCounts.ALL}
               </p>
             </div>
             <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-left">
@@ -8736,17 +8734,13 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 {isHod ? 'Approved' : 'Approved / Ratified'}
               </p>
               <p className="text-2xl font-black text-emerald-800 mt-1">
-                {isHod
-                  ? statusCounts.APPROVED
-                  : displayInboxRows.filter(r => ['APPROVED', 'RATIFIED'].includes((r.appraisalStatus || '').toUpperCase()) || (r.principalApprovalStatus || '').toUpperCase() === 'RATIFIED').length}
+                {statusCounts.APPROVED}
               </p>
             </div>
             <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 text-left">
               <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Pending Review</p>
               <p className="text-2xl font-black text-amber-800 mt-1">
-                {isHod
-                  ? statusCounts.PENDING
-                  : displayInboxRows.filter(r => (r.appraisalStatus || '').toUpperCase() === 'PENDING' || (r.appraisalStatus || '').toUpperCase() === 'PENDING REVIEW' || !r.appraisalStatus).length}
+                {statusCounts.PENDING}
               </p>
             </div>
           </div>
