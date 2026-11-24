@@ -154,6 +154,8 @@ export const isRegistrarPrincipalApproved = (row) => {
 export function inferDepartmentFromEmail(email) {
   const clean = String(email || '').toLowerCase().trim();
   if (!clean) return '';
+  if (clean === 'gkmech@tce.edu') return 'MECT';
+  if (clean === 'dnjayakumar@tce.edu') return 'EEE';
   if (/eee@tce\.edu$/i.test(clean)) return 'EEE';
   if (/ece@tce\.edu$/i.test(clean)) return 'ECE';
   if (/mech@tce\.edu$/i.test(clean)) return 'MECH';

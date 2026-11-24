@@ -1026,6 +1026,8 @@ const DEPARTMENT_NAME_MAP = {
 export function inferDepartmentFromEmail(email) {
   const clean = String(email || '').toLowerCase().trim();
   if (!clean) return '';
+  if (clean === 'gkmech@tce.edu') return 'MECT';
+  if (clean === 'dnjayakumar@tce.edu') return 'EEE';
   if (/eee@tce\.edu$/i.test(clean)) return 'EEE';
   if (/ece@tce\.edu$/i.test(clean)) return 'ECE';
   if (/mech@tce\.edu$/i.test(clean)) return 'MECH';
@@ -4395,9 +4397,9 @@ async function startServer() {
         {
           $set: {
             designation: 'Professor',
-            department: 'MECH',
-            departmentName: 'Mechanical Engineering',
-            hodEmail: 'hodmech@tce.edu',
+            department: 'MECT',
+            departmentName: 'Mechatronics',
+            hodEmail: 'hodmect@tce.edu',
             role: 'Faculty'
           }
         }
@@ -4407,10 +4409,10 @@ async function startServer() {
         {
           $set: {
             designation: 'Professor',
-            department: 'MECH',
-            departmentName: 'Mechanical Engineering',
-            'section1Data.department': 'MECH',
-            'section1Data.departmentName': 'Mechanical Engineering',
+            department: 'MECT',
+            departmentName: 'Mechatronics',
+            'section1Data.department': 'MECT',
+            'section1Data.departmentName': 'Mechatronics',
             isDeanSubmission: false,
             isHodSubmission: false
           }
