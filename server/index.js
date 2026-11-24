@@ -2565,7 +2565,7 @@ app.get('/api/directory/faculty', authenticateToken, async (req, res) => {
       ];
     }
 
-    const faculty = await FacultyMember.find(filter).sort({ role: -1, name: 1 });
+    const faculty = await FacultyMember.find(filter).sort({ role: -1, name: 1 }).lean();
     return res.status(200).json({ success: true, count: faculty.length, data: faculty });
   } catch (err) {
     console.error('❌ Failed to query faculty directory:', err.message);

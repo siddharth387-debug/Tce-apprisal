@@ -4863,6 +4863,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ]);
   const [sectionAuditKey, setSectionAuditKey] = useState('1.4');
   const [sectionAuditSearch, setSectionAuditSearch] = useState('');
+  const [directoryFacultyList, setDirectoryFacultyList] = useState([]);
+  const [nonLoggedSearch, setNonLoggedSearch] = useState('');
   const [activeView, setActiveView] = useState('overview');
   const [activeSection, setActiveSection] = useState('I'); // Tracks 'I' or 'II'
   const [activeSubsection, setActiveSubsection] = useState('1.1');
@@ -6146,6 +6148,107 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
   // HOD/Registrar/IQAC INBOX BRIDGE: selectedInboxRows computes live inbox rows via useMemo directly from appraisals.
+  useEffect(() => {
+    if (!user || !isReviewMode) return;
+    const activeToken = user.token || getAuthToken();
+    const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
+    axios.get(`${API_BASE_URL}/directory/faculty`, { headers, withCredentials: true })
+      .then((res) => {
+        const list = res.data?.data || res.data;
+        if (Array.isArray(list)) {
+          setDirectoryFacultyList(list);
+        }
+      })
+      .catch((err) => {
+        console.warn('Directory faculty fetch warning:', err.message);
+      });
+  }, [user, isReviewMode]);
+
+  const { nonLoggedFacultyRows, nonLoggedAllDeptsList, nonLoggedDeptCounts } = useMemo(() => {
+    if (!isReviewMode || !Array.isArray(directoryFacultyList) || directoryFacultyList.length === 0) {
+      return { nonLoggedFacultyRows: [], nonLoggedAllDeptsList: [], nonLoggedDeptCounts: {} };
+    }
+
+    const normPersonName = (s) =>
+      String(s || '')
+        .toLowerCase()
+        .replace(/\b(dr|mr|mrs|ms|prof|ar)\b\.?/g, '')
+        .replace(/[^a-z]/g, '');
+
+    const activeAppraisalEmails = new Set();
+    const activeAppraisalNames = new Set();
+
+    (appraisals || []).forEach((a) => {
+      if (selectedTimeline !== 'All' && a.timeline && a.timeline !== selectedTimeline) return;
+      const e1 = String(a.email || '').toLowerCase().trim();
+      const e2 = String(a.facultyEmail || '').toLowerCase().trim();
+      if (e1) activeAppraisalEmails.add(e1);
+      if (e2) activeAppraisalEmails.add(e2);
+      const nn = normPersonName(a.facultyName || a.name);
+      if (nn) activeAppraisalNames.add(nn);
+    });
+
+    const seenDirEmails = new Set();
+    const allNonLogged = [];
+    const deptCounts = {};
+
+    directoryFacultyList.forEach((f) => {
+      if (f.active === false) return;
+      const rawEmail = String(f.personalEmail || f.email || '').toLowerCase().trim().replace(/\[underscore\]/g, '_');
+      if (!rawEmail) return;
+      if (rawEmail.endsWith('@gmail.com') || rawEmail.endsWith('@student.tce.edu') || rawEmail === 'testprof@tce.edu') return;
+      if (/^hod[a-z]{2,6}@tce\.edu$/i.test(rawEmail)) return;
+      if (['principal@tce.edu', 'registrar@tce.edu', 'iqac@tce.edu', 'headiqac@tce.edu'].includes(rawEmail)) return;
+      if (/^dean[a-z]{2,8}@tce\.edu$/i.test(rawEmail)) return;
+      if (seenDirEmails.has(rawEmail)) return;
+      seenDirEmails.add(rawEmail);
+
+      const candidateEmails = [
+        rawEmail,
+        String(f.email || '').toLowerCase().trim(),
+        String(f.personalEmail || '').toLowerCase().trim(),
+        ...(Array.isArray(f.alternateEmails) ? f.alternateEmails.map((e) => String(e || '').toLowerCase().trim()) : [])
+      ].filter(Boolean);
+
+      const hasStartedOrSubmitted =
+        candidateEmails.some((ce) => activeAppraisalEmails.has(ce)) ||
+        (normPersonName(f.name) && activeAppraisalNames.has(normPersonName(f.name)));
+
+      if (!hasStartedOrSubmitted) {
+        const normDept = normalizeDepartmentCode(f.department || inferDepartmentFromEmail(rawEmail) || 'CSE');
+        deptCounts[normDept] = (deptCounts[normDept] || 0) + 1;
+        allNonLogged.push({
+          id: f._id || rawEmail,
+          name: f.name || rawEmail,
+          email: rawEmail,
+          designation: f.designation || 'Assistant Professor',
+          department: normDept,
+          departmentName: f.departmentName || normDept,
+        });
+      }
+    });
+
+    allNonLogged.sort((a, b) => a.department.localeCompare(b.department) || a.name.localeCompare(b.name));
+
+    let scopedList = allNonLogged;
+    if (effectiveRole === 'HOD' && !isIQAC && !isPrincipal && !isRegistrar && !isMasterUser) {
+      const hodMatch = String(user?.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
+      const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
+      const hodDept = (user?.department && String(user.department).toUpperCase() !== 'ALL')
+        ? normalizeDepartmentCode(user.department)
+        : (inferredHodDept || 'MCA');
+      scopedList = allNonLogged.filter((item) => item.department === hodDept);
+    } else if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
+      const normSelected = normalizeDepartmentCode(selectedDeptFilter);
+      scopedList = allNonLogged.filter((item) => item.department === normSelected);
+    }
+
+    return {
+      nonLoggedFacultyRows: scopedList,
+      nonLoggedAllDeptsList: allNonLogged,
+      nonLoggedDeptCounts: deptCounts,
+    };
+  }, [isReviewMode, directoryFacultyList, appraisals, selectedTimeline, effectiveRole, isIQAC, isPrincipal, isRegistrar, isMasterUser, user, selectedDeptFilter]);
 
   const currentSectionData =
     workspaceByTimeline[selectedTimeline] || createEmptySectionState();
@@ -8747,6 +8850,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
                     {isHod ? 'Section Audit' : 'Section / Criteria Audit'}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveReviewTab('non_logged')}
+                    className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'non_logged' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                  >
+                    <span>🚫</span>
+                    <span>Non-Logged Users</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${activeReviewTab === 'non_logged' ? 'bg-[#4A1519] text-white' : 'bg-rose-100 text-rose-800'}`}>
+                      {nonLoggedFacultyRows.length}
+                    </span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -8754,7 +8868,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
           {(isIQAC || isPrincipal) && (
             <div className="flex items-center">
-              <div className="inline-flex rounded-md shadow-sm border border-slate-200 p-1 bg-slate-50">
+              <div className="inline-flex flex-wrap rounded-md shadow-sm border border-slate-200 p-1 bg-slate-50">
                 <button
                   type="button"
                   onClick={() => setActiveReviewTab('inbox')}
@@ -8778,6 +8892,17 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
                   Section Audit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveReviewTab('non_logged')}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 flex items-center gap-1.5 ${activeReviewTab === 'non_logged' ? 'bg-white text-maroon-700 shadow-sm border border-slate-200/50' : 'text-slate-500 hover:text-slate-800'}`}
+                >
+                  <span>🚫</span>
+                  <span>Non-Logged Users</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${activeReviewTab === 'non_logged' ? 'bg-[#4A1519] text-white' : 'bg-rose-100 text-rose-800'}`}>
+                    {nonLoggedFacultyRows.length}
+                  </span>
                 </button>
               </div>
             </div>
@@ -9592,6 +9717,187 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               </td>
                               <td className="py-2.5 px-3 align-top text-right font-bold text-[#4A1519]">
                                 {facultyRow.convertedScore || 0} / 200
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {activeReviewTab === 'non_logged' && (
+            <div className="mt-4 space-y-4 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#4A1519] flex items-center gap-1.5">
+                    <span>🚫</span>
+                    <span>
+                      {isHod && !isIQAC && !isPrincipal && !isRegistrar
+                        ? `Non-Logged / Not Started Faculty — ${user?.department || 'Department'} (${nonLoggedFacultyRows.length})`
+                        : `Non-Logged / Not Started Faculty Directory (${nonLoggedFacultyRows.length})`}
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Faculty members from the official directory who have not logged in or started an appraisal for {selectedTimeline}.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="🔍 Search by faculty name, email, or dept..."
+                    value={nonLoggedSearch}
+                    onChange={(e) => setNonLoggedSearch(e.target.value)}
+                    className="h-9 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-800 outline-none focus:border-[#4A1519] w-full sm:w-64 shadow-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const q = nonLoggedSearch.trim().toLowerCase();
+                      const filteredRows = nonLoggedFacultyRows.filter((r) =>
+                        !q ||
+                        (r.name || '').toLowerCase().includes(q) ||
+                        (r.email || '').toLowerCase().includes(q) ||
+                        (r.department || '').toLowerCase().includes(q) ||
+                        (r.designation || '').toLowerCase().includes(q)
+                      );
+                      const headers = ['S.No', 'Department', 'Faculty Name', 'Designation', 'Email', 'Academic Year', 'Status'];
+                      const csvRows = [headers.join(',')];
+                      filteredRows.forEach((r, idx) => {
+                        csvRows.push([
+                          idx + 1,
+                          `"${r.department || ''}"`,
+                          `"${(r.name || '').replace(/"/g, '""')}"`,
+                          `"${(r.designation || '').replace(/"/g, '""')}"`,
+                          `"${r.email || ''}"`,
+                          `"${selectedTimeline}"`,
+                          '"Not Logged In / Not Started"'
+                        ].join(','));
+                      });
+                      const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.join('\n');
+                      const encodedUri = encodeURI(csvContent);
+                      const link = document.createElement('a');
+                      link.setAttribute('href', encodedUri);
+                      link.setAttribute('download', `Non_Logged_Faculty_${isHod ? (user?.department || 'Dept') : selectedDeptFilter}_${selectedTimeline}.csv`);
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="h-9 px-3 text-xs font-semibold text-[#4A1519] bg-white border border-[#4A1519]/30 rounded-md shadow-sm hover:bg-[#4A1519]/5 transition flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                  >
+                    <span>📥</span> Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Department-wise Summary Chips for IQAC / Principal / Registrar */}
+              {(isIQAC || isPrincipal || isRegistrar || isMasterUser) && Object.keys(nonLoggedDeptCounts).length > 0 && (
+                <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 mr-1">
+                      Department Breakdown:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDeptFilter('ALL')}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                        selectedDeptFilter === 'ALL'
+                          ? 'bg-[#4A1519] text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <span>All Depts</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${selectedDeptFilter === 'ALL' ? 'bg-white/20 text-white' : 'bg-white text-slate-700'}`}>
+                        {nonLoggedAllDeptsList.length}
+                      </span>
+                    </button>
+                    {Object.entries(nonLoggedDeptCounts)
+                      .sort((a, b) => a[0].localeCompare(b[0]))
+                      .map(([deptCode, count]) => (
+                        <button
+                          key={deptCode}
+                          type="button"
+                          onClick={() => setSelectedDeptFilter(deptCode)}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition cursor-pointer flex items-center gap-1 ${
+                            selectedDeptFilter === deptCode
+                              ? 'bg-[#4A1519] text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          <span>{deptCode}</span>
+                          <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${selectedDeptFilter === deptCode ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-800'}`}>
+                            {count}
+                          </span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Non-Logged Faculty Table */}
+              {(() => {
+                const q = nonLoggedSearch.trim().toLowerCase();
+                const filteredNonLogged = nonLoggedFacultyRows.filter((r) =>
+                  !q ||
+                  (r.name || '').toLowerCase().includes(q) ||
+                  (r.email || '').toLowerCase().includes(q) ||
+                  (r.department || '').toLowerCase().includes(q) ||
+                  (r.designation || '').toLowerCase().includes(q)
+                );
+
+                return (
+                  <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-xs">
+                    <div className="p-2.5 bg-slate-100 border-b border-slate-200 flex justify-between items-center text-xs font-bold text-slate-700">
+                      <span>
+                        Showing {filteredNonLogged.length} Non-Logged / Not Started Faculty Member(s)
+                      </span>
+                      <span className="text-slate-500 font-normal text-[11px]">
+                        Academic Period: {selectedTimeline} ({isHod && !isIQAC && !isPrincipal && !isRegistrar ? (user?.department || 'Dept') : selectedDeptFilter})
+                      </span>
+                    </div>
+                    <table className="min-w-full text-left bg-white">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500 bg-slate-50">
+                          <th className="py-2.5 px-3 w-14">S.No</th>
+                          <th className="py-2.5 px-3">Faculty Name</th>
+                          <th className="py-2.5 px-3">Designation</th>
+                          <th className="py-2.5 px-3">Faculty Email</th>
+                          <th className="py-2.5 px-3">Dept</th>
+                          <th className="py-2.5 px-3">Academic Year</th>
+                          <th className="py-2.5 px-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredNonLogged.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-8 px-3 text-center text-xs text-slate-500 italic">
+                              All faculty members in this selection have logged in and started or submitted their appraisal for {selectedTimeline}.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredNonLogged.map((row, idx) => (
+                            <tr key={row.id || idx} className="border-b border-slate-100 text-xs text-slate-700 hover:bg-[#4A1519]/5 transition">
+                              <td className="py-2.5 px-3 font-medium text-slate-500">{idx + 1}</td>
+                              <td className="py-2.5 px-3 font-semibold text-slate-900">{row.name}</td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                                  {row.designation}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-mono text-slate-600 text-[11px]">{row.email}</td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-[#4A1519] border border-slate-200">
+                                  {row.department}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 font-medium text-slate-800">{selectedTimeline}</td>
+                              <td className="py-2.5 px-3">
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-200 shadow-xs inline-flex items-center gap-1">
+                                  <span>🚫</span> Not Logged In
+                                </span>
                               </td>
                             </tr>
                           ))
