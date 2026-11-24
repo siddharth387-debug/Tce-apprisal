@@ -6155,8 +6155,8 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       if (!tl) return;
       const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
       if ((isOnlyHodReviewer && (isHodSubmissionRecord(record) || isDeanSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) ||
-          (!isPrincipal && isRegistrarSubmissionRecord(record))) {
-        return; // HOD, Dean & Registrar submissions bypass HOD review; Registrar submissions are visible exclusively to Principal
+          (!(isPrincipal || isIQAC) && isRegistrarSubmissionRecord(record))) {
+        return; // HOD, Dean & Registrar submissions bypass HOD review; Registrar submissions are visible to IQAC and Principal
       }
       const uniqueKey = `${recEmail}_${tl}`;
       if (recEmail && seenKeys.has(uniqueKey)) return;
@@ -6882,7 +6882,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         const em = String(r.email || r.facultyEmail || '').toLowerCase().trim();
         if (em === 'deansiddharth@gmail.com' || em === 'siddharthk@student.tce.edu') return false;
         if (em.endsWith('@student.tce.edu') || em.endsWith('@gmail.com') || em.endsWith('@googlemail.com')) return false;
-        if (!isPrincipal && isRegistrarSubmissionRecord(r)) return false;
+        if (!(isPrincipal || isIQAC) && isRegistrarSubmissionRecord(r)) return false;
         return true;
       });
     }
@@ -8494,7 +8494,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 {[
                   { key: 'HOD_SUBMISSIONS', label: 'HOD', counts: hodSubmissionCounts, title: 'View HOD Personal Appraisals' },
                   { key: 'DEAN_SUBMISSIONS', label: 'Dean', counts: deanSubmissionCounts, title: 'View Dean Personal Appraisals' },
-                  ...(isPrincipal ? [{ key: 'REGISTRAR_SUBMISSIONS', label: 'Registrar', counts: registrarSubmissionCounts, title: 'View Registrar Personal Appraisals' }] : []),
+                  { key: 'REGISTRAR_SUBMISSIONS', label: 'Registrar', counts: registrarSubmissionCounts, title: 'View Registrar Personal Appraisals' },
                 ].map((sector) => {
                   const isActiveSector = leadershipTopBox === sector.key;
                   const nextSubTab = sector.counts.PENDING_REVIEW > 0
@@ -11492,10 +11492,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                   type="button"
                   onClick={() => {
                     setAdminActiveRole('IQAC');
-                    if (leadershipTopBox === 'REGISTRAR_SUBMISSIONS') {
-                      setLeadershipTopBox('HOD_APPROVALS');
-                      setHodApprovalsTab('HOD_APPROVED');
-                    }
                     setActiveView('overview');
                   }}
                   className={`px-2 sm:px-2.5 py-1 rounded-lg font-bold text-[10px] sm:text-[11px] transition-all flex items-center gap-1 ${

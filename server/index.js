@@ -2471,8 +2471,8 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         if (isCallerOnlyHod && (recordIsHodSubmission || recordIsDeanSubmission || recordIsRegistrarSubmission)) {
           continue; // HOD, Dean & Registrar appraisals bypass HOD review
         }
-        if (!isPrincipalUser && recordIsRegistrarSubmission) {
-          continue; // Registrar personal appraisal is visible exclusively in Principal view (not in IQAC or Registrar review inbox)
+        if (!(isPrincipalUser || isIQACUser) && recordIsRegistrarSubmission) {
+          continue; // Registrar personal appraisal is visible in IQAC and Principal views (not in Registrar or HOD review inbox)
         }
       }
       const liveScores = computeEffectiveScores(
@@ -3385,12 +3385,6 @@ app.post(['/api/appraisals/iqac-verify', '/appraisals/iqac-verify'], authenticat
 
     const evaluatorRole = req.body.evaluatorRole || req.body.evaluatedBy || ((req.user?.role === 'Principal' || isPrincipalEmail(callerEmail)) ? 'Principal' : 'IQAC');
     const isRegistrarRecord = isRegistrarPersonalSubmission(targetRecord.email || targetRecord.facultyEmail || email, targetRecord);
-    if (isRegistrarRecord && String(evaluatorRole).toUpperCase().trim() !== 'PRINCIPAL' && !isPrincipalEmail(callerEmail) && callerEmail !== 'siddharthk@student.tce.edu') {
-      return res.status(403).json({
-        success: false,
-        message: "Forbidden: Only the Principal can review and approve the Registrar's appraisal."
-      });
-    }
     const { updateFields, finalStatus } = applyLeadershipDecision({
       targetRecord,
       decision: iqacStatus,
