@@ -71,7 +71,7 @@ const KNOWN_REGISTRAR_PERSONAL_EMAILS = [
 const KNOWN_DEAN_PERSONAL_EMAILS = [
   'sbeee@tce.edu', 'deanacad@tce.edu',
   'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
-  'gkmech@tce.edu', 'deancd@tce.edu',
+  'deancd@tce.edu',
   'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
   'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
   'gbarch@tce.edu', 'deanstud@tce.edu',
@@ -4399,17 +4399,51 @@ async function startServer() {
         { email: 'gkmech@tce.edu' },
         {
           $set: {
-            designation: 'Professor and Dean (Career Development Centre)'
+            designation: 'Professor',
+            department: 'MECH',
+            departmentName: 'Mechanical Engineering',
+            hodEmail: 'hodmech@tce.edu',
+            role: 'Faculty'
           }
         }
       );
       await Appraisal.updateMany(
-        { email: 'gkmech@tce.edu' },
+        { $or: [{ email: 'gkmech@tce.edu' }, { facultyEmail: 'gkmech@tce.edu' }] },
         {
           $set: {
-            designation: 'Professor and Dean (Career Development Centre)',
-            isDeanSubmission: true,
+            designation: 'Professor',
+            department: 'MECH',
+            departmentName: 'Mechanical Engineering',
+            'section1Data.department': 'MECH',
+            'section1Data.departmentName': 'Mechanical Engineering',
+            isDeanSubmission: false,
             isHodSubmission: false
+          }
+        }
+      );
+      await FacultyMember.updateOne(
+        { $or: [{ email: 'dnjayakumar@tce.edu' }, { email: 'dnjeee@tce.edu' }] },
+        {
+          $set: {
+            name: 'Dr. D. Nelson Jayakumar',
+            email: 'dnjayakumar@tce.edu',
+            personalEmail: 'dnjayakumar@tce.edu',
+            alternateEmails: ['dnjeee@tce.edu', 'dnjayakumar@tce.edu'],
+            department: 'EEE',
+            departmentName: 'Electrical and Electronics Engineering',
+            hodEmail: 'hodeee@tce.edu',
+            role: 'Faculty'
+          }
+        }
+      );
+      await Appraisal.updateMany(
+        { $or: [{ email: 'dnjayakumar@tce.edu' }, { facultyEmail: 'dnjayakumar@tce.edu' }] },
+        {
+          $set: {
+            department: 'EEE',
+            departmentName: 'Electrical and Electronics Engineering',
+            'section1Data.department': 'EEE',
+            'section1Data.departmentName': 'Electrical and Electronics Engineering'
           }
         }
       );

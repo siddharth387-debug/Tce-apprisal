@@ -72,7 +72,7 @@ export const FORMER_HOD_EMAIL_SET = new Set([
 export const KNOWN_DEAN_EMAIL_SET = new Set([
   'sbeee@tce.edu', 'deanacad@tce.edu',
   'shalinie@tce.edu', 'smscse@tce.edu', 'deanmis@tce.edu',
-  'gkmech@tce.edu', 'deancd@tce.edu',
+  'deancd@tce.edu',
   'smmroomi@tce.edu', 'smmrece@tce.edu', 'deaninfra@tce.edu',
   'khh@tce.edu', 'khhece@tce.edu', 'deanind@tce.edu',
   'gbarch@tce.edu', 'deanstud@tce.edu',
