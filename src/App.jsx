@@ -5081,12 +5081,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     });
   }, [appraisals, user, selectedTimeline, isSameUser, isMasterUser, masterAppraisalMode]);
 
+  const isSubmissionTestingExempt = userEmailLower === 'deansiddharth@gmail.com';
+  const isFacultySubmissionTemporarilyBlocked = !isSubmissionTestingExempt && !isReviewMode;
+
   const isEditable = useMemo(() => {
     if (isReviewMode) return false;
+    if (isFacultySubmissionTemporarilyBlocked) return false;
     if (!activeTimelineRecord) return true;
     const status = (activeTimelineRecord.appraisalStatus || '').toUpperCase().trim();
     return status === 'DRAFT' || status === 'NOT APPROVED' || status === 'FIX NEEDED' || status === 'REJECTED' || status === 'NOT SUBMITTED' || !status;
-  }, [activeTimelineRecord, isReviewMode]);
+  }, [activeTimelineRecord, isReviewMode, isFacultySubmissionTemporarilyBlocked]);
 
   // Workspace persistence effect - debounced by 500ms so it never freezes the main thread on keystrokes
   React.useEffect(() => {
@@ -7158,6 +7162,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
 
   const handleProceedToSectionOne = () => {
     if (isPrincipal || isRegistrar) return;
+    if (isFacultySubmissionTemporarilyBlocked) return;
     setSubmitError('');
     setSubmitSuccess('');
     if (activeTimelineRecord) {
@@ -7537,6 +7542,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   ]);
 
   const handleInitiateSubmit = () => {
+    if (isFacultySubmissionTemporarilyBlocked) {
+      setSubmitModalState({
+        type: 'warning',
+        title: 'Submission Temporarily Closed',
+        message: 'Appraisal submission is temporarily blocked for faculty members.',
+        errorList: [],
+      });
+      return;
+    }
     if (!isEditable) {
       setSubmitModalState({
         type: 'warning',
@@ -7578,6 +7592,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   };
 
   const handleSaveAndSubmit = async () => {
+    if (isFacultySubmissionTemporarilyBlocked) return;
     const activeToken = getStoredAuthContext().token;
     const submissionEmail = (user?.email || user?.personalEmail || '').toLowerCase().trim();
     
@@ -8425,11 +8440,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       <div className="rounded-xl border border-slate-200/80 bg-white/80 backdrop-blur-sm p-4 shadow-sm shadow-black/5 hover:bg-white/95 hover:border-[#4A1519]/20 glass-card-float">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="max-w-xl">
-            {isPrincipal ? (
-              <h2 className="text-xl font-semibold text-slate-900">
-                Campus-Wide Accreditation &amp; Analytics
-              </h2>
-            ) : isIQAC ? (
+            {isPrincipal ? null : isIQAC ? (
               <h2 className="text-xl font-semibold text-slate-900">
                 IQAC
               </h2>
@@ -8758,13 +8769,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 <button
                   type="button"
                   onClick={handleProceedToSectionOne}
-                  className={`text-xs py-1.5 px-4 rounded-md font-bold text-white shadow-sm transition flex items-center gap-1.5 ${
+                  disabled={isFacultySubmissionTemporarilyBlocked}
+                  title={isFacultySubmissionTemporarilyBlocked ? 'Appraisal submission is temporarily blocked' : undefined}
+                  className={`text-xs py-1.5 px-4 rounded-md font-bold text-white shadow-sm transition flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed ${
                     isSubmitted
                       ? 'bg-emerald-700 hover:bg-emerald-800'
                       : 'bg-[#4A1519] hover:bg-[#5a1c22]'
                   }`}
                 >
-                  {isSubmitted ? '👁️ View Submitted Appraisal' : '✏️ Continue / Edit Appraisal'}
+                  {isFacultySubmissionTemporarilyBlocked ? '🔒 Continue Appraisal (Temporarily Closed)' : (isSubmitted ? '👁️ View Submitted Appraisal' : '✏️ Continue / Edit Appraisal')}
                 </button>
               </div>
             </div>
@@ -9865,7 +9878,9 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                               <span>📊</span> Excel
                             </button>
                             <button
+                              disabled={isFacultySubmissionTemporarilyBlocked}
                               onClick={() => {
+                                if (isFacultySubmissionTemporarilyBlocked) return;
                                 setWorkspaceByTimeline((prev) => ({
                                   ...prev,
                                   [row.timeline]: flattenAppraisalRecord(row),
@@ -9873,7 +9888,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                                 setSelectedTimeline(row.timeline);
                                 setActiveView('section1');
                               }}
-                              className="text-[10.5px] py-1 px-2.5 bg-[#4A1519] hover:bg-[#3B1013] text-white font-medium rounded shadow-xs transition-all"
+                              className="text-[10.5px] py-1 px-2.5 bg-[#4A1519] hover:bg-[#3B1013] text-white font-medium rounded shadow-xs transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                             >
                               {['PENDING', 'APPROVED', 'RATIFIED', 'SUBMITTED', 'HOD APPROVED'].includes((row.appraisalStatus || '').toUpperCase().trim()) ? '👁️ View Submission' : '✏️ Edit Draft'}
                             </button>
@@ -11628,7 +11643,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         <div className="w-full bg-[#4A1519] text-white px-3 sm:px-6 py-2 shadow-sm border-b border-red-950/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <span className="text-[10.5px] sm:text-xs font-black tracking-wider uppercase opacity-95 flex items-center gap-1.5 leading-snug break-words">
             {isPrincipal
-              ? '🎓 PRINCIPAL APEX EXECUTIVE WORKBENCH (CAMPUS-WIDE ACCREDITATION & ANALYTICS)'
+              ? ''
               : isRegistrar
                 ? '🏛️ REGISTRAR INSTITUTIONAL GOVERNANCE WORKBENCH (CAMPUS-WIDE OVERSIGHT)'
                 : isIQAC

@@ -1746,6 +1746,14 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const verifiedEmail = req.user.email.toLowerCase().trim();
     const userRole = (req.user?.role || '').toUpperCase().trim();
 
+    if (verifiedEmail !== 'deansiddharth@gmail.com') {
+      console.log(`⛔ Self-appraisal submission temporarily blocked for ${verifiedEmail}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Self-appraisal submission is temporarily blocked.'
+      });
+    }
+
     // Institutional Governance Guard: Principal and official generic role accounts never submit self-appraisals
     if (userRole === 'PRINCIPAL' || isPrincipalEmail(verifiedEmail)) {
       console.log('⛔ Principal account is an apex administrative role and does not submit self-appraisals.');
