@@ -6152,7 +6152,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     if (!user || !isReviewMode) return;
     const activeToken = user.token || getAuthToken();
     const headers = activeToken ? { Authorization: `Bearer ${activeToken}` } : {};
-    axios.get(`${API_BASE_URL}/directory/faculty`, { headers, withCredentials: true })
+    axios.get(`${API_BASE_URL}/directory/faculty?_ts=${Date.now()}`, { headers, withCredentials: true })
       .then((res) => {
         const list = res.data?.data || res.data;
         if (Array.isArray(list)) {
@@ -6162,7 +6162,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       .catch((err) => {
         console.warn('Directory faculty fetch warning:', err.message);
       });
-  }, [user, isReviewMode]);
+  }, [user, isReviewMode, activeReviewTab]);
 
   const { nonLoggedFacultyRows, nonLoggedAllDeptsList, nonLoggedDeptCounts } = useMemo(() => {
     if (!isReviewMode || !Array.isArray(directoryFacultyList) || directoryFacultyList.length === 0) {

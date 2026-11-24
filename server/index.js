@@ -2547,7 +2547,7 @@ app.get('/api/directory/departments', authenticateToken, async (req, res) => {
 app.get('/api/directory/faculty', authenticateToken, async (req, res) => {
   try {
     const { department, role, q } = req.query;
-    const filter = { active: true };
+    const filter = { active: { $ne: false } };
 
     if (department && department !== 'ALL') {
       filter.department = department.toUpperCase().trim();
