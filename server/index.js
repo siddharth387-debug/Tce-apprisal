@@ -1746,7 +1746,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const verifiedEmail = req.user.email.toLowerCase().trim();
     const userRole = (req.user?.role || '').toUpperCase().trim();
 
-    if (verifiedEmail !== 'deansiddharth@gmail.com') {
+    if (verifiedEmail !== 'deansiddharth@gmail.com' && verifiedEmail !== 'msiece@tce.edu') {
       console.log(`⛔ Self-appraisal submission temporarily blocked for ${verifiedEmail}`);
       return res.status(403).json({
         success: false,
