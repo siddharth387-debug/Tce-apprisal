@@ -5807,19 +5807,19 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         ? normalizeDepartmentCode(user.department)
         : (inferredHodDept || 'MCA');
       const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser)
-        ? selectedDeptFilter
+        ? 'ALL'
         : (effectiveRole === 'HOD' ? resolvedHodDept : (user.department || 'ALL'));
       const roleForSync = effectiveRole;
       syncHistoryFromCloud(user, roleForSync, currentDeptParam);
     }
-  }, [user, effectiveRole, hodWorkspaceMode, iqacWorkspaceMode, isIQACUser, selectedDeptFilter, isPrincipal, isRegistrar, isIQAC, isMasterUser, activeReviewTab, syncHistoryFromCloud]);
+  }, [user, effectiveRole, hodWorkspaceMode, iqacWorkspaceMode, isIQACUser, isPrincipal, isRegistrar, isIQAC, isMasterUser, syncHistoryFromCloud]);
 
   // Live Review Sync: Refresh cloud data on tab focus/visibility resume and every 60s when not editing/reviewing a modal
   useEffect(() => {
     if (!user || !isReviewMode) return;
 
     const getDeptParam = () => {
-      if (isPrincipal || isRegistrar || isIQAC || isMasterUser) return selectedDeptFilter;
+      if (isPrincipal || isRegistrar || isIQAC || isMasterUser) return 'ALL';
       if (effectiveRole === 'HOD') {
         const hodMatch = String(user.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
         const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
@@ -6145,81 +6145,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     }
   }, [user, effectiveRole, isPrincipal, isRegistrar, isIQAC, selectedDeptFilter, syncHistoryFromCloud]);
 
-  // HOD/Registrar/IQAC INBOX BRIDGE: Whenever appraisals are refreshed from the cloud,
-  // rebuild hodInboxByTimeline so the table reflects the latest appraisalStatus from MongoDB.
-  useEffect(() => {
-    if (!hasHodPrivileges || !Array.isArray(appraisals)) return;
-    const rebuilt = {};
-    const seenKeys = new Set();
-    const isOnlyHodReviewer = !isIQAC && !isPrincipal && !isRegistrar && !isMasterUser;
-    const currentUserEmail = String(user?.email || '').toLowerCase().trim();
-    appraisals.forEach((record) => {
-      const tl = record.timeline;
-      if (!tl) return;
-      const recEmail = (record.email || record.facultyEmail || '').toLowerCase().trim();
-      if (isOnlyHodReviewer && (isHodSubmissionRecord(record) || isDeanSubmissionRecord(record) || isRegistrarSubmissionRecord(record) || (currentUserEmail && recEmail === currentUserEmail))) {
-        return; // HOD, Dean & Registrar submissions bypass HOD review
-      }
-      const uniqueKey = `${recEmail}_${tl}`;
-      if (recEmail && seenKeys.has(uniqueKey)) return;
-      if (recEmail) seenKeys.add(uniqueKey);
-
-      const flatForInbox = flattenAppraisalRecord(record);
-      const effForInbox = computeEffectiveScores(
-        flatForInbox,
-        record.hodSubsectionScores || flatForInbox.hodSubsectionScores || {},
-        record.department || flatForInbox.department
-      );
-      const liveInboxScore = typeof effForInbox.grandTotal === 'number'
-        ? effForInbox.grandTotal
-        : (record.convertedScore || 0);
-
-      if (!rebuilt[tl]) rebuilt[tl] = [];
-      rebuilt[tl].push({
-        id: record._id || `${record.email}-${tl}`,
-        _id: record._id,
-        timeline: record.timeline,
-        facultyName: record.facultyName || record.name || record.email,
-        facultyEmail: record.email || record.facultyEmail,
-        department: record.department || inferDepartmentFromEmail(record.email || record.facultyEmail || '') || 'CSE',
-        departmentName: record.departmentName || '',
-        isHodSubmission: Boolean(isHodSubmissionRecord(record)),
-        isDeanSubmission: Boolean(isDeanSubmissionRecord(record)),
-        isRegistrarSubmission: Boolean(isRegistrarSubmissionRecord(record)),
-        appraisalStatus: ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(String(record.appraisalStatus || '').toUpperCase().trim())
-          ? 'Pending'
-          : (String(record.appraisalStatus || '').toUpperCase().trim() === 'NOT APPROVED BY IQAC' ? 'Approved' : (record.appraisalStatus || 'Pending')),
-        iqacStatus: ['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(String(record.iqacStatus || '').toUpperCase().trim()) || String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED'
-          ? 'Pending'
-          : (record.iqacStatus || 'Pending'),
-        iqacExcluded: Boolean(record.iqacExcluded),
-        iqacAuditRemarks: record.iqacAuditRemarks || '',
-        iqacEvaluatedAt: (['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(String(record.iqacStatus || '').toUpperCase().trim()) || String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED') ? null : (record.iqacEvaluatedAt || null),
-        iqacEvaluatedBy: (['NOT APPROVED', 'NOT APPROVED BY IQAC', 'REJECTED', 'NEEDS CLARIFICATION'].includes(String(record.iqacStatus || '').toUpperCase().trim()) || String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED') ? '' : (record.iqacEvaluatedBy || ''),
-        principalApprovalStatus: (String(record.principalApprovalStatus || '').toUpperCase().trim() === 'NOT APPROVED' || String(record.iqacStatus || '').toUpperCase().trim() === 'NOT APPROVED')
-          ? 'Pending'
-          : (record.principalApprovalStatus || 'Pending'),
-        hodRemarks: record.hodRemarks || '',
-        subsectionRemarks: record.subsectionRemarks || {},
-        hodSubsectionScores: record.hodSubsectionScores || {},
-        submittedAt: record.submittedAt || record.createdAt || record.updatedAt,
-        convertedScore: liveInboxScore,
-        totalScore: liveInboxScore,
-        designation: record.designation || 'Assistant Professor',
-        section1Data: record.section1Data || {},
-        section2Data: record.section2Data || {},
-        section3Data: record.section3Data || {},
-        section4Data: record.section4Data || {},
-        section5Data: record.section5Data || {},
-        section6Data: record.section6Data || {},
-        section7Data: record.section7Data || {},
-        section8Data: record.section8Data || {},
-        section9Data: record.section9Data || {},
-        sectionData: flatForInbox,
-      });
-    });
-    setHodInboxByTimeline(rebuilt);
-  }, [appraisals, hasHodPrivileges, isIQAC, isPrincipal, isRegistrar, user]);
+  // HOD/Registrar/IQAC INBOX BRIDGE: selectedInboxRows computes live inbox rows via useMemo directly from appraisals.
 
   const currentSectionData =
     workspaceByTimeline[selectedTimeline] || createEmptySectionState();
@@ -8549,7 +8475,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                 }
                 if (isReviewMode && user) {
                   const currentDeptParam = (isPrincipal || isRegistrar || isIQAC || isMasterUser) 
-                    ? selectedDeptFilter 
+                    ? 'ALL' 
                     : (effectiveRole === 'HOD' ? normalizeDepartmentCode(user.department) : (user.department || 'ALL'));
                   syncHistoryFromCloud(user, effectiveRole, currentDeptParam);
                 }
@@ -8564,7 +8490,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             {isReviewMode && (
               <button
                 type="button"
-                onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? selectedDeptFilter : user.department)}
+                onClick={() => syncHistoryFromCloud(user, effectiveRole, (isPrincipal || isRegistrar || isIQAC || isMasterUser) ? 'ALL' : user.department)}
                 className="h-8 px-3 bg-white border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm flex items-center gap-1.5 transition"
               >
                 <span>🔄</span> Refresh

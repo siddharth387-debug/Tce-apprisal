@@ -2434,7 +2434,7 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
       };
     }
 
-    const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 });
+    const rawRecords = await Appraisal.find(queryFilter).sort({ updatedAt: -1, createdAt: -1 }).lean();
     const hodEmailSet = await getHodEmailSet();
     const isCallerOnlyHod = isExplicitHodRequest || (isElevated && !(
       requestEmail === 'siddharthk@student.tce.edu' ||
