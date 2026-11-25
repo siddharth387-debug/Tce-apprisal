@@ -1948,6 +1948,7 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
         : (existingDoc?.submittedAt || null),
       convertedScore: typeof computedEffectiveScores.grandTotal === 'number' ? computedEffectiveScores.grandTotal : (Number(convertedScore) || 0),
       systemScore: typeof computedEffectiveScores.autoGrandTotal === 'number' ? computedEffectiveScores.autoGrandTotal : (Number(convertedScore) || 0),
+      hodRemarks: existingDoc?.hodRemarks || '',
       hodSubsectionScores: mergedHodSubsectionScores,
       subsectionRemarks: (req.body?.subsectionRemarks && typeof req.body.subsectionRemarks === 'object' && Object.keys(req.body.subsectionRemarks).length > 0)
         ? req.body.subsectionRemarks
@@ -1970,7 +1971,11 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       principalRemarks: existingDoc?.principalRemarks || '',
       principalEndorsedAt: existingDoc?.principalEndorsedAt || null,
       unlockedReleaseTag: existingDoc?.unlockedReleaseTag || '',
-      appraisalStatus: (!submitterIsRegistrar && isIqacApprovedRecord(existingDoc)) ? 'IQAC Approved' : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft'),
+      appraisalStatus: (!submitterIsRegistrar && isIqacApprovedRecord(existingDoc))
+        ? 'IQAC Approved'
+        : ((isAlreadySubmitted && isIncomingDraft)
+            ? existingDoc.appraisalStatus
+            : (req.body?.appraisalStatus || existingDoc?.appraisalStatus || 'Draft')),
     };
 
     const options = { upsert: true, new: true, runValidators: false, setDefaultsOnInsert: true };
@@ -4291,7 +4296,7 @@ async function startServer() {
           isHodSubmission: false,
           isDeanSubmission: false,
           isRegistrarSubmission: false,
-          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS, ...hodEmailsArr, ...FORMER_HOD_PERSONAL_EMAILS] },
+          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS, ...hodEmailsArr, ...FORMER_HOD_PERSONAL_EMAILS, 'emil@tce.edu'] },
           appraisalStatus: { $in: ['Approved', 'HOD Approved'] },
           hodRemarks: { $in: [null, ''] },
           $or: [
