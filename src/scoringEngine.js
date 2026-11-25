@@ -515,7 +515,7 @@ export function computeAutomatedScores(sectionData = {}) {
       if (!isRowFullyFilled(r, ['description', ['category', 'committeeLevel'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = String(r.category || r.committeeLevel || '').trim();
       const catLower = cat.toLowerCase();
-      if (catLower.includes('dy.warden') || catLower.includes('dy. warden') || catLower.includes('deputy warden') || catLower.includes('chief coordinator') || catLower.includes('clc') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
+      if (catLower.includes('dy.warden') || catLower.includes('dy. warden') || catLower.includes('deputy warden') || catLower.includes('women chief coordinator') || catLower.includes('chief coordinator') || catLower.includes('clc') || catLower.includes('alumni') || catLower.includes('5s')) return sum + 7;
       if (catLower.includes('associate dean') || catLower.includes('dy.registrar') || catLower.includes('dy. registrar') || catLower.includes('deputy registrar') || catLower.includes('dy.coe') || catLower.includes('dy. coe') || catLower.includes('deputy coe') || catLower.includes('warden')) return sum + 10;
       if (catLower.includes('internal review') || catLower.includes('iqac')) return sum + 5;
       if (catLower.includes('committee member') || catLower.includes('college level') || catLower.includes('others') || catLower === 'other') return sum + 3;
@@ -1001,7 +1001,7 @@ export function computeAutomatedScoresArch(sectionData = {}) {
     (safeData.collegeActivities || []).reduce((sum, r) => {
       if (!isRowFullyFilled(r, ['description', ['category', 'description'], 'role', 'approval', 'evidenceLink'])) return sum;
       const cat = (r.category || r.description || '').toLowerCase();
-      if (cat.includes('dy.warden') || cat.includes('dy. warden') || cat.includes('deputy warden') || cat.includes('chief coordinator') || cat.includes('clc') || cat.includes('alumni') || cat.includes('5s')) return sum + 7;
+      if (cat.includes('dy.warden') || cat.includes('dy. warden') || cat.includes('deputy warden') || cat.includes('women chief coordinator') || cat.includes('chief coordinator') || cat.includes('clc') || cat.includes('alumni') || cat.includes('5s')) return sum + 7;
       if (cat.includes('associate dean') || cat.includes('dy.registrar') || cat.includes('dy. registrar') || cat.includes('deputy registrar') || cat.includes('dy.coe') || cat.includes('dy. coe') || cat.includes('deputy coe') || cat.includes('warden')) return sum + 10;
       if (cat.includes('internal review') || cat.includes('iqac')) return sum + 5;
       if (cat.includes('committee member') || cat.includes('college level') || cat.includes('others') || cat === 'other') return sum + 3;
