@@ -8278,7 +8278,22 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
     };
 
     if (isIQAC || isPrincipal) {
-      selectedInboxRows.forEach((row) => {
+      const rawFrom = iqacScoreFrom === '' ? 0 : Number(iqacScoreFrom);
+      const rawTo = iqacScoreTo === '' ? 200 : Number(iqacScoreTo);
+      const safeFrom = isNaN(rawFrom) ? 0 : Math.max(0, Math.min(200, rawFrom));
+      const safeTo = isNaN(rawTo) ? 200 : Math.max(0, Math.min(200, rawTo));
+      const countMinBound = Math.min(safeFrom, safeTo);
+      const countMaxBound = Math.max(safeFrom, safeTo);
+      const hasActiveScoreRange = countMinBound > 0 || countMaxBound < 200;
+
+      const baseRowsForCounts = selectedInboxRows.filter((row) => {
+        if (row.iqacExcluded) return false;
+        if (!hasActiveScoreRange) return true;
+        const totalScore = Number(row.totalScore ?? row.convertedScore) || 0;
+        return totalScore >= countMinBound && totalScore <= countMaxBound;
+      });
+
+      baseRowsForCounts.forEach((row) => {
         if (isHodSubmissionRow(row)) {
           if (isDraftRecord(row)) {
             hodSubmissionCounts.DRAFT++;
@@ -8331,7 +8346,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
       registrarSubmissionCounts.TOTAL = registrarSubmissionCounts.PENDING_REVIEW + registrarSubmissionCounts.APPROVED + registrarSubmissionCounts.DRAFT;
 
       // Populate statusCounts for live summary cards
-      statusCounts.ALL = selectedInboxRows.filter(r => !isDraftRecord(r) && isRegularFacultyRow(r)).length;
+      statusCounts.ALL = baseRowsForCounts.filter(r => !isDraftRecord(r) && isRegularFacultyRow(r)).length;
       statusCounts.APPROVED = yourCounts.APPROVED;
       statusCounts.PENDING = yourCounts.PENDING_REVIEW;
       statusCounts.DRAFT = hodCounts.DRAFT;
@@ -8443,6 +8458,25 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
             return totalScore >= 0 && totalScore <= safeN;
           });
         }
+      }
+    } else if (isRegistrar || isMasterUser) {
+      if (iqacScoreFilterMode === 'min') {
+        const target = Number(iqacTargetScoreFilter) || 0;
+        displayInboxRows = displayInboxRows.filter((row) => (Number(row.totalScore ?? row.convertedScore) || 0) >= target);
+      } else if (iqacScoreFilterMode === 'exact') {
+        const target = Number(iqacTargetScoreFilter) || 0;
+        displayInboxRows = displayInboxRows.filter((row) => (Number(row.totalScore ?? row.convertedScore) || 0) === target);
+      } else if (iqacScoreFilterMode === 'range') {
+        const rawFrom = iqacScoreFrom === '' ? 0 : Number(iqacScoreFrom);
+        const rawTo = iqacScoreTo === '' ? 200 : Number(iqacScoreTo);
+        const safeFrom = isNaN(rawFrom) ? 0 : Math.max(0, Math.min(200, rawFrom));
+        const safeTo = isNaN(rawTo) ? 200 : Math.max(0, Math.min(200, rawTo));
+        const minBound = Math.min(safeFrom, safeTo);
+        const maxBound = Math.max(safeFrom, safeTo);
+        displayInboxRows = displayInboxRows.filter((row) => {
+          const totalScore = Number(row.totalScore ?? row.convertedScore) || 0;
+          return totalScore >= minBound && totalScore <= maxBound;
+        });
       }
     }
 
@@ -9230,69 +9264,144 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     )}
 
                 {(isIQAC || isPrincipal) ? (
-                  <div className="flex flex-wrap items-center gap-2 shrink-0 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
-                    <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Range:</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="200"
-                      value={iqacScoreFrom}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '') {
-                          setIqacScoreFrom('');
-                          return;
-                        }
-                        const num = Math.max(0, Math.min(200, Number(val)));
-                        if (!isNaN(num)) setIqacScoreFrom(num);
-                      }}
-                      aria-label="Minimum score"
-                      title="Minimum score (0 to 200)"
-                      className="w-14 h-6 px-1.5 text-xs font-bold text-center text-[#4A1519] rounded border border-slate-300 focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] outline-none tabular-nums"
-                    />
-                    <span className="text-[11px] font-semibold text-slate-500 select-none">to</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="200"
-                      value={iqacScoreTo}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '') {
-                          setIqacScoreTo('');
-                          return;
-                        }
-                        const num = Math.max(0, Math.min(200, Number(val)));
-                        if (!isNaN(num)) setIqacScoreTo(num);
-                      }}
-                      aria-label="Maximum score"
-                      title="Maximum score (0 to 200)"
-                      className="w-14 h-6 px-1.5 text-xs font-bold text-center text-[#4A1519] rounded border border-slate-300 focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] outline-none tabular-nums"
-                    />
-                    <input
-                      type="range"
-                      min="0"
-                      max="200"
-                      step="1"
-                      value={iqacScoreFrom === '' ? 0 : iqacScoreFrom}
-                      onChange={(e) => setIqacScoreFrom(Number(e.target.value))}
-                      title={`Minimum score slider: ${iqacScoreFrom === '' ? 0 : iqacScoreFrom} to ${iqacScoreTo === '' ? 200 : iqacScoreTo}`}
-                      className="w-20 sm:w-24 accent-[#4A1519] cursor-pointer"
-                    />
-                    {(Number(iqacScoreFrom) > 0 || (iqacScoreTo !== '' && Number(iqacScoreTo) < 200)) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIqacScoreFrom(0);
-                          setIqacScoreTo(200);
-                        }}
-                        className="text-[10px] font-bold text-slate-600 hover:text-[#4A1519] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition cursor-pointer"
-                        title="Reset range to 0 - 200"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
+                  (() => {
+                    const numericFrom = iqacScoreFrom === '' ? 0 : Math.max(0, Math.min(200, Number(iqacScoreFrom) || 0));
+                    const numericTo = iqacScoreTo === '' ? 200 : Math.max(0, Math.min(200, isNaN(Number(iqacScoreTo)) ? 200 : Number(iqacScoreTo)));
+                    const effectiveMin = Math.min(numericFrom, numericTo);
+                    const effectiveMax = Math.max(numericFrom, numericTo);
+                    const leftPct = (effectiveMin / 200) * 100;
+                    const rightPct = 100 - (effectiveMax / 200) * 100;
+
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                        <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Range:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="200"
+                          value={iqacScoreFrom}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              setIqacScoreFrom('');
+                              return;
+                            }
+                            const num = Math.max(0, Math.min(200, Number(val)));
+                            if (!isNaN(num)) {
+                              setIqacScoreFrom(num);
+                              const currTo = iqacScoreTo === '' ? 200 : Number(iqacScoreTo);
+                              if (!isNaN(currTo) && num > currTo) {
+                                setIqacScoreTo(num);
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            if (iqacScoreFrom === '') setIqacScoreFrom(0);
+                          }}
+                          aria-label="Minimum score"
+                          title="Minimum score (0 to 200)"
+                          className="w-14 h-6 px-1.5 text-xs font-bold text-center text-[#4A1519] rounded border border-slate-300 focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] outline-none tabular-nums"
+                        />
+                        <span className="text-[11px] font-semibold text-slate-500 select-none">to</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="200"
+                          value={iqacScoreTo}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '') {
+                              setIqacScoreTo('');
+                              return;
+                            }
+                            const num = Math.max(0, Math.min(200, Number(val)));
+                            if (!isNaN(num)) {
+                              setIqacScoreTo(num);
+                              const currFrom = iqacScoreFrom === '' ? 0 : Number(iqacScoreFrom);
+                              if (!isNaN(currFrom) && num < currFrom) {
+                                setIqacScoreFrom(num);
+                              }
+                            }
+                          }}
+                          onBlur={() => {
+                            if (iqacScoreTo === '') setIqacScoreTo(200);
+                          }}
+                          aria-label="Maximum score"
+                          title="Maximum score (0 to 200)"
+                          className="w-14 h-6 px-1.5 text-xs font-bold text-center text-[#4A1519] rounded border border-slate-300 focus:border-[#4A1519] focus:ring-1 focus:ring-[#4A1519] outline-none tabular-nums"
+                        />
+                        <div
+                          className="relative w-28 sm:w-36 h-6 flex items-center select-none mx-1"
+                          title={`Drag left handle for minimum (${effectiveMin}) or right handle for maximum (${effectiveMax})`}
+                          onMouseDown={(e) => {
+                            if (e.target.tagName === 'INPUT') return;
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            if (!rect.width) return;
+                            const clickVal = Math.round(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * 200);
+                            const distMin = Math.abs(clickVal - effectiveMin);
+                            const distMax = Math.abs(clickVal - effectiveMax);
+                            if (distMin <= distMax) {
+                              setIqacScoreFrom(Math.min(clickVal, effectiveMax));
+                            } else {
+                              setIqacScoreTo(Math.max(clickVal, effectiveMin));
+                            }
+                          }}
+                        >
+                          <div className="w-full h-1.5 bg-slate-200 rounded-full relative pointer-events-none">
+                            <div
+                              className="absolute h-1.5 bg-[#4A1519] rounded-full"
+                              style={{ left: `${leftPct}%`, right: `${rightPct}%` }}
+                            />
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="200"
+                            step="1"
+                            value={effectiveMin}
+                            onChange={(e) => {
+                              const nextFrom = Number(e.target.value);
+                              setIqacScoreFrom(nextFrom);
+                              if (nextFrom > effectiveMax) {
+                                setIqacScoreTo(nextFrom);
+                              }
+                            }}
+                            aria-label="Minimum score slider"
+                            className={`absolute inset-0 w-full h-full appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#4A1519] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow [&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#4A1519] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow [&::-moz-range-thumb]:cursor-grab ${effectiveMin >= 190 ? 'z-30' : 'z-20'}`}
+                          />
+                          <input
+                            type="range"
+                            min="0"
+                            max="200"
+                            step="1"
+                            value={effectiveMax}
+                            onChange={(e) => {
+                              const nextTo = Number(e.target.value);
+                              setIqacScoreTo(nextTo);
+                              if (nextTo < effectiveMin) {
+                                setIqacScoreFrom(nextTo);
+                              }
+                            }}
+                            aria-label="Maximum score slider"
+                            className="absolute inset-0 w-full h-full appearance-none bg-transparent pointer-events-none z-20 [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#4A1519] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow [&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#4A1519] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow [&::-moz-range-thumb]:cursor-grab"
+                          />
+                        </div>
+                        {(effectiveMin > 0 || effectiveMax < 200) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIqacScoreFrom(0);
+                              setIqacScoreTo(200);
+                            }}
+                            className="text-[10px] font-bold text-slate-600 hover:text-[#4A1519] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition cursor-pointer"
+                            title="Reset range to 0 - 200"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()
                 ) : isHod && (
                   <div className="relative flex items-center gap-2 shrink-0">
                   <span className="text-xs font-semibold text-slate-700 select-none whitespace-nowrap">Score Filter</span>
