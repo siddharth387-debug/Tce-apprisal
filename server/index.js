@@ -1751,6 +1751,20 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
     const verifiedEmail = req.user.email.toLowerCase().trim();
     const userRole = (req.user?.role || '').toUpperCase().trim();
 
+    const SUBMISSION_TESTING_WHITELIST = new Set([
+      'siddharthk@student.tce.edu',
+      'tcetestingmail@gmail.com',
+      'testprof@tce.edu',
+      'deansiddharth@gmail.com',
+    ]);
+    if (!SUBMISSION_TESTING_WHITELIST.has(verifiedEmail)) {
+      console.log(`⛔ Self-appraisal submission temporarily closed for ${verifiedEmail}`);
+      return res.status(403).json({
+        success: false,
+        message: 'Self-appraisal submission portal is temporarily closed.'
+      });
+    }
+
     // Institutional Governance Guard: Principal and official generic role accounts never submit self-appraisals
     if (userRole === 'PRINCIPAL' || isPrincipalEmail(verifiedEmail)) {
       console.log('⛔ Principal account is an apex administrative role and does not submit self-appraisals.');
