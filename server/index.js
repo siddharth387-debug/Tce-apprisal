@@ -489,6 +489,8 @@ const AppraisalSchema = new mongoose.Schema({
   systemScore: { type: Number, default: 0 },
   appraisalStatus: { type: String, default: 'Draft' },
   hodRemarks: { type: String, default: '' },
+  hodEvaluatedAt: { type: Date, default: null },
+  hodEvaluatedBy: { type: String, default: '' },
   subsectionRemarks: { type: Object, default: {} },
   hodSubsectionScores: { type: Object, default: {} },
   principalApprovalStatus: { type: String, default: 'Pending' },
@@ -1949,6 +1951,8 @@ app.post('/api/appraisals', authenticateToken, async (req, res) => {
       convertedScore: typeof computedEffectiveScores.grandTotal === 'number' ? computedEffectiveScores.grandTotal : (Number(convertedScore) || 0),
       systemScore: typeof computedEffectiveScores.autoGrandTotal === 'number' ? computedEffectiveScores.autoGrandTotal : (Number(convertedScore) || 0),
       hodRemarks: existingDoc?.hodRemarks || '',
+      hodEvaluatedAt: existingDoc?.hodEvaluatedAt || null,
+      hodEvaluatedBy: existingDoc?.hodEvaluatedBy || '',
       hodSubsectionScores: mergedHodSubsectionScores,
       subsectionRemarks: (req.body?.subsectionRemarks && typeof req.body.subsectionRemarks === 'object' && Object.keys(req.body.subsectionRemarks).length > 0)
         ? req.body.subsectionRemarks
@@ -3221,9 +3225,11 @@ app.post(['/api/appraisals/review', '/appraisals/review'], authenticateToken, as
               ? Number(req.body.convertedScore)
               : targetRecord.convertedScore));
 
+    const isApprovedDecision = ['APPROVED', 'HOD APPROVED'].includes(String(appraisalStatus || '').toUpperCase().trim());
     const updateFields = { 
       appraisalStatus: appraisalStatus, 
       hodRemarks: hodRemarks || "",
+      ...(isApprovedDecision ? { hodEvaluatedAt: new Date(), hodEvaluatedBy: callerEmail } : {}),
       subsectionRemarks: typeof subsectionRemarks === 'object' && subsectionRemarks !== null ? subsectionRemarks : {},
       hodSubsectionScores: cleanedHodScores,
       convertedScore: evaluatedConvertedScore,
@@ -4307,27 +4313,6 @@ async function startServer() {
         },
         { $set: { isHodSubmission: true, isDeanSubmission: false } }
       );
-
-      // ── ISSUE 1 AUDIT: Demote regular-faculty records that were mistakenly set to 'Approved'
-      // without any real HOD review (no hodRemarks and no hodSubsectionScores entries).
-      // These should sit in the HOD's "Pending" queue, not in the "Approved by HOD" tab.
-      await Appraisal.updateMany(
-        {
-          isHodSubmission: false,
-          isDeanSubmission: false,
-          isRegistrarSubmission: false,
-          email: { $nin: [...KNOWN_DEAN_PERSONAL_EMAILS, ...KNOWN_REGISTRAR_PERSONAL_EMAILS, ...hodEmailsArr, ...FORMER_HOD_PERSONAL_EMAILS, 'emil@tce.edu'] },
-          appraisalStatus: { $in: ['Approved', 'HOD Approved'] },
-          hodRemarks: { $in: [null, ''] },
-          $or: [
-            { hodSubsectionScores: { $exists: false } },
-            { hodSubsectionScores: null },
-            { hodSubsectionScores: {} }
-          ]
-        },
-        { $set: { appraisalStatus: 'Pending' } }
-      );
-      console.log('✅ Issue 1 audit complete: demoted unreviewed "Approved" regular faculty records to "Pending".');
 
       // 3. SynchronizeDr. R. Rajanprakash (HOD I/c, EEE), Dr. P. S. Manoharan (HOD I/c, MECT), Dr. G. K. Raajesh / Kanagaraj (Dean Career Development), and Dr. R. Priyadarshini (HOD I/c, FT)
       await FacultyMember.updateOne(
