@@ -2471,6 +2471,26 @@ app.get(['/api/appraisals', '/appraisals'], async (req, res) => {
         if (isCallerOnlyHod && (recordIsHodSubmission || recordIsDeanSubmission || recordIsRegistrarSubmission)) {
           continue; // HOD, Dean & Registrar appraisals bypass HOD review
         }
+        if (isCallerOnlyHod && String(doc.appraisalStatus || '').toUpperCase().trim() === 'DRAFT') {
+          const tlKeyDraft = (doc.timeline || '').trim();
+          const deptKeyDraft = (doc.department || '').toUpperCase() === 'ARCH' ? '_ARCH' : '';
+          const compositeKeyDraft = `${emailKey}_${tlKeyDraft}${deptKeyDraft}`;
+          if (emailKey && !seenMap.has(compositeKeyDraft)) {
+            seenMap.set(compositeKeyDraft, true);
+            records.push({
+              _id: doc._id,
+              email: doc.email,
+              facultyEmail: doc.facultyEmail || doc.email,
+              facultyName: doc.facultyName || doc.name || '',
+              name: doc.name || doc.facultyName || '',
+              department: doc.department,
+              timeline: doc.timeline,
+              appraisalStatus: 'Draft',
+              isDraftPresenceOnly: true,
+            });
+          }
+          continue; // Unsubmitted Drafts are never shown in HOD inbox/audit; stub preserves Non-Logged Users accuracy
+        }
       }
       const liveScores = computeEffectiveScores(
         buildNormalizedSectionDataForScoring(doc),

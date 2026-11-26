@@ -6888,22 +6888,29 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
   const selectedInboxRows = useMemo(() => {
     let rows = appraisals;
 
-    // Department filtering:
-    if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
+    // Department & role-perspective filtering:
+    if (effectiveRole === 'HOD' && !isIQAC && !isPrincipal && !isRegistrar) {
+      const hodMatch = String(user?.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
+      const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
+      const hodDept = isMasterUser
+        ? (selectedDeptFilter && selectedDeptFilter !== 'ALL' ? normalizeDepartmentCode(selectedDeptFilter) : 'ALL')
+        : ((user?.department && String(user.department).toUpperCase() !== 'ALL')
+            ? normalizeDepartmentCode(user.department)
+            : (inferredHodDept || 'MCA'));
+      if (hodDept && hodDept !== 'ALL') {
+        rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === hodDept);
+      }
+      rows = rows.filter((r) => {
+        if (isHodSubmissionRecord(r) || isDeanSubmissionRecord(r) || isRegistrarSubmissionRecord(r)) return false;
+        const resolvedStatus = String(r.appraisalStatus || r?.sectionData?.appraisalStatus || '').toUpperCase().trim();
+        if (resolvedStatus === 'DRAFT' || r.isDraft || r.isDraftPresenceOnly) return false;
+        return true;
+      });
+    } else if (isPrincipal || isRegistrar || isIQAC || isMasterUser) {
       if (selectedDeptFilter && selectedDeptFilter !== 'ALL') {
         const normSelected = normalizeDepartmentCode(selectedDeptFilter);
         rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === normSelected);
       }
-    } else if (effectiveRole === 'HOD') {
-      const hodMatch = String(user?.email || '').toLowerCase().trim().match(/^hod([a-z]+)@/i);
-      const inferredHodDept = hodMatch ? normalizeDepartmentCode(hodMatch[1].toUpperCase()) : '';
-      const hodDept = (user?.department && String(user.department).toUpperCase() !== 'ALL')
-        ? normalizeDepartmentCode(user.department)
-        : (inferredHodDept || 'MCA');
-      if (hodDept && hodDept !== 'ALL') {
-        rows = rows.filter(r => normalizeDepartmentCode(r.department || '') === hodDept);
-      }
-      rows = rows.filter(r => !isHodSubmissionRecord(r) && !isDeanSubmissionRecord(r) && !isRegistrarSubmissionRecord(r));
     }
 
     // HoD, Leadership & Institutional queues must NEVER include test accounts (purely for testing) or student accounts
@@ -6970,7 +6977,7 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         sectionData: flattenedData,
       };
     });
-  }, [appraisals, isPrincipal, isRegistrar, isIQAC, isMasterUser, selectedDeptFilter, effectiveRole, user?.department, selectedTimeline, computeSectionScores]);
+  }, [appraisals, isPrincipal, isRegistrar, isIQAC, isMasterUser, selectedDeptFilter, effectiveRole, user?.department, user?.email, selectedTimeline, computeSectionScores]);
 
   const selectedInboxRecord = selectedInboxRows.find(
     (row) => row.id === selectedInboxRecordId
@@ -8413,15 +8420,16 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
         displayInboxRows = [];
       }
     } else {
-      if (leadershipStatusFilter !== 'ALL') {
+      const effectiveStatusFilter = (isHod && leadershipStatusFilter === 'DRAFT') ? 'ALL' : leadershipStatusFilter;
+      if (effectiveStatusFilter !== 'ALL') {
         displayInboxRows = displayInboxRows.filter((row) => {
           const apStatus = (row.appraisalStatus || 'Pending').toUpperCase().trim();
           const prStatus = (row.principalApprovalStatus || '').toUpperCase().trim();
-          if (leadershipStatusFilter === 'DRAFT') return apStatus === 'DRAFT';
-          if (leadershipStatusFilter === 'PENDING') return apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus) || !apStatus;
-          if (leadershipStatusFilter === 'APPROVED') return apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED';
-          if (leadershipStatusFilter === 'IQAC_APPROVED') return isIqacApprovedRecord(row);
-          if (leadershipStatusFilter === 'RATIFIED') return prStatus === 'RATIFIED' || apStatus === 'RATIFIED';
+          if (effectiveStatusFilter === 'DRAFT') return apStatus === 'DRAFT';
+          if (effectiveStatusFilter === 'PENDING') return apStatus === 'PENDING' || apStatus === 'PENDING REVIEW' || ['NOT APPROVED', 'FIX NEEDED', 'REJECTED'].includes(apStatus) || !apStatus;
+          if (effectiveStatusFilter === 'APPROVED') return apStatus === 'APPROVED' || apStatus.includes('IQAC') || apStatus === 'RATIFIED' || prStatus === 'RATIFIED';
+          if (effectiveStatusFilter === 'IQAC_APPROVED') return isIqacApprovedRecord(row);
+          if (effectiveStatusFilter === 'RATIFIED') return prStatus === 'RATIFIED' || apStatus === 'RATIFIED';
           return true;
         });
       }
@@ -9199,7 +9207,6 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                     ) : (isHod
                       ? [
                           { key: 'ALL', label: 'All Records', count: statusCounts.ALL, color: 'bg-slate-800 text-white' },
-                          { key: 'DRAFT', label: 'Draft', count: statusCounts.DRAFT, color: 'bg-slate-600 text-white' },
                           { key: 'PENDING', label: 'Pending Review', count: statusCounts.PENDING, color: 'bg-amber-600 text-white' },
                           { key: 'APPROVED', label: 'Approved', count: statusCounts.APPROVED, color: 'bg-green-600 text-white' },
                           { key: 'IQAC_APPROVED', label: 'Approved by Principal / IQAC', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
@@ -9212,13 +9219,15 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                           { key: 'IQAC_APPROVED', label: '📊 IQAC Approved', count: statusCounts.IQAC_APPROVED, color: 'bg-blue-600 text-white' },
                           { key: 'RATIFIED', label: '🔒 Ratified', count: statusCounts.RATIFIED, color: 'bg-purple-600 text-white' },
                         ]
-                    ).map((tab) => (
+                    ).map((tab) => {
+                      const activeStatusKey = (isHod && leadershipStatusFilter === 'DRAFT') ? 'ALL' : leadershipStatusFilter;
+                      return (
                       <button
                         key={tab.key}
                         type="button"
                         onClick={() => setLeadershipStatusFilter(tab.key)}
                         className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                          leadershipStatusFilter === tab.key
+                          activeStatusKey === tab.key
                             ? `${tab.color} shadow-sm ring-1 ring-slate-900/10`
                             : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
                         }`}
@@ -9226,13 +9235,14 @@ function DashboardPage({ user, onSignOut, onWorkspaceSave, onWorkspaceLoad }) {
                         <span>{tab.label}</span>
                         <span
                           className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                            leadershipStatusFilter === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
+                            activeStatusKey === tab.key ? 'bg-black/20 text-white' : 'bg-slate-100 text-slate-700'
                           }`}
                         >
                           {tab.count}
                         </span>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
